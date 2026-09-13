@@ -1,8 +1,11 @@
+import json
 import os
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
+
+from apps.assistant.services.pricing import parse_pricing
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -10,11 +13,13 @@ DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY or (not DEBUG and SECRET_KEY == "replace-with-a-long-random-secret"):
     raise ImproperlyConfigured("Set DJANGO_SECRET_KEY to a random secret.")
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1",).split(",")
+# Full origins such as https://example.ngrok-free.dev, needed when HTTPS ends at a tunnel or proxy in front of Django.
+CSRF_TRUSTED_ORIGINS = [origin for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin]
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "apps.core", "apps.accounts", "apps.assistant", "apps.learning",
+    "apps.core", "apps.accounts", "apps.assistant", "apps.learning", "apps.analytics",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -50,6 +55,16 @@ LOGOUT_REDIRECT_URL = "/"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "")
 OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "60"))
+# USD per 1M tokens, OpenAI standard tier, from https://developers.openai.com/api/docs/pricing (checked 13 September 2026).
+# OPENAI_PRICING (JSON) replaces this table entirely; "{}" disables cost estimates while tokens are still recorded.
+DEFAULT_OPENAI_PRICING = {"gpt-5.6-luna": {"input_per_1m": "0.20", "cached_input_per_1m": "0.02", "output_per_1m": "1.20"}}
+try:
+    OPENAI_PRICING = parse_pricing(json.loads(os.environ["OPENAI_PRICING"]) if os.getenv("OPENAI_PRICING")
+                                   else DEFAULT_OPENAI_PRICING)
+except ValueError as exc:
+    raise ImproperlyConfigured(f"OPENAI_PRICING is invalid: {exc}") from None
+# First-party random visitor ID cookie for anonymous usage analytics; never an IP address or submitted text.
+ANALYTICS_VISITOR_COOKIE = os.getenv("ANALYTICS_VISITOR_COOKIE", "true").lower() == "true"
 ASSISTANT_MAX_CHARACTERS = int(os.getenv("ASSISTANT_MAX_CHARACTERS", "2000"))
 RATE_LIMIT_MINUTE = int(os.getenv("RATE_LIMIT_MINUTE", "10"))
 RATE_LIMIT_DAY = int(os.getenv("RATE_LIMIT_DAY", "100"))

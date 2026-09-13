@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/analytics.css' %}">{% endblock %}
+{% block extrahead %}{{ block.super }}<script src="{% static 'vendor/chart.umd.min.js' %}" defer></script><script src="{% static 'js/analytics.js' %}" defer></script>{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'analytics:dashboard' %}">Usage analytics</a>{% block crumbs %}{% endblock %}</div>{% endblock %}
+{% block content %}
+<nav class="analytics-tabs" aria-label="Usage analytics">
+  <a href="{% url 'analytics:dashboard' %}"{% if section == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+  <a href="{% url 'analytics:users' %}"{% if section == 'users' %} aria-current="page"{% endif %}>Registered users</a>
+  <a href="{% url 'analytics:visitors' %}"{% if section == 'visitors' %} aria-current="page"{% endif %}>Anonymous visitors</a>
+  <a href="{% url 'admin:analytics_usageevent_changelist' %}">Usage ledger</a>
+</nav>
+{% block analytics %}{% endblock %}
+{% endblock %}

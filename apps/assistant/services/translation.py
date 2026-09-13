@@ -7,7 +7,7 @@ from .prompts import TRANSLATION_PROMPT
 class TranslationService:
     def translate(self, text: str) -> TranslationResult:
         validate_text(text)
-        result = parse_response(TRANSLATION_PROMPT, text, TranslationResult)
+        result = parse_response(TRANSLATION_PROMPT, text, TranslationResult).output
         if result.source_language not in ("en", "ro"):
             raise AssistantError("language", "Scrie un text în română sau engleză pentru traducere.")
         if ((result.source_language, result.target_language) not in (("en", "ro"), ("ro", "en"))

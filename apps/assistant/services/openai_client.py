@@ -1,12 +1,12 @@
 import logging
-from typing import TypeVar
 
 from django.conf import settings
 from openai import APITimeoutError, OpenAI, OpenAIError
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
+
+from .usage import ParsedResponse, Result, report_usage, usage_from_response
 
 logger = logging.getLogger("apps.assistant")
-Result = TypeVar("Result", bound=BaseModel)
 
 
 class AssistantError(Exception):
@@ -17,7 +17,7 @@ class AssistantError(Exception):
         super().__init__(code)
 
 
-def parse_response(prompt: str, text: str, schema: type[Result]) -> Result:
+def parse_response(prompt: str, text: str, schema: type[Result]) -> ParsedResponse[Result]:
     if not settings.OPENAI_API_KEY or not settings.OPENAI_MODEL:
         raise AssistantError("not_configured", "The English coach is temporarily unavailable. Please try again later.")
     try:
@@ -27,6 +27,9 @@ def parse_response(prompt: str, text: str, schema: type[Result]) -> Result:
                 input=[{"role": "system", "content": prompt}, {"role": "user", "content": text}],
                 text_format=schema, store=False, max_output_tokens=6000,
             )
+        # Billed tokens are reported before the checks below, which may still reject the response.
+        usage = usage_from_response(response, settings.OPENAI_MODEL)
+        report_usage(usage)
         if response.status != "completed":
             raise AssistantError("incomplete")
         if any(getattr(part, "type", None) == "refusal" for item in response.output
@@ -34,7 +37,7 @@ def parse_response(prompt: str, text: str, schema: type[Result]) -> Result:
             raise AssistantError("refused", "This text couldn't be processed. Please try a different sentence.")
         if response.output_parsed is None:
             raise AssistantError("missing_output")
-        return schema.model_validate(response.output_parsed.model_dump())
+        return ParsedResponse(schema.model_validate(response.output_parsed.model_dump()), usage)
     except APITimeoutError:
         raise AssistantError("timeout", "That took too long. Please try again.") from None
     except (OpenAIError, ValidationError, ValueError):

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import include, path
 
 from apps.accounts import views as accounts
 from apps.accounts.forms import LoginForm
@@ -24,5 +24,7 @@ urlpatterns = [
     path("mistakes/<slug:category>/", learning.mistake_category, name="mistake_category"),
     path("progress/", learning.progress, name="progress"),
     path("practice/", learning.practice, name="practice"),
+    # Staff-only analytics; listed before the admin so /admin/analytics/ is the dashboard.
+    path("admin/analytics/", include("apps.analytics.urls")),
     path("admin/", admin.site.urls),
 ]

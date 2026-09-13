@@ -1,0 +1,105 @@
+/* Staff usage analytics, built on the Django admin theme variables so light and dark admin themes both work. */
+.analytics-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+.analytics-tabs a {
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: var(--darkened-bg);
+  color: var(--body-fg);
+}
+.analytics-tabs a[aria-current="page"] {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+.analytics-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-color);
+  border-radius: 4px;
+  background: var(--darkened-bg);
+}
+.analytics-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--body-quiet-color);
+  font-size: 0.75rem;
+}
+.analytics-note {
+  margin: 0 0 14px;
+  color: var(--body-quiet-color);
+}
+.analytics-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  gap: 10px;
+  margin: 0 0 20px;
+}
+.analytics-card {
+  padding: 12px 14px;
+  border: 1px solid var(--hairline-color);
+  border-radius: 4px;
+  background: var(--body-bg);
+}
+.analytics-card span {
+  display: block;
+  color: var(--body-quiet-color);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.analytics-card strong {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+}
+.analytics-card strong.analytics-text {
+  font-size: 1rem;
+}
+.analytics-card small {
+  color: var(--body-quiet-color);
+}
+.analytics-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.analytics-columns .module {
+  margin: 0;
+}
+.analytics-columns table,
+.analytics-table {
+  width: 100%;
+}
+.analytics-chart {
+  position: relative;
+  height: 220px;
+  padding: 10px;
+}
+.analytics-details summary {
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.analytics-table-wrap {
+  overflow-x: auto;
+}
+.module th.num,
+.module td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.analytics-pagination {
+  display: flex;
+  gap: 14px;
+}

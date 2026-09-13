@@ -1,0 +1,21 @@
+<form method="get" class="analytics-filters">
+  <label>Period
+    <select name="period">{% for value, label in periods.items %}<option value="{{ value }}"{% if value == filters.period %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  </label>
+  {% if show_audience %}<label>Audience
+    <select name="audience">{% for value, label in audiences.items %}<option value="{{ value }}"{% if value == filters.audience %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  </label>{% endif %}
+  <label>Request type
+    <select name="type">{% for value, label in types.items %}<option value="{{ value }}"{% if value == filters.request_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  </label>
+  {% if models|length > 1 %}<label>Model
+    <select name="model"><option value="">All models</option>{% for model in models %}<option value="{{ model }}"{% if model == filters.model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select>
+  </label>{% endif %}
+  {% if show_converted %}<label>Converted
+    <select name="converted"><option value="">All</option><option value="yes"{% if converted == 'yes' %} selected{% endif %}>Yes</option><option value="no"{% if converted == 'no' %} selected{% endif %}>No</option></select>
+  </label>{% endif %}
+  {% if search_placeholder %}<label>Search
+    <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}">
+  </label>{% endif %}
+  <input type="submit" value="Apply">
+</form>

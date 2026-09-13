@@ -1,0 +1,35 @@
+{% extends "analytics/base.html" %}{% load analytics_format %}
+{% block analytics %}
+{% include "analytics/filters.html" with show_audience=True %}
+<p class="analytics-note">Figures for <strong>{{ filters.period_label|lower }}</strong>{% if filters.audience != 'all' %}, {{ filters.audience }} audience{% endif %}{% if filters.request_type != 'all' %}, {{ filters.request_type }} requests{% endif %}{% if filters.model %}, model {{ filters.model }}{% endif %}. “—” means not recorded: pricing unavailable, or history saved before token tracking.</p>
+<div class="analytics-cards">
+  <div class="analytics-card"><span>Registered users</span><strong>{{ users.total|number }}</strong><small>{{ users.new|number }} joined in this period</small></div>
+  <div class="analytics-card"><span>Anonymous visitors</span><strong>{{ visitors.all_time|number }}</strong><small>{{ visitors.active|number }} active in this period</small></div>
+  <div class="analytics-card"><span>Signup conversion</span><strong>{{ signup_rate|percent }}</strong><small>{{ visitors.signed_up|number }} of {{ visitors.total|number }} visitors{% if filters.start %} first seen in this period{% endif %} signed up · {{ visitors.signed_in|number }} signed in to an existing account</small></div>
+  <div class="analytics-card"><span>Requests</span><strong>{{ totals.requests|number }}</strong><small>In this period</small></div>
+  <div class="analytics-card"><span>Today</span><strong>{{ windows.today|number }}</strong><small>Requests since midnight</small></div>
+  <div class="analytics-card"><span>Last 7 days</span><strong>{{ windows.last_7|number }}</strong><small>Requests</small></div>
+  <div class="analytics-card"><span>Last 30 days</span><strong>{{ windows.last_30|number }}</strong><small>Requests</small></div>
+  <div class="analytics-card"><span>Successful</span><strong>{{ totals.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
+  <div class="analytics-card"><span>Failed</span><strong>{{ totals.failures|number }}</strong><small>{{ totals.rejections|number }} rejected (rate limit or duplicate)</small></div>
+  <div class="analytics-card"><span>Corrections</span><strong>{{ totals.corrections|number }}</strong><small>Correct chosen</small></div>
+  <div class="analytics-card"><span>Translations</span><strong>{{ totals.translations|number }}</strong><small>Translate chosen</small></div>
+  <div class="analytics-card"><span>Input tokens</span><strong>{{ totals.tokens_in|number }}</strong><small>{{ totals.tokens_cached|number }} served from cache</small></div>
+  <div class="analytics-card"><span>Output tokens</span><strong>{{ totals.tokens_out|number }}</strong><small>Including reasoning</small></div>
+  <div class="analytics-card"><span>Total tokens</span><strong>{{ totals.tokens_total|number }}</strong><small>{{ totals.without_tokens|number }} requests without token data</small></div>
+  <div class="analytics-card"><span>Estimated AI cost</span><strong>{{ totals.cost|money }}</strong><small>{{ totals.without_cost|number }} requests without pricing or token data</small></div>
+</div>
+<div class="analytics-columns">
+  {% include "analytics/breakdowns.html" %}
+  <section class="module">
+    <h2>Top registered users</h2>
+    <table><thead><tr><th scope="col">User</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Tokens</th><th scope="col" class="num">Estimated cost</th></tr></thead>
+      <tbody>{% for member in top_users %}<tr><td><a href="{% url 'analytics:user' member.pk %}">{{ member.get_username }}</a></td><td class="num">{{ member.requests|number }}</td><td class="num">{{ member.tokens_total|number }}</td><td class="num">{{ member.cost|money }}</td></tr>{% empty %}<tr><td colspan="4">No registered usage.</td></tr>{% endfor %}</tbody></table>
+  </section>
+  <section class="module">
+    <h2>Top anonymous visitors</h2>
+    <table><thead><tr><th scope="col">Visitor</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Tokens</th><th scope="col" class="num">Estimated cost</th><th scope="col">Converted</th></tr></thead>
+      <tbody>{% for visitor in top_visitors %}<tr><td><a href="{% url 'analytics:visitor' visitor.pk %}">{{ visitor.short_id }}</a></td><td class="num">{{ visitor.requests|number }}</td><td class="num">{{ visitor.tokens_total|number }}</td><td class="num">{{ visitor.cost|money }}</td><td>{{ visitor.converted_user|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">No anonymous usage.</td></tr>{% endfor %}</tbody></table>
+  </section>
+</div>
+{% endblock %}

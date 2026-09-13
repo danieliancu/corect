@@ -20,9 +20,10 @@ def save_result(user, kind, text, result):
             replacement=item.replacement, category=item.category, severity=item.severity,
             explanation_ro=item.explanation_ro, is_british_preference=item.is_british_english_preference)
             for item in result.corrections])
+    return entry
 
 
 def save_failure(user, kind, code):
     if user.is_authenticated:
-        AssistantRequest.objects.create(user=user, request_type=kind, status="failed", error_code=code,
+        return AssistantRequest.objects.create(user=user, request_type=kind, status="failed", error_code=code,
             model_used=settings.OPENAI_MODEL, prompt_version=PROMPT_VERSION)

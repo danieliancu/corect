@@ -5,6 +5,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 
+from apps.analytics.services.visitors import link_visitor
 from .forms import ProfileForm, SignupForm
 
 
@@ -15,6 +16,7 @@ def signup(request):
     form = SignupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
+        link_visitor(request, user, via="signup")
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         return redirect("home")
     return render(request, "accounts/form.html", {"form": form, "title": "Create your account",

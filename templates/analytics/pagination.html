@@ -1,0 +1,5 @@
+{% if page_obj.has_other_pages %}<p class="paginator analytics-pagination">
+  {% if page_obj.has_previous %}<a href="?{{ base_query }}&amp;sort={{ sort }}&amp;page={{ page_obj.previous_page_number }}">&lsaquo; Previous</a>{% endif %}
+  <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?{{ base_query }}&amp;sort={{ sort }}&amp;page={{ page_obj.next_page_number }}">Next &rsaquo;</a>{% endif %}
+</p>{% endif %}

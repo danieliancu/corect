@@ -1,0 +1,28 @@
+{% extends "analytics/base.html" %}{% load analytics_format %}
+{% block crumbs %} &rsaquo; <a href="{% url 'analytics:users' %}">Registered users</a> &rsaquo; {{ member.get_username }}{% endblock %}
+{% block analytics %}
+<div class="analytics-cards">
+  <div class="analytics-card"><span>Email</span><strong class="analytics-text">{{ member.email|default:"—" }}</strong><small>{% if member.is_staff %}Staff account{% else %}Learner account{% endif %}</small></div>
+  <div class="analytics-card"><span>Joined</span><strong class="analytics-text">{{ member.date_joined|date:"j M Y" }}</strong><small>{{ member.date_joined|date:"H:i" }}</small></div>
+  <div class="analytics-card"><span>Last active</span><strong class="analytics-text">{{ summary.last_active|date:"j M Y"|default:"—" }}</strong><small>{{ summary.last_active|date:"H:i" }}</small></div>
+  <div class="analytics-card"><span>Today</span><strong>{{ summary.today|number }}</strong><small>Requests</small></div>
+  <div class="analytics-card"><span>Last 7 days</span><strong>{{ summary.last_7|number }}</strong><small>Requests</small></div>
+  <div class="analytics-card"><span>Last 30 days</span><strong>{{ summary.last_30|number }}</strong><small>Requests</small></div>
+  <div class="analytics-card"><span>All time</span><strong>{{ summary.requests|number }}</strong><small>{{ summary.corrections|number }} corrections · {{ summary.translations|number }} translations</small></div>
+  <div class="analytics-card"><span>Successful</span><strong>{{ summary.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
+  <div class="analytics-card"><span>Failed</span><strong>{{ summary.failures|number }}</strong><small>{{ summary.rejections|number }} rejected</small></div>
+  <div class="analytics-card"><span>Input tokens</span><strong>{{ summary.tokens_in|number }}</strong><small>{{ summary.tokens_cached|number }} cached</small></div>
+  <div class="analytics-card"><span>Output tokens</span><strong>{{ summary.tokens_out|number }}</strong><small>Including reasoning</small></div>
+  <div class="analytics-card"><span>Total tokens</span><strong>{{ summary.tokens_total|number }}</strong><small>{{ summary.without_tokens|number }} requests without token data</small></div>
+  <div class="analytics-card"><span>Estimated AI cost</span><strong>{{ summary.cost|money }}</strong><small>{{ summary.without_cost|number }} requests without pricing or token data</small></div>
+</div>
+{% if summary.without_tokens %}<p class="analytics-note">{{ summary.without_tokens|number }} request{{ summary.without_tokens|pluralize }} have no token data: saved before token tracking existed, or the provider reported no usage. Counts, dates, status and model are still exact.</p>{% endif %}
+<div class="analytics-columns">
+  {% include "analytics/breakdowns.html" %}
+  <section class="module">
+    <h2>Anonymous visitors before this account</h2>
+    <table><thead><tr><th scope="col">Visitor</th><th scope="col">Converted</th><th scope="col">Via</th></tr></thead>
+      <tbody>{% for visitor in visitors %}<tr><td><a href="{% url 'analytics:visitor' visitor.pk %}">{{ visitor.short_id }}</a></td><td>{{ visitor.converted_at|date:"j M Y H:i" }}</td><td>{{ visitor.get_converted_via_display }}</td></tr>{% empty %}<tr><td colspan="3">No anonymous activity linked to this account.</td></tr>{% endfor %}</tbody></table>
+  </section>
+</div>
+{% endblock %}

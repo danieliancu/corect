@@ -1,0 +1,43 @@
+{% extends "analytics/base.html" %}{% load analytics_format %}
+{% block crumbs %} &rsaquo; Registered users{% endblock %}
+{% block analytics %}
+{% include "analytics/filters.html" with search_placeholder="Username or email" %}
+<p class="analytics-note">{{ page_obj.paginator.count|number }} registered users. Usage columns cover {{ filters.period_label|lower }}; last active is all time. “—” means not recorded.</p>
+<div class="module analytics-table-wrap">
+  <table class="analytics-table">
+    <thead><tr>
+      <th scope="col"><a href="?{{ base_query }}&amp;sort=username">User</a></th>
+      <th scope="col">Email</th>
+      <th scope="col"><a href="?{{ base_query }}&amp;sort=joined">Joined</a></th>
+      <th scope="col"><a href="?{{ base_query }}&amp;sort=last_active">Last active</a></th>
+      <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=requests">Requests</a></th>
+      <th scope="col" class="num">Corrections</th>
+      <th scope="col" class="num">Translations</th>
+      <th scope="col" class="num">Successes</th>
+      <th scope="col" class="num">Failures</th>
+      <th scope="col" class="num">Input tokens</th>
+      <th scope="col" class="num">Output tokens</th>
+      <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=tokens">Total tokens</a></th>
+      <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=cost">Estimated cost</a></th>
+    </tr></thead>
+    <tbody>
+      {% for member in page_obj %}<tr>
+        <td><a href="{% url 'analytics:user' member.pk %}">{{ member.get_username }}</a>{% if member.is_staff %} <small>(staff)</small>{% endif %}</td>
+        <td>{{ member.email|default:"—" }}</td>
+        <td>{{ member.date_joined|date:"j M Y" }}</td>
+        <td>{{ member.last_active|date:"j M Y H:i"|default:"—" }}</td>
+        <td class="num">{{ member.requests|number }}</td>
+        <td class="num">{{ member.corrections|number }}</td>
+        <td class="num">{{ member.translations|number }}</td>
+        <td class="num">{{ member.successes|number }}</td>
+        <td class="num">{{ member.failures|number }}</td>
+        <td class="num">{{ member.tokens_in|number }}</td>
+        <td class="num">{{ member.tokens_out|number }}</td>
+        <td class="num">{{ member.tokens_total|number }}</td>
+        <td class="num">{{ member.cost|money }}</td>
+      </tr>{% empty %}<tr><td colspan="13">No users match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "analytics/pagination.html" %}
+{% endblock %}

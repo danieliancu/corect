@@ -1,0 +1,10 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<div class="module" id="usage-analytics-link">
+  <table>
+    <caption><a href="{% url 'analytics:dashboard' %}" class="section">Usage analytics</a></caption>
+    <tr><th scope="row"><a href="{% url 'analytics:dashboard' %}">Dashboard, registered users and anonymous visitors</a></th></tr>
+  </table>
+</div>
+{{ block.super }}
+{% endblock %}

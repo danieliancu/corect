@@ -15,4 +15,4 @@ def home(request):
 
 
 def settings_page(request):
-    return render(request, "core/settings.html")
+    return render(request, "core/settings.html", {"visitor_cookie": settings.ANALYTICS_VISITOR_COOKIE})
