@@ -1,17 +1,20 @@
 from decimal import Decimal
 
+from django.conf import settings
+
 UNKNOWN = "—"
 
 
 def format_money(value):
+    """A USD ledger amount shown in pounds, converted at settings.ANALYTICS_GBP_PER_USD."""
     if value is None:
         return UNKNOWN
-    value = Decimal(value)
+    value = Decimal(value) * settings.ANALYTICS_GBP_PER_USD
     if value == 0:
-        return "$0.00"
+        return "£0.00"
     if abs(value) < Decimal("0.0001"):
-        return f"${value:.6f}"
-    return f"${value:.4f}" if abs(value) < Decimal("0.01") else f"${value:,.2f}"
+        return f"£{value:.6f}"
+    return f"£{value:.4f}" if abs(value) < Decimal("0.01") else f"£{value:,.2f}"
 
 
 def format_number(value):

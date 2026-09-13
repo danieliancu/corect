@@ -1,5 +1,8 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class AssistantRequest(models.Model):
@@ -42,6 +45,29 @@ class RateBucket(models.Model):
     key = models.CharField(max_length=100, unique=True)
     count = models.PositiveIntegerField(default=0)
     expires_at = models.DateTimeField(db_index=True)
+
+
+class RealtimeTranscriptionSession(models.Model):
+    """Operational state of one live transcription: who opened it and whether it was accounted for.
+
+    Holds no audio, transcript, client secret, OpenAI identifier or IP address. Removed by cleanup_assistant.
+    """
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        FINISHED = "finished", "Finished"
+        ABANDONED = "abandoned", "Abandoned"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    visitor = models.ForeignKey("analytics.AnonymousVisitor", null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name="+")
+    audience = models.CharField(max_length=10)
+    model = models.CharField(max_length=100)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
 
 class SubmissionClaim(models.Model):

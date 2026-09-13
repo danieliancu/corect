@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% load learning_labels %}{% block title %}Greșeli: {{ category|category_label }} — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← Greșelile mele</a><h1>{{ category|category_label }}</h1><p>Greșeli înregistrate în această categorie: {{ page_obj.paginator.count }}.</p></section>
+<section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← Greșelile mele</a><h1>{{ category|category_label }}</h1><p>{{ page_obj.paginator.count|recorded_mistakes }} în această categorie</p></section>
 <div class="mistake-list">
   {% for item in page_obj %}
     <article class="card mistake-item">

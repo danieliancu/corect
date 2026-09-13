@@ -100,6 +100,14 @@ class AudioUsageEvent(models.Model):
         NATIVE = "native", "Native version"
         TRANSLATION = "translation", "Translation into English"
 
+    class SttMode(models.TextChoices):
+        FILE = "file", "File (after recording)"
+        REALTIME = "realtime", "Realtime (live)"
+
+    class MeteringSource(models.TextChoices):
+        PROVIDER = "provider", "Provider-reported duration"
+        STREAM_DURATION = "stream_duration", "Server-observed session window"
+
     Status = UsageEvent.Status  # The same success / failed / rejected meanings as the text ledger.
 
     operation = models.CharField(max_length=13, choices=Operation.choices)
@@ -119,8 +127,12 @@ class AudioUsageEvent(models.Model):
     input_tokens = models.PositiveIntegerField(null=True, blank=True)
     output_tokens = models.PositiveIntegerField(null=True, blank=True)
     total_tokens = models.PositiveIntegerField(null=True, blank=True)
+    stt_mode = models.CharField("transcription mode", max_length=8, blank=True, choices=SttMode.choices,
+                                help_text="Speech to text only: live in the browser, or a finished recording.")
     audio_seconds = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
-                                        help_text="Provider-reported duration of transcribed audio.")
+                                        help_text="Duration of transcribed audio; see the metering source.")
+    metering_source = models.CharField(max_length=16, blank=True, choices=MeteringSource.choices,
+                                       help_text="Where the audio duration came from.")
     estimated_cost = models.DecimalField(max_digits=14, decimal_places=8, null=True, blank=True,
                                          help_text="USD at recording time; empty when pricing or usage is unknown.")
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -134,6 +146,7 @@ class AudioUsageEvent(models.Model):
             models.Index(fields=["audience", "created_at"], name="analytics_audio_audience_idx"),
             models.Index(fields=["model", "created_at"], name="analytics_audio_model_idx"),
             models.Index(fields=["status", "created_at"], name="analytics_audio_status_idx"),
+            models.Index(fields=["stt_mode", "created_at"], name="analytics_audio_stt_mode_idx"),
         ]
 
     def __str__(self):

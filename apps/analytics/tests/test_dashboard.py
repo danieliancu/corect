@@ -83,7 +83,7 @@ class AnalyticsReportTests(TestCase):
         self.assertEqual([(row["error_code"], row["total"]) for row in response.context["errors"]],
                          [("rate_limit", 1), ("timeout", 1)])
         self.assertEqual(response.context["windows"]["today"], 2)
-        self.assertContains(response, "$0.0008")
+        self.assertContains(response, "£0.0006")  # $0.00078 at £0.74 per dollar
         self.assertContains(response, self.visitor.short_id)
 
     def test_users_report_aggregates_per_user_without_extra_queries_per_row(self):

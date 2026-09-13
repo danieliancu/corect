@@ -66,7 +66,11 @@ except ValueError as exc:
     raise ImproperlyConfigured(f"OPENAI_PRICING is invalid: {exc}") from None
 # First-party random visitor ID cookie for anonymous usage analytics; never an IP address or submitted text.
 ANALYTICS_VISITOR_COOKIE = os.getenv("ANALYTICS_VISITOR_COOKIE", "true").lower() == "true"
-# Voice: a finished recording is transcribed server-side; British English speech is generated only on request.
+# Voice input is transcribed live in the browser over WebRTC with a short-lived OpenAI credential minted here; a finished
+# recording transcribed server-side is the fallback (and the only path when VOICE_REALTIME_ENABLED is false).
+# British English speech is generated only on request.
+VOICE_REALTIME_ENABLED = os.getenv("VOICE_REALTIME_ENABLED", "true").lower() == "true"
+OPENAI_LIVE_TRANSCRIBE_MODEL = os.getenv("OPENAI_LIVE_TRANSCRIBE_MODEL", "gpt-live-transcribe")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-transcribe")
 OPENAI_TTS_MODEL = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
 OPENAI_TTS_VOICE = os.getenv("OPENAI_TTS_VOICE", "cedar")
@@ -77,15 +81,26 @@ except ValueError:
 if not 0.25 <= OPENAI_TTS_SPEED <= 4.0:
     raise ImproperlyConfigured("OPENAI_TTS_SPEED must be a number from 0.25 to 4.0.")
 # USD, OpenAI standard tier, from https://developers.openai.com/api/docs/pricing (checked 13 September 2026):
-# gpt-transcribe per audio minute; gpt-4o-mini-tts per 1M text input tokens and 1M audio output tokens.
+# gpt-live-transcribe and gpt-transcribe per audio minute (realtime is about 3.78x the file rate);
+# gpt-4o-mini-tts per 1M text input tokens and 1M audio output tokens.
 # OPENAI_AUDIO_PRICING (JSON) replaces this table; "{}" leaves audio costs unknown while usage is still recorded.
-DEFAULT_OPENAI_AUDIO_PRICING = {"gpt-transcribe": {"per_minute": "0.0045"},
+DEFAULT_OPENAI_AUDIO_PRICING = {"gpt-live-transcribe": {"per_minute": "0.017"},
+                                "gpt-transcribe": {"per_minute": "0.0045"},
                                 "gpt-4o-mini-tts": {"input_per_1m": "0.60", "output_per_1m": "12.00"}}
 try:
     OPENAI_AUDIO_PRICING = parse_audio_pricing(json.loads(os.environ["OPENAI_AUDIO_PRICING"])
                                                if os.getenv("OPENAI_AUDIO_PRICING") else DEFAULT_OPENAI_AUDIO_PRICING)
 except ValueError as exc:
     raise ImproperlyConfigured(f"OPENAI_AUDIO_PRICING is invalid: {exc}") from None
+# Staff analytics show costs in pounds. The ledgers stay in USD, the currency OpenAI bills in; this rate only converts
+# amounts for display. Default 1 USD = 0.74 GBP (GBP/USD 1.3510 on 11 September 2026); keep it in step with your bank rate.
+from decimal import Decimal, InvalidOperation  # noqa: E402
+try:
+    ANALYTICS_GBP_PER_USD = Decimal(os.getenv("ANALYTICS_GBP_PER_USD", "0.74"))
+except InvalidOperation:
+    ANALYTICS_GBP_PER_USD = Decimal(-1)
+if not ANALYTICS_GBP_PER_USD.is_finite() or ANALYTICS_GBP_PER_USD <= 0:
+    raise ImproperlyConfigured("ANALYTICS_GBP_PER_USD must be a positive number.")
 VOICE_MAX_SECONDS = int(os.getenv("VOICE_MAX_SECONDS", "60"))
 VOICE_MAX_BYTES = int(os.getenv("VOICE_MAX_BYTES", "5000000"))
 VOICE_TRANSCRIBE_LANGUAGES = [code.strip() for code in os.getenv("VOICE_TRANSCRIBE_LANGUAGES", "en,ro").split(",")

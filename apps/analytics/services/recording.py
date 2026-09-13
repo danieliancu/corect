@@ -40,13 +40,17 @@ def record_usage_event(*, request, kind, status, calls=(), error_code="", visito
         return None
 
 
-def record_audio_event(*, request, operation, status, usage=None, error_code="", visitor=None, speech_target="",
-                       usage_event_id=None, provider_called=False):
-    """One audio ledger row per transcription or speech request: usage, cost and identity only, never content."""
-    user = request.user if request.user.is_authenticated else None
+def record_audio_event(*, operation, status, request=None, user=None, audience="", usage=None, error_code="",
+                       visitor=None, speech_target="", usage_event_id=None, provider_called=False, model="", stt_mode="",
+                       metering_source=""):
+    """One audio ledger row per transcription or speech request (or live transcription session): usage, cost and
+    identity only, never content. `request` identifies the user; without one (cleanup) pass `user` and `audience`."""
+    if request is not None:
+        user = request.user if request.user.is_authenticated else None
     speech = operation == AudioUsageEvent.Operation.SPEECH
-    model = usage.model if usage else (settings.OPENAI_TTS_MODEL if speech else settings.OPENAI_TRANSCRIBE_MODEL)
+    model = usage.model if usage else (model or (settings.OPENAI_TTS_MODEL if speech else settings.OPENAI_TRANSCRIBE_MODEL))
     voice = ((usage.voice if usage and usage.voice else settings.OPENAI_TTS_VOICE) if speech else "")
+    stt_mode = "" if speech else (stt_mode or AudioUsageEvent.SttMode.FILE)
     if status == AudioUsageEvent.Status.REJECTED:
         # Rejected before any provider call, so nothing was consumed.
         tokens, seconds, cost = dict.fromkeys(("input_tokens", "output_tokens", "total_tokens"), 0), None, Decimal(0)
@@ -55,14 +59,18 @@ def record_audio_event(*, request, operation, status, usage=None, error_code="",
                   for field in ("input_tokens", "output_tokens", "total_tokens")}
         seconds = usage.audio_seconds if usage else None
         cost = (estimate_speech_cost(usage) if speech else estimate_transcription_cost(usage)) if usage else None
+    if seconds is None:
+        metering_source = ""
+    elif not metering_source:
+        metering_source = AudioUsageEvent.MeteringSource.PROVIDER  # Read from the provider's response by the server.
     try:
         linked = usage_event_id if usage_event_id and UsageEvent.objects.filter(pk=usage_event_id).exists() else None
         return AudioUsageEvent.objects.create(
-            operation=operation, audience=UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS,
+            operation=operation, audience=audience or (UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS),
             user=user, visitor=visitor, usage_event_id=linked, speech_target=speech_target if speech else "",
-            model=model[:100], voice=voice[:40], status=status, error_code=error_code,
+            model=model[:100], voice=voice[:40], status=status, error_code=error_code, stt_mode=stt_mode,
             provider_calls=1 if provider_called and status != AudioUsageEvent.Status.REJECTED else 0,
-            audio_seconds=seconds, estimated_cost=cost, **tokens)
+            audio_seconds=seconds, metering_source=metering_source, estimated_cost=cost, **tokens)
     except DatabaseError:
         logger.error("audio_usage_event_unavailable")
         return None

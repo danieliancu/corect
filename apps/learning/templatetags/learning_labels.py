@@ -27,5 +27,15 @@ def category_label(value):
 
 
 @register.filter
+def recorded_mistakes(count):
+    """Romanian count phrase: 1 greșeală înregistrată, 2–19 greșeli înregistrate, 20 de greșeli înregistrate."""
+    count = int(count)
+    if count == 1:
+        return "1 greșeală înregistrată"
+    of = "de " if count >= 20 and (count % 100 == 0 or count % 100 >= 20) else ""
+    return f"{count} {of}greșeli înregistrate"
+
+
+@register.filter
 def request_type_label(value):
     return REQUEST_TYPE_LABELS.get(str(value), str(value))

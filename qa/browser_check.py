@@ -1,6 +1,7 @@
 """Opt-in Chromium checks. Run separately with the documented test settings."""
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -8,12 +9,56 @@ from unittest.mock import patch
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.db import connections
 from django.test import override_settings
 from playwright.sync_api import sync_playwright, expect
 
+from apps.analytics.models import AudioUsageEvent
 from apps.assistant.tests.examples import correction_result, translation_result
 from apps.assistant.services.openai_client import AssistantError
 from apps.assistant.services.voice import AudioUsage
+
+# Browser stand-ins for the microphone and the WebRTC connection to OpenAI: tests play the provider's transcript events.
+REALTIME_MOCKS = """(() => {
+  const rt = (window.__rt = { gum: 0, tracksStopped: 0, sent: [], channel: null, pc: null, pcClosed: false });
+  if (!navigator.mediaDevices) Object.defineProperty(navigator, "mediaDevices", { value: {} });
+  navigator.mediaDevices.getUserMedia = async () => {
+    rt.gum += 1;
+    const track = { kind: "audio", enabled: true, stop() { rt.tracksStopped += 1; } };
+    return { getTracks: () => [track], getAudioTracks: () => [track] };
+  };
+  class FakeChannel extends EventTarget {
+    constructor() { super(); this.readyState = "connecting"; }
+    send(data) { rt.sent.push(JSON.parse(data)); }
+    close() { this.readyState = "closed"; }
+  }
+  class FakePeerConnection extends EventTarget {
+    constructor() { super(); this.connectionState = "new"; rt.pc = this; }
+    addTrack() {}
+    createDataChannel() { rt.channel = new FakeChannel(); return rt.channel; }
+    async createOffer() { return { type: "offer", sdp: "v=0 fake-offer" }; }
+    async setLocalDescription() {}
+    async setRemoteDescription() { if (!rt.holdOpen) setTimeout(rt.open, 50); }
+    close() { this.connectionState = "closed"; rt.pcClosed = true; }
+  }
+  window.RTCPeerConnection = FakePeerConnection;
+  rt.open = () => { rt.channel.readyState = "open"; rt.channel.dispatchEvent(new Event("open")); };
+  rt.emit = (event) => rt.channel.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(event) }));
+  rt.drop = () => { rt.pc.connectionState = "failed"; rt.pc.dispatchEvent(new Event("connectionstatechange")); };
+  class FakeRecorder extends EventTarget {
+    static isTypeSupported(type) { return type.startsWith("audio/webm"); }
+    constructor(stream, options) { super(); this.mimeType = options.mimeType; this.state = "inactive"; }
+    start() { this.state = "recording"; }
+    stop() {
+      this.state = "inactive";
+      const data = new Blob([new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0])], { type: this.mimeType });
+      this.dispatchEvent(Object.assign(new Event("dataavailable"), { data }));
+      this.dispatchEvent(new Event("stop"));
+    }
+  }
+  window.MediaRecorder = FakeRecorder;
+})();"""
+DELTA, COMPLETED = "conversation.item.input_audio_transcription.delta", "conversation.item.input_audio_transcription.completed"
 
 # Browser stand-ins for the microphone, MediaRecorder and audio playback, so no hardware or paid call is needed.
 MEDIA_MOCKS = """(() => {
@@ -90,8 +135,11 @@ class BrowserChecks(StaticLiveServerTestCase):
                 self.page.locator("#text").fill(correction_result().original_text)
                 self.assertEqual(self.correction.call_count, len(measurements))
                 self.page.get_by_role("button", name="Corectare", exact=True).click()
-                expect(self.page.get_by_role("button", name="Traducem…", exact=True)).to_have_count(0)
-                expect(self.page.locator(".action-buttons button").nth(1)).to_be_disabled()
+                # While the correction loads, both buttons keep their label and look.
+                expect(self.page.locator(".result-loading")).to_be_visible()
+                expect(self.page.get_by_role("button", name="Corectăm…", exact=True)).to_have_count(0)
+                expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_enabled()
+                expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
                 expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
                 expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
                 self.page.evaluate("window.scrollTo({top: 0, behavior: 'instant'})")
@@ -185,6 +233,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         finally:
             no_js.close()
 
+    @override_settings(VOICE_REALTIME_ENABLED=False)  # The kill switch: record, stop, then transcribe the recording.
     def test_voice_input_and_british_speech_controls(self):
         transcript = "Let's meet behind the house."
         transcribe = patch("apps.assistant.voice_views.transcribe", return_value=(
@@ -207,7 +256,13 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(layout["mic"]["bottom"], layout["box"]["bottom"])
         self.assertLessEqual(layout["count"]["right"], layout["mic"]["left"])
         self.assertLessEqual(layout["scrollWidth"], 390)
+        # An empty box invites the learner to speak or type instead of showing "0/2000".
+        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Vorbește aici sau scrie în ecran")
+        expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
+        expect(self.page.locator(".mobile-count .count-value")).to_be_hidden()
         self.page.locator("#text").fill("Hello")
+        expect(self.page.locator(".mobile-count .count-value")).to_have_text("5/2000")
+        expect(self.page.locator(".mobile-count .count-hint")).to_be_hidden()
         mic.click()
         expect(self.page.get_by_role("button", name="Oprește înregistrarea")).to_have_attribute("aria-pressed", "true")
         self.page.get_by_role("button", name="Oprește înregistrarea").click()
@@ -244,4 +299,245 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertEqual(speak.call_count, 3)  # A new correction carries a new token, so it is fetched once.
         self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 1440)
         self.page.screenshot(path=str(self.artifacts / "voice-controls-1440.png"), full_page=True)
+        self.assertEqual(self.errors, [])
+
+    # ----- Live transcription -----
+    def start_live_mocks(self):
+        patch("apps.assistant.voice_views.create_realtime_secret", return_value=("ek_browser_test", 1789336312)).start()
+        self.file_transcribe = patch("apps.assistant.voice_views.transcribe", return_value=(
+            "Recorded instead.", AudioUsage(model="gpt-transcribe", audio_seconds=Decimal("3.00")))).start()
+        self.sdp_status, self.offers = 201, []
+
+        def answer(route):
+            cors = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type",
+                    "Access-Control-Allow-Methods": "POST"}
+            if route.request.method == "OPTIONS":
+                route.fulfill(status=204, headers=cors)
+                return
+            self.offers.append(route.request.headers.get("authorization"))
+            route.fulfill(status=self.sdp_status, headers=cors, content_type="application/sdp", body="v=0 fake-answer")
+        self.page.route("https://api.openai.com/v1/realtime/calls", answer)
+        self.page.add_init_script(REALTIME_MOCKS)
+
+    def emit(self, **event):
+        self.page.evaluate("event => window.__rt.emit(event)", event)
+
+    def wait_for_commit(self, count=1):
+        self.page.wait_for_function(
+            f"window.__rt.sent.filter(event => event.type === 'input_audio_buffer.commit').length >= {count}")
+
+    @staticmethod
+    def in_database_thread(query):
+        """Runs an ORM query in a short-lived thread whose connection is closed at once. Playwright's sync API keeps an
+        event loop in the test thread, where the ORM refuses to run and a leftover connection would block dropping
+        the test database."""
+        def run():
+            try:
+                return query()
+            finally:
+                connections.close_all()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(run).result()
+
+    def ledger_row(self, **fields):
+        def poll():
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                event = AudioUsageEvent.objects.filter(operation="transcription", **fields).first()
+                if event:
+                    return event
+                time.sleep(.05)
+            return None
+        event = self.in_database_thread(poll)
+        if event is None:
+            self.fail(f"No audio ledger row with {fields}")
+        return event
+
+    def test_transcript_state_replaces_revisions_and_never_cuts_words(self):
+        self.page.goto(self.live_server_url)
+        out = self.page.evaluate("""() => {
+          const T = window.CorectTranscript, out = {};
+          let s = T.create();
+          s.applyDelta("a", " I"); s.applyDelta("a", " would"); out.partial = s.snapshot().text;
+          s.applyDelta("a", " like"); out.grown = s.snapshot().text;
+          s.complete("a", "I would like."); out.revised = s.snapshot().text;
+          s.applyDelta("b", " to meet"); out.next = s.snapshot().text;
+          s.complete("b", "To meet you."); out.final = s.snapshot().text;
+          s = T.create({ before: "I think", after: " tomorrow." });
+          s.applyDelta("a", " we should"); s.applyDelta("a", " meet"); out.caret = s.snapshot();
+          s = T.create({ before: "Hello", after: "!" }); s.applyDelta("a", " there"); out.punctuation = s.snapshot().text;
+          s = T.create({ before: "Hi", maxLength: 12 });
+          out.fits = s.applyDelta("a", " there"); out.limit = s.applyDelta("a", " friend"); out.limited = s.snapshot().text;
+          s = T.create({ maxLength: 5 }); s.applyDelta("a", " pia"); out.fragment = s.applyDelta("a", "ță mare");
+          out.fragmentText = s.snapshot().text;
+          s = T.create(); s.applyDelta("late", " world"); s.applyDelta("early", " Hello"); s.place("late", "early");
+          out.ordered = s.snapshot().text;
+          return out;
+        }""")
+        self.assertEqual((out["partial"], out["grown"], out["revised"], out["next"], out["final"]),
+                         ("I would", "I would like", "I would like.", "I would like. to meet", "I would like. To meet you."))
+        self.assertEqual(out["caret"], {"text": "I think we should meet tomorrow.", "caret": len("I think we should meet")})
+        self.assertEqual(out["punctuation"], "Hello there!")
+        self.assertEqual((out["fits"], out["limit"], out["limited"]), ("ok", "limit", "Hi there"))
+        self.assertEqual((out["fragment"], out["fragmentText"]), ("limit", ""))
+        self.assertEqual(out["ordered"], "Hello world")
+        self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100)
+    def test_live_transcription_writes_words_while_the_learner_speaks(self):
+        self.start_live_mocks()
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.goto(self.live_server_url)
+        text = self.page.locator("#text")
+        text.fill("I think tomorrow.")
+        text.evaluate("box => box.setSelectionRange(7, 7)")
+        self.page.evaluate("window.__rt.holdOpen = true")
+        self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
+        overlay = self.page.locator("#voice-overlay")  # Until the connection listens, a waiting screen covers the page.
+        expect(overlay).to_be_visible()
+        expect(overlay).to_contain_text("Pornim microfonul…")
+        self.page.wait_for_function("window.__rt.channel !== null")
+        self.page.evaluate("window.__rt.open()")
+        stop = self.page.get_by_role("button", name="Oprește transcrierea live")
+        expect(stop).to_have_attribute("aria-pressed", "true")
+        expect(overlay).to_be_hidden()
+        expect(stop.locator(".stop-icon")).to_be_visible()
+        expect(stop.locator(".mic-icon")).to_be_hidden()
+        expect(self.page.locator("#voice-status")).to_contain_text("Ascult… Vorbește normal. Textul apare pe măsură ce vorbești.")
+        self.assertEqual(self.offers, ["Bearer ek_browser_test"])  # The browser only ever holds the short-lived secret.
+        expect(text).not_to_be_editable()
+        expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_disabled()
+        expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_disabled()
+        seen = []
+        for delta in (" we", " should", " meet"):
+            self.emit(type=DELTA, item_id="item_1", delta=delta)
+            seen.append(text.input_value())
+        self.assertEqual(seen, ["I think we tomorrow.", "I think we should tomorrow.", "I think we should meet tomorrow."])
+        expect(self.page.locator(".mobile-count [data-count]")).to_have_text(str(len(seen[-1])))
+        layout = self.page.evaluate("""() => ({mic: document.querySelector('[data-voice-record]').getBoundingClientRect().toJSON(),
+            box: document.querySelector('#text').getBoundingClientRect().toJSON(),
+            count: document.querySelector('.mobile-count').getBoundingClientRect().toJSON(),
+            scrollWidth: document.documentElement.scrollWidth})""")
+        self.assertGreaterEqual(layout["mic"]["width"], 44)
+        self.assertLessEqual(layout["mic"]["right"], layout["box"]["right"])
+        self.assertLessEqual(layout["count"]["right"], layout["mic"]["left"])
+        self.assertLessEqual(layout["scrollWidth"], 390)
+        self.page.screenshot(path=str(self.artifacts / "live-transcription-390.png"))
+
+        stop.click()
+        self.wait_for_commit()
+        self.emit(type="input_audio_buffer.committed", item_id="item_1", previous_item_id=None)
+        self.emit(type=DELTA, item_id="item_2", delta=" Late")  # Speech after the stop is not added.
+        self.emit(type=COMPLETED, item_id="item_1", transcript="we should meet", usage={"type": "duration", "seconds": 1})
+        expect(self.page.locator("#voice-status")).to_contain_text("Gata. Poți modifica textul, apoi alege Corectare sau Traducere.")
+        expect(text).to_have_value("I think we should meet tomorrow.")
+        expect(text).to_be_editable()
+        expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
+        expect(self.page.get_by_role("button", name="Înregistrează-ți vocea")).to_have_attribute("aria-pressed", "false")
+        self.assertGreaterEqual(self.page.evaluate("window.__rt.tracksStopped"), 1)
+        self.assertTrue(self.page.evaluate("window.__rt.pcClosed"))
+        event = self.ledger_row(stt_mode="realtime")
+        self.assertEqual((event.status, event.model, event.metering_source, event.audio_seconds),
+                         ("success", "gpt-live-transcribe", "provider", Decimal("1.00")))
+        self.assertEqual(self.in_database_thread(AudioUsageEvent.objects.filter(operation="transcription").count), 1)
+        self.file_transcribe.assert_not_called()  # One transcription service per recording: never both.
+
+        text.fill(correction_result().original_text)
+        self.page.get_by_role("button", name="Corectare", exact=True).click()
+        expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
+        self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100)
+    def test_live_transcription_stops_by_itself_after_three_seconds_without_new_words(self):
+        self.start_live_mocks()
+        self.page.goto(self.live_server_url)
+        text = self.page.locator("#text")
+        mic = self.page.get_by_role("button", name="Înregistrează-ți vocea")
+        stop = self.page.get_by_role("button", name="Oprește transcrierea live")
+
+        mic.click()  # Nothing is said at all: the microphone still stops after three seconds.
+        expect(stop).to_be_visible()
+        started = time.time()
+        self.wait_for_commit()
+        self.assertGreaterEqual(time.time() - started, 2.5)
+        self.emit(type="error", error={"type": "invalid_request_error", "code": "input_audio_buffer_commit_empty"})
+        expect(self.page.locator("#voice-status")).to_contain_text("Nu am auzit nimic")
+        expect(text).to_have_value("")
+        expect(text).to_be_editable()
+        expect(mic).to_have_attribute("aria-pressed", "false")
+        self.assertEqual(self.ledger_row(stt_mode="realtime").status, "success")
+
+        mic.click()  # Words, then silence: every new word restarts the three seconds.
+        expect(stop).to_be_visible()
+        self.page.wait_for_timeout(2000)
+        self.emit(type=DELTA, item_id="item_1", delta=" Hello there")
+        started = time.time()
+        self.wait_for_commit(count=2)
+        self.assertGreaterEqual(time.time() - started, 3.0)
+        self.emit(type=COMPLETED, item_id="item_1", transcript="Hello there.", usage={"type": "duration", "seconds": 6})
+        expect(self.page.locator("#voice-status")).to_contain_text("Nu te-am mai auzit, așa că am oprit microfonul.")
+        expect(text).to_have_value("Hello there.")
+        expect(text).to_be_editable()
+        expect(self.page.get_by_role("button", name="Înregistrează-ți vocea")).to_have_attribute("aria-pressed", "false")
+        self.assertGreaterEqual(self.page.evaluate("window.__rt.tracksStopped"), 1)
+        self.assertTrue(self.page.evaluate("window.__rt.pcClosed"))
+        event = self.ledger_row(stt_mode="realtime", metering_source="provider")
+        self.assertEqual(event.status, "success")
+        self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100)
+    def test_live_transcription_interruption_keeps_text_and_connect_failure_falls_back(self):
+        self.start_live_mocks()
+        self.page.goto(self.live_server_url)
+        text = self.page.locator("#text")
+        self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
+        expect(self.page.get_by_role("button", name="Oprește transcrierea live")).to_be_visible()
+        self.emit(type=DELTA, item_id="item_1", delta=" Keep this")
+        self.page.evaluate("window.__rt.drop()")
+        expect(self.page.locator("#voice-status")).to_contain_text(
+            "Conexiunea pentru transcriere live s-a întrerupt. Am păstrat textul primit până acum.")
+        expect(text).to_have_value("Keep this")
+        expect(text).to_be_editable()
+        self.assertEqual(self.ledger_row(error_code="realtime_interrupted").stt_mode, "realtime")
+        self.file_transcribe.assert_not_called()  # Audio already sent live is never sent again to file transcription.
+
+        self.sdp_status = 500  # Live transcription cannot connect before any speech is sent.
+        self.page.goto(self.live_server_url)
+        self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
+        expect(self.page.locator("#voice-status")).to_contain_text("Transcrierea live nu e disponibilă acum")
+        stop = self.page.get_by_role("button", name="Oprește înregistrarea")
+        expect(stop).to_have_attribute("aria-pressed", "true")
+        self.assertEqual(self.page.evaluate("window.__rt.gum"), 1)  # The same microphone stream is reused.
+        stop.click()
+        expect(text).to_have_value("Recorded instead.")
+        self.file_transcribe.assert_called_once()
+        self.ledger_row(error_code="realtime_connect_failed")
+        self.ledger_row(stt_mode="file")
+        self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100)
+    def test_live_transcription_stops_at_the_character_limit_and_when_the_page_closes(self):
+        self.start_live_mocks()
+        self.page.goto(self.live_server_url)
+        text, status = self.page.locator("#text"), self.page.locator("#voice-status")
+        start = "x" * 1990
+        text.fill(start)
+        self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
+        expect(self.page.get_by_role("button", name="Oprește transcrierea live")).to_be_visible()
+        self.emit(type=DELTA, item_id="item_1", delta=" hello")
+        expect(text).to_have_value(start + " hello")
+        self.emit(type=DELTA, item_id="item_1", delta=" wonderful")
+        self.wait_for_commit()
+        self.emit(type=COMPLETED, item_id="item_1", transcript="hello wonderful", usage={"type": "duration", "seconds": 1})
+        expect(status).to_contain_text("Ai ajuns la limita de 2.000 de caractere. Am oprit microfonul.")
+        expect(text).to_have_value(start + " hello")
+        expect(text).to_be_editable()
+        self.assertEqual(self.ledger_row(stt_mode="realtime").status, "success")
+
+        self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
+        expect(self.page.get_by_role("button", name="Oprește transcrierea live")).to_be_visible()
+        self.emit(type=DELTA, item_id="item_9", delta=" bye")
+        self.page.goto(self.live_server_url + "/settings/")
+        closed = self.ledger_row(error_code="realtime_page_closed")
+        self.assertEqual(closed.metering_source, "stream_duration")
         self.assertEqual(self.errors, [])

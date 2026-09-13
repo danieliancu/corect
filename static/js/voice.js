@@ -1,5 +1,6 @@
 "use strict";
-// Voice input: record, stop, transcribe on the server, insert into the text box.
+// Voice input: live transcription, so words appear in the text box while the learner speaks. When live transcription is
+// switched off, unsupported or cannot connect, the fallback records, stops and transcribes the finished recording.
 // British voice output: speak a signed Corect.uk sentence only when its speaker button is pressed.
 (() => {
   const UNAVAILABLE = "Vocea este momentan indisponibilă. Încearcă din nou mai târziu.";
@@ -41,32 +42,55 @@
     });
   }
 
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   // ---------- Voice input ----------
   const mic = document.querySelector("[data-voice-record]");
   const textarea = document.getElementById("text");
   if (mic && textarea) {
+    const CONNECT_TIMEOUT_MS = 10000;
+    const TRAILING_AUDIO_MS = 800; // Words already spoken are still on their way when the microphone is muted.
+    const FINAL_TRANSCRIPT_MS = 4000;
+    const SILENCE_STOP_MS = 3000;
+    const LABELS = {
+      idle: "Înregistrează-ți vocea",
+      starting: "Înregistrează-ți vocea",
+      recording: "Oprește înregistrarea",
+      transcribing: "Transcriem înregistrarea",
+      connecting: "Pornim transcrierea live",
+      listening: "Oprește transcrierea live",
+      finalising: "Finalizăm transcrierea live",
+    };
     const maxSeconds = Number(mic.dataset.maxSeconds) || 60;
+    const maxLength = textarea.maxLength > 0 ? textarea.maxLength : Infinity;
+    const submitButtons = [...(textarea.form?.querySelectorAll("button[type=submit]") || [])];
+    const liveAvailable = () =>
+      Boolean(mic.dataset.realtimeUrl && mic.dataset.finishUrl && window.RTCPeerConnection && window.CorectTranscript &&
+        navigator.mediaDevices?.getUserMedia);
+    const overlay = document.getElementById("voice-overlay");
     let state = "idle";
-    let recorder = null;
     let stream = null;
-    let chunks = [];
     let stopTimer = null;
+    let formBusy = false;
+    let lockedButtons = [];
+    // File fallback
+    let recorder = null;
+    let chunks = [];
+    let discardRecording = false;
+    // Live transcription
+    let live = null;
     mic.hidden = false;
 
     const setState = (next) => {
       state = next;
-      mic.classList.toggle("is-recording", next === "recording");
-      mic.classList.toggle("is-busy", next === "transcribing");
-      mic.disabled = next === "transcribing";
-      mic.setAttribute("aria-pressed", String(next === "recording"));
-      mic.setAttribute(
-        "aria-label",
-        next === "recording"
-          ? "Oprește înregistrarea"
-          : next === "transcribing"
-            ? "Transcriem înregistrarea"
-            : "Înregistrează-ți vocea",
-      );
+      const active = next === "recording" || next === "listening";
+      const busy = ["transcribing", "connecting", "finalising"].includes(next);
+      mic.classList.toggle("is-recording", active);
+      mic.classList.toggle("is-busy", busy);
+      mic.disabled = busy || (next === "idle" && formBusy);
+      mic.setAttribute("aria-pressed", String(active));
+      mic.setAttribute("aria-label", LABELS[next] || LABELS.idle);
+      if (overlay) overlay.hidden = next !== "connecting";
     };
 
     const releaseMicrophone = () => {
@@ -75,8 +99,279 @@
       stream = null;
     };
 
+    const microphoneError = (error) =>
+      ["NotAllowedError", "SecurityError"].includes(error?.name)
+        ? "Accesul la microfon a fost refuzat."
+        : "Nu am putut folosi microfonul.";
+
+    // While words are being written in, the learner can read and scroll but not type, and cannot submit yet.
+    function lockEditor() {
+      textarea.readOnly = true;
+      textarea.setAttribute("aria-busy", "true");
+      if (lockedButtons.length) return;
+      lockedButtons = submitButtons.filter((button) => !button.disabled);
+      lockedButtons.forEach((button) => {
+        button.disabled = true;
+        button.setAttribute("aria-disabled", "true");
+      });
+    }
+
+    function unlockEditor() {
+      textarea.readOnly = false;
+      textarea.removeAttribute("aria-busy");
+      lockedButtons.forEach((button) => {
+        button.disabled = false;
+        button.removeAttribute("aria-disabled");
+      });
+      lockedButtons = [];
+    }
+
+    // ----- Live transcription -----
+    function render(session) {
+      const { text, caret } = session.transcript.snapshot();
+      if (textarea.value !== text) {
+        textarea.value = text;
+        // The same handling as typing: updates the character counter.
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      textarea.setSelectionRange(caret, caret);
+      if (caret >= text.length) textarea.scrollTop = textarea.scrollHeight;
+    }
+
+    function closeConnection(session) {
+      session.closing = true;
+      try {
+        session.dc?.close();
+      } catch {}
+      try {
+        session.pc?.close();
+      } catch {}
+    }
+
+    function sendFinish(session, outcome, pageClosing = false) {
+      if (!session.token || session.finishSent) return;
+      session.finishSent = true;
+      const body = new FormData();
+      body.append("session", session.token);
+      body.append("outcome", outcome);
+      if (session.providerSeconds !== null) body.append("provider_seconds", String(session.providerSeconds));
+      body.append("csrfmiddlewaretoken", csrfToken());
+      if (pageClosing && navigator.sendBeacon && navigator.sendBeacon(mic.dataset.finishUrl, body)) return;
+      post(mic.dataset.finishUrl, body).catch(() => {});
+    }
+
+    function endLive(session, pageClosing = false) {
+      if (live !== session) return;
+      live = null;
+      clearTimeout(stopTimer);
+      clearTimeout(session.silenceTimer);
+      closeConnection(session);
+      releaseMicrophone();
+      sendFinish(session, pageClosing ? "page_closed" : session.outcome, pageClosing);
+      if (pageClosing) return;
+      render(session);
+      unlockEditor();
+      setState("idle");
+      if (session.outcome === "interrupted") {
+        announce("Conexiunea pentru transcriere live s-a întrerupt. Am păstrat textul primit până acum.", true);
+      } else if (session.outcome === "limit") {
+        const limit = Number.isFinite(maxLength) ? maxLength.toLocaleString("ro-RO") : "";
+        announce(`Ai ajuns la limita de ${limit} de caractere. Am oprit microfonul.`, true);
+      } else if (!session.transcript.spoken()) {
+        announce("Nu am auzit nimic. Apasă microfonul și încearcă din nou.", true);
+      } else if (session.stoppedBySilence) {
+        announce("Nu te-am mai auzit, așa că am oprit microfonul. Poți modifica textul, apoi alege Corectare sau Traducere.");
+      } else {
+        announce("Gata. Poți modifica textul, apoi alege Corectare sau Traducere.");
+      }
+      // On touch screens, focusing would pop up the keyboard over the text the learner wants to read first.
+      if (!window.matchMedia?.("(pointer: coarse)")?.matches) textarea.focus({ preventScroll: true });
+    }
+
+    async function stopLive(outcome) {
+      const session = live;
+      if (!session || session.stopping) return;
+      session.stopping = true;
+      session.outcome = outcome;
+      clearTimeout(stopTimer);
+      clearTimeout(session.silenceTimer);
+      setState("finalising");
+      stream?.getAudioTracks().forEach((track) => (track.enabled = false));
+      if (outcome !== "interrupted" && session.dc?.readyState === "open") {
+        await wait(TRAILING_AUDIO_MS);
+        if (live === session && session.dc.readyState === "open") {
+          const finalTranscript = new Promise((resolve) => {
+            session.finalReceived = resolve;
+            setTimeout(resolve, FINAL_TRANSCRIPT_MS);
+          });
+          session.commitSent = true;
+          try {
+            session.dc.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+          } catch {
+            session.finalReceived();
+          }
+          await finalTranscript;
+        }
+      }
+      endLive(session);
+    }
+
+    // gpt-live-transcribe accepts no turn detection (the API rejects server VAD for this model), so silence is noticed
+    // here: SILENCE_STOP_MS without a new word, counted from the moment it listens and restarted by every word, ends the
+    // session exactly like pressing Stop, whether or not anything was said.
+    function stopAfterSilence(session) {
+      clearTimeout(session.silenceTimer);
+      session.silenceTimer = setTimeout(() => {
+        if (live !== session || state !== "listening") return;
+        session.stoppedBySilence = true;
+        stopLive("completed");
+      }, SILENCE_STOP_MS);
+    }
+
+    function connectionLost(session) {
+      if (live !== session || session.closing) return;
+      if (session.stopping) session.finalReceived?.();
+      else if (state === "listening") stopLive("interrupted");
+      else session.failConnect?.(new Error("closed"));
+    }
+
+    function onProviderEvent(session, raw) {
+      if (live !== session) return;
+      let event;
+      try {
+        event = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      const id = event.item_id;
+      // After the commit, speech that reached the provider later belongs to a new turn nobody is waiting for.
+      const ours = id && (!session.commitSent || session.transcript.has(id) || id === session.committedId);
+      switch (event.type) {
+        case "conversation.item.input_audio_transcription.delta":
+          if (!ours || session.stopping && session.outcome === "limit") return;
+          if (session.transcript.applyDelta(id, event.delta) === "limit") {
+            render(session);
+            stopLive("limit");
+            return;
+          }
+          render(session);
+          stopAfterSilence(session);
+          return;
+        case "input_audio_buffer.committed":
+          if (!id) return;
+          session.committedId = id;
+          session.transcript.place(id, event.previous_item_id);
+          return;
+        case "conversation.item.input_audio_transcription.completed":
+          if (!ours) return;
+          if (event.usage?.type === "duration" && Number.isFinite(event.usage.seconds)) {
+            session.providerSeconds = (session.providerSeconds || 0) + event.usage.seconds;
+          }
+          if (session.transcript.complete(id, event.transcript) === "limit" && !session.stopping) {
+            render(session);
+            stopLive("limit");
+            return;
+          }
+          render(session);
+          if (session.commitSent) session.finalReceived?.();
+          return;
+        case "conversation.item.input_audio_transcription.failed":
+        case "error":
+          if (session.stopping) session.finalReceived?.();
+          else if (state === "listening") stopLive("interrupted");
+          return;
+        default:
+      }
+    }
+
+    async function connect(session, data) {
+      const pc = (session.pc = new RTCPeerConnection());
+      stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
+      const dc = (session.dc = pc.createDataChannel("oai-events"));
+      const opened = new Promise((resolve, reject) => {
+        session.failConnect = reject;
+        dc.addEventListener("open", resolve, { once: true });
+        setTimeout(() => reject(new Error("timeout")), CONNECT_TIMEOUT_MS);
+      });
+      opened.catch(() => {});
+      dc.addEventListener("message", (event) => onProviderEvent(session, event.data));
+      dc.addEventListener("close", () => connectionLost(session));
+      pc.addEventListener("connectionstatechange", () => {
+        if (["failed", "disconnected"].includes(pc.connectionState)) connectionLost(session);
+      });
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      // The short-lived client secret authorises this one connection; the server's API key never reaches the browser.
+      const answer = await fetch(data.calls_url, {
+        method: "POST",
+        body: offer.sdp,
+        headers: { Authorization: `Bearer ${data.client_secret}`, "Content-Type": "application/sdp" },
+      });
+      if (!answer.ok) throw new Error("offer rejected");
+      await pc.setRemoteDescription({ type: "answer", sdp: await answer.text() });
+      await opened;
+      session.failConnect = null;
+    }
+
+    async function startLive() {
+      setState("connecting");
+      announce("Pornim transcrierea live…");
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      } catch (error) {
+        setState("idle");
+        announce(microphoneError(error), true);
+        return;
+      }
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? start;
+      const session = {
+        transcript: window.CorectTranscript.create({
+          before: textarea.value.slice(0, start),
+          after: textarea.value.slice(end),
+          maxLength,
+        }),
+        providerSeconds: null,
+        outcome: "completed",
+      };
+      live = session;
+      lockEditor();
+      try {
+        const response = await post(mic.dataset.realtimeUrl, new FormData());
+        if (live !== session) return;
+        if (response.status === 429) {
+          live = null;
+          releaseMicrophone();
+          unlockEditor();
+          setState("idle");
+          announce(await errorMessage(response), true);
+          return;
+        }
+        if (!response.ok) throw new Error("session unavailable");
+        const data = await response.json();
+        session.token = data.session;
+        await connect(session, data);
+        if (live !== session) return;
+        setState("listening");
+        stopAfterSilence(session);
+        announce("Ascult… Vorbește normal. Textul apare pe măsură ce vorbești.");
+        stopTimer = setTimeout(() => stopLive("completed"), (Number(data.max_seconds) || maxSeconds) * 1000);
+      } catch {
+        if (live !== session) return;
+        // No words were transcribed yet, so recording for the fallback cannot bill the same speech twice.
+        live = null;
+        closeConnection(session);
+        sendFinish(session, "connect_failed");
+        unlockEditor();
+        recordForFallback();
+      }
+    }
+
+    // ----- Finished-recording transcription (fallback) -----
     function insertTranscript(transcript) {
-      const max = textarea.maxLength > 0 ? textarea.maxLength : Infinity;
+      const max = maxLength;
       const start = textarea.selectionStart ?? textarea.value.length;
       const end = textarea.selectionEnd ?? start;
       const before = textarea.value.slice(0, start);
@@ -115,12 +410,54 @@
       }
     }
 
+    const recordingFormat = () =>
+      window.MediaRecorder && RECORDING_FORMATS.find((type) => MediaRecorder.isTypeSupported(type));
+
+    function beginRecording(mimeType, message) {
+      chunks = [];
+      discardRecording = false;
+      recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 32000 });
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data && event.data.size) chunks.push(event.data);
+      });
+      recorder.addEventListener("stop", () => {
+        releaseMicrophone();
+        const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
+        chunks = [];
+        if (discardRecording) setState("idle"); // The page is closing: never upload on the way out.
+        else if (blob.size) upload(blob);
+        else {
+          setState("idle");
+          announce("Nu am înțeles înregistrarea. Încearcă din nou.", true);
+        }
+      });
+      recorder.start();
+      setState("recording");
+      announce(message);
+      stopTimer = setTimeout(stopRecording, maxSeconds * 1000);
+    }
+
+    // Live transcription could not start: record on the same microphone stream and transcribe after the stop.
+    function recordForFallback() {
+      const mimeType = recordingFormat();
+      if (!mimeType) {
+        releaseMicrophone();
+        setState("idle");
+        announce(UNAVAILABLE, true);
+        return;
+      }
+      beginRecording(
+        mimeType,
+        `Transcrierea live nu e disponibilă acum. Înregistrăm și transcriem după ce te oprești (cel mult ${maxSeconds} de secunde).`,
+      );
+    }
+
     async function startRecording() {
       if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
         announce("Înregistrarea nu este acceptată în acest browser.", true);
         return;
       }
-      const mimeType = RECORDING_FORMATS.find((type) => MediaRecorder.isTypeSupported(type));
+      const mimeType = recordingFormat();
       if (!mimeType) {
         announce("Înregistrarea nu este acceptată în acest browser.", true);
         return;
@@ -130,33 +467,10 @@
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (error) {
         setState("idle");
-        announce(
-          ["NotAllowedError", "SecurityError"].includes(error?.name)
-            ? "Accesul la microfon a fost refuzat."
-            : "Nu am putut folosi microfonul.",
-          true,
-        );
+        announce(microphoneError(error), true);
         return;
       }
-      chunks = [];
-      recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 32000 });
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data && event.data.size) chunks.push(event.data);
-      });
-      recorder.addEventListener("stop", () => {
-        releaseMicrophone();
-        const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
-        chunks = [];
-        if (blob.size) upload(blob);
-        else {
-          setState("idle");
-          announce("Nu am înțeles înregistrarea. Încearcă din nou.", true);
-        }
-      });
-      recorder.start();
-      setState("recording");
-      announce(`Înregistrăm… apasă din nou microfonul ca să oprești (cel mult ${maxSeconds} de secunde).`);
-      stopTimer = setTimeout(stopRecording, maxSeconds * 1000);
+      beginRecording(mimeType, `Înregistrăm… apasă din nou microfonul ca să oprești (cel mult ${maxSeconds} de secunde).`);
     }
 
     function stopRecording() {
@@ -166,10 +480,30 @@
     }
 
     mic.addEventListener("click", () => {
-      if (state === "recording") stopRecording();
-      else if (state === "idle") startRecording();
+      if (state === "listening") stopLive("completed");
+      else if (state === "recording") stopRecording();
+      else if (state === "idle") (liveAvailable() ? startLive() : startRecording());
     });
-    window.addEventListener("pagehide", stopRecording);
+
+    // No microphone while Corectare or Traducere is being processed.
+    document.body.addEventListener("htmx:beforeRequest", (event) => {
+      if (event.defaultPrevented || !textarea.form?.contains(event.detail.elt)) return;
+      formBusy = true;
+      if (state === "idle") mic.disabled = true;
+    });
+    document.body.addEventListener("htmx:afterRequest", (event) => {
+      if (!textarea.form?.contains(event.detail.elt)) return;
+      formBusy = false;
+      if (state === "idle") mic.disabled = false;
+    });
+
+    window.addEventListener("pagehide", () => {
+      if (live) endLive(live, true);
+      else {
+        discardRecording = true;
+        stopRecording();
+      }
+    });
   }
 
   // ---------- British voice output ----------

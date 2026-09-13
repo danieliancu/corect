@@ -225,7 +225,11 @@ class EndpointTests(TestCase):
             severity="suggestion", explanation_ro="Preferință britanică", is_british_preference=True)
         self.assertContains(self.client.get("/mistakes/"), 'href="/mistakes/verb_form/"')
         self.assertContains(self.client.get("/progress/"), 'href="/mistakes/verb_form/"')
+        for path in ("/mistakes/", "/progress/"):  # The count sits in a red badge beside the name; only the arrow is on the right.
+            self.assertContains(self.client.get(path), '<span class="category-name">Forma verbului<span class="category-badge">1</span></span>'
+                                '<span class="category-arrow" aria-hidden="true">→</span>', html=False)
         response = self.client.get("/mistakes/verb_form/")
+        self.assertContains(response, "1 greșeală înregistrată în această categorie")
         self.assertContains(response, "didn&#x27;t go")
         self.assertContains(response, f'href="/history/{entry.pk}/"')
         self.assertContains(response, 'href="/practice/?category=verb_form"')
@@ -234,6 +238,34 @@ class EndpointTests(TestCase):
         self.assertContains(self.client.get("/practice/?category=verb_form"), "I didn&#x27;t ___ him yesterday.")
         self.client.force_login(self.other)
         self.assertNotContains(self.client.get("/mistakes/verb_form/"), "didn&#x27;t go")
+
+    def test_empty_text_asks_to_write_or_speak(self):
+        messages = {"/assistant/correct/": "Ca să facem corectura, scrie ceva în casetă sau apasă microfonul și vorbește.",
+                    "/assistant/translate/": "Ca să facem traducerea, scrie ceva în casetă sau apasă microfonul și vorbește."}
+        for path, message in messages.items():
+            for text in ("", "   \n "):
+                with self.subTest(path=path, text=text):
+                    response = self.post(path, text=text, HTTP_HX_REQUEST="true")
+                    self.assertContains(response, message, status_code=400)
+                    self.assertNotContains(response, "Acest câmp este obligatoriu", status_code=400)
+                    self.assertNotContains(response, "Textul tău e tot aici", status_code=400)
+        too_long = self.post(text="a" * 2001)
+        self.assertContains(too_long, "Textul tău e tot aici", status_code=400)
+        self.correct.assert_not_called()
+        self.translate.assert_not_called()
+
+    def test_recorded_mistakes_phrase_follows_romanian_numerals(self):
+        from apps.learning.templatetags.learning_labels import recorded_mistakes
+        expected = {0: "0 greșeli înregistrate", 1: "1 greșeală înregistrată", 2: "2 greșeli înregistrate",
+                    19: "19 greșeli înregistrate", 20: "20 de greșeli înregistrate", 101: "101 greșeli înregistrate",
+                    120: "120 de greșeli înregistrate", 200: "200 de greșeli înregistrate"}
+        self.assertEqual({count: recorded_mistakes(count) for count in expected}, expected)
+
+    def test_correction_speaker_takes_the_heading_icon_place(self):
+        response = self.post(HTTP_HX_REQUEST="true")
+        self.assertContains(response, 'class="speak-button speak-button--heading"', count=1)
+        self.assertNotContains(response, 'class="result-check"')
+        self.assertNotContains(response, '<div class="spoken-sentence"><p class="result-text corrected-sentence"')
 
     def test_header_user_icon_follows_sign_in_state(self):
         response = self.client.get("/settings/")

@@ -25,11 +25,13 @@ PAGE_SIZE = 50
 MONEY = DecimalField(max_digits=16, decimal_places=8)
 ZERO = Value(Decimal(0), output_field=MONEY)
 USER_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "audio_cost": "audio_cost",
-              "total_cost": "total_cost", "transcriptions": "transcriptions", "speech_plays": "speech_plays",
-              "last_active": "last_active", "joined": "date_joined", "username": "username"}
+              "total_cost": "total_cost", "transcriptions": "transcriptions", "realtime": "realtime_sessions",
+              "speech_plays": "speech_plays", "last_active": "last_active", "joined": "date_joined",
+              "username": "username"}
 VISITOR_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "audio_cost": "audio_cost",
-                 "total_cost": "total_cost", "transcriptions": "transcriptions", "speech_plays": "speech_plays",
-                 "last_seen": "last_seen_at", "first_seen": "first_seen_at", "active_days": "active_days"}
+                 "total_cost": "total_cost", "transcriptions": "transcriptions", "realtime": "realtime_sessions",
+                 "speech_plays": "speech_plays", "last_seen": "last_seen_at", "first_seen": "first_seen_at",
+                 "active_days": "active_days"}
 
 
 def usage_aggregates(prefix="", scope=None):
@@ -72,8 +74,15 @@ def audio_aggregates(scope=None):
         return Sum(field, filter=where(**conditions))
 
     stt, tts = {"operation": "transcription"}, {"operation": "speech"}
+    live, file = {**stt, "stt_mode": "realtime"}, {**stt, "stt_mode": "file"}
     return {
         "audio_calls": count(), "transcriptions": count(**stt), "speech_plays": count(**tts),
+        "stt_realtime": count(**live), "stt_realtime_seconds": total("audio_seconds", **live),
+        "stt_realtime_cost": total("estimated_cost", **live),
+        "stt_file": count(**file), "stt_file_seconds": total("audio_seconds", **file),
+        "stt_file_cost": total("estimated_cost", **file),
+        "stt_provider_metered": count(metering_source="provider", **stt),
+        "stt_window_metered": count(metering_source="stream_duration", **stt),
         "speech_correction": count(speech_target="correction", **tts), "speech_native": count(speech_target="native", **tts),
         "speech_translation": count(speech_target="translation", **tts),
         "audio_failures": count(status="failed"), "audio_rejections": count(status="rejected"),
@@ -90,16 +99,26 @@ def known_sum(*values):
     return sum(known, Decimal(0)) if known else None
 
 
-def cost_breakdown(text_cost, stt_cost, tts_cost):
-    """Grand total = text AI + speech to text + text to speech, with each source's share of it."""
+def cost_breakdown(text_cost, stt_cost, tts_cost, realtime_cost=None, file_cost=None):
+    """Grand total = text AI + speech to text + text to speech, with each source's share of it.
+
+    Speech to text is live (realtime) plus finished-recording (file) transcription.
+    """
     audio = known_sum(stt_cost, tts_cost)
     total = known_sum(text_cost, audio)
 
     def share(value):
         return rate(value, total) if value is not None and total else None
     return {"total": total, "text": text_cost, "audio": audio, "stt": stt_cost, "tts": tts_cost,
+            "stt_realtime": realtime_cost, "stt_file": file_cost,
             "text_share": share(text_cost), "audio_share": share(audio), "stt_share": share(stt_cost),
-            "tts_share": share(tts_cost)}
+            "tts_share": share(tts_cost),
+            "realtime_audio_share": rate(realtime_cost, audio) if realtime_cost is not None and audio else None}
+
+
+def costs_with_audio(text_cost, audio_totals):
+    return cost_breakdown(text_cost, audio_totals["stt_cost"], audio_totals["tts_cost"],
+                          audio_totals["stt_realtime_cost"], audio_totals["stt_file_cost"])
 
 
 def optional_total(*fields):
@@ -116,6 +135,10 @@ def audio_columns(owner_field, scope):
         return Subquery(rows.filter(**conditions).annotate(value=expression).values("value")[:1])
     return {
         "transcriptions": Coalesce(subquery(Count("id"), operation="transcription"), 0),
+        "realtime_sessions": Coalesce(subquery(Count("id"), operation="transcription", stt_mode="realtime"), 0),
+        "realtime_seconds": subquery(Sum("audio_seconds"), operation="transcription", stt_mode="realtime"),
+        "realtime_stt_cost": subquery(Sum("estimated_cost"), operation="transcription", stt_mode="realtime"),
+        "file_stt_cost": subquery(Sum("estimated_cost"), operation="transcription", stt_mode="file"),
         "speech_plays": Coalesce(subquery(Count("id"), operation="speech"), 0),
         "stt_cost": subquery(Sum("estimated_cost"), operation="transcription"),
         "tts_cost": subquery(Sum("estimated_cost"), operation="speech"),
@@ -184,9 +207,10 @@ def ordered(queryset, field, descending=True):
 
 def render_report(request, template, title, section, context):
     ai_models = {"text": settings.OPENAI_MODEL, "stt": settings.OPENAI_TRANSCRIBE_MODEL,
+                 "live_stt": settings.OPENAI_LIVE_TRANSCRIBE_MODEL,
                  "tts": settings.OPENAI_TTS_MODEL, "voice": settings.OPENAI_TTS_VOICE}
     return render(request, template, {**admin.site.each_context(request), "title": title, "section": section,
-                                      "ai_models": ai_models, **context})
+                                      "ai_models": ai_models, "gbp_per_usd": settings.ANALYTICS_GBP_PER_USD, **context})
 
 
 def filter_context(filters, models, **extra):
@@ -221,7 +245,7 @@ def dashboard(request):
             **audio_columns("visitor", anonymous.audio_q()))).filter(requests__gt=0), "requests")[:10]
     return render_report(request, "analytics/dashboard.html", "Usage analytics", "dashboard", {
         **filter_context(filters, models), **breakdowns(events), **audio, "totals": totals,
-        "costs": cost_breakdown(totals["cost"], audio["audio_totals"]["stt_cost"], audio["audio_totals"]["tts_cost"]),
+        "costs": costs_with_audio(totals["cost"], audio["audio_totals"]),
         "windows": recent.aggregate(**windows()), "users": users, "visitors": visitors,
         "top_users": top_users, "top_visitors": top_visitors,
         "success_rate": rate(totals["successes"], totals["successes"] + totals["failures"]),
@@ -254,7 +278,7 @@ def user_detail(request, pk):
     audio = audio_breakdowns(AudioUsageEvent.objects.filter(user=member))
     return render_report(request, "analytics/user_detail.html", f"Usage: {member.get_username()}", "users", {
         **breakdowns(events), **audio, "member": member, "summary": summary,
-        "costs": cost_breakdown(summary["cost"], audio["audio_totals"]["stt_cost"], audio["audio_totals"]["tts_cost"]),
+        "costs": costs_with_audio(summary["cost"], audio["audio_totals"]),
         "success_rate": rate(summary["successes"], summary["successes"] + summary["failures"]),
         "visitors": member.converted_visitors.order_by("converted_at"),
         "series": activity_series(events, day_start(29))})
@@ -298,6 +322,6 @@ def visitor_detail(request, pk):
             .aggregate(**usage_aggregates())
     return render_report(request, "analytics/visitor_detail.html", f"Usage: {visitor.short_id}", "visitors", {
         **breakdowns(events), **audio, "visitor": visitor, "summary": summary, "after": after,
-        "costs": cost_breakdown(summary["cost"], audio["audio_totals"]["stt_cost"], audio["audio_totals"]["tts_cost"]),
+        "costs": costs_with_audio(summary["cost"], audio["audio_totals"]),
         "success_rate": rate(summary["successes"], summary["successes"] + summary["failures"]),
         "series": activity_series(events, day_start(29))})

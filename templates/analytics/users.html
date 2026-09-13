@@ -2,7 +2,7 @@
 {% block crumbs %} &rsaquo; Registered users{% endblock %}
 {% block analytics %}
 {% include "analytics/filters.html" with search_placeholder="Username or email" %}
-<p class="analytics-note">{{ page_obj.paginator.count|number }} registered users. Usage columns cover {{ filters.period_label|lower }}; last active is all time. Total AI cost = text AI cost + voice input + voice output. “—” means not recorded.</p>
+<p class="analytics-note">{{ page_obj.paginator.count|number }} registered users. Usage columns cover {{ filters.period_label|lower }}; last active is all time. Total AI cost = text AI cost + voice input (realtime + file) + voice output. Costs in pounds at $1 = £{{ gbp_per_usd }}. “—” means not recorded.</p>
 <div class="module analytics-table-wrap">
   <table class="analytics-table">
     <thead><tr>
@@ -17,8 +17,12 @@
       <th scope="col" class="num">Failures</th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=tokens">Text tokens</a></th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=transcriptions">Voice transcriptions</a></th>
+      <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=realtime">Realtime sessions</a></th>
+      <th scope="col" class="num">Realtime audio</th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=speech_plays">TTS plays</a></th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=cost">Text AI cost</a></th>
+      <th scope="col" class="num">Realtime STT cost</th>
+      <th scope="col" class="num">File STT cost</th>
       <th scope="col" class="num">Voice input cost</th>
       <th scope="col" class="num">Voice output cost</th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=audio_cost">Audio cost</a></th>
@@ -37,13 +41,17 @@
         <td class="num">{{ member.failures|number }}</td>
         <td class="num">{{ member.tokens_total|number }}</td>
         <td class="num">{{ member.transcriptions|number }}</td>
+        <td class="num">{{ member.realtime_sessions|number }}</td>
+        <td class="num">{{ member.realtime_seconds|duration }}</td>
         <td class="num">{{ member.speech_plays|number }}</td>
         <td class="num">{{ member.cost|money }}</td>
+        <td class="num">{{ member.realtime_stt_cost|money }}</td>
+        <td class="num">{{ member.file_stt_cost|money }}</td>
         <td class="num">{{ member.stt_cost|money }}</td>
         <td class="num">{{ member.tts_cost|money }}</td>
         <td class="num">{{ member.audio_cost|money }}</td>
         <td class="num"><strong>{{ member.total_cost|money }}</strong></td>
-      </tr>{% empty %}<tr><td colspan="17">No users match.</td></tr>{% endfor %}
+      </tr>{% empty %}<tr><td colspan="21">No users match.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

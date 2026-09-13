@@ -19,6 +19,12 @@
 .mic-button[hidden] {
   display: none;
 }
+/* Live transcription writes into the box: readable and scrollable, not editable until the microphone stops. */
+.textarea-wrap textarea[aria-busy="true"] {
+  cursor: default;
+  caret-color: transparent;
+  box-shadow: inset 0 0 0 2px #e6374855;
+}
 .mic-button {
   position: absolute;
   right: 8px;
@@ -41,6 +47,54 @@
 .mic-button.is-recording {
   background: #e63748;
   color: #fff;
+}
+/* While listening or recording, the button shows a stop square instead of the microphone. */
+.stop-icon {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: currentColor;
+}
+.mic-button.is-recording .mic-icon {
+  display: none;
+}
+.mic-button.is-recording .stop-icon {
+  display: block;
+}
+/* Covers the page while live transcription connects, so nobody starts talking before it listens. */
+.voice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  /* Frosted (matte) white: the page behind is blurred, not just see-through. */
+  background: #ffffffb3;
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+  color: var(--navy);
+  text-align: center;
+}
+.voice-overlay[hidden] {
+  display: none;
+}
+.voice-overlay-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #dbeaff;
+  border-top-color: var(--blue-dark);
+  border-radius: 50%;
+  animation: voice-spin 0.8s linear infinite;
+}
+.voice-overlay p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
 }
 .mic-button.is-recording::after {
   content: "";
@@ -69,20 +123,17 @@
 .is-busy .voice-spinner {
   display: block;
 }
+/* Voice states are announced to screen readers only: nothing is written under the text box. */
 .voice-status {
-  margin: 8px 2px 0;
-  font-size: 14px;
-  line-height: 1.45;
-}
-.voice-status:empty {
-  display: none;
-}
-.editor-card .voice-status {
-  color: #eef4ff;
-}
-.editor-card .voice-status.is-error {
-  color: #fff;
-  font-weight: 600;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .spoken-sentence {
   display: flex;
@@ -121,6 +172,27 @@
   background: #6a4ee0;
   color: #fff;
 }
+/* The correction's speaker takes the place of the icon beside the "Corectură" heading. */
+.speak-button--heading {
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  border: 7px solid #dcf5e9;
+  background: linear-gradient(135deg, #46b67d, #179b55);
+  color: #fff;
+  box-sizing: border-box;
+}
+.speak-button--heading:hover {
+  background: linear-gradient(135deg, #3aa66f, #118a49);
+}
+.speak-button--heading.is-playing {
+  background: #0e7a40;
+  color: #fff;
+}
+.speak-button--heading svg {
+  width: 20px;
+  height: 20px;
+}
 @keyframes mic-pulse {
   from {
     box-shadow: 0 0 0 0 #e6374866;
@@ -136,6 +208,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .mic-button.is-recording::after,
+  .voice-overlay-spinner,
   .voice-spinner {
     animation: none;
   }
@@ -153,5 +226,10 @@
   .mic-button {
     right: 6px;
     bottom: 6px;
+  }
+  .speak-button--heading {
+    width: 44px;
+    height: 44px;
+    border-width: 5px;
   }
 }

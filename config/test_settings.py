@@ -12,3 +12,5 @@ STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"
 # Prevent real credentials being used by tests, even if a developer configured them.
 OPENAI_API_KEY = "test-not-a-real-key"
 OPENAI_MODEL = "test-model"
+# A fixed display rate, so expected pound amounts never depend on a developer's .env.
+ANALYTICS_GBP_PER_USD = Decimal("0.74")  # noqa: F405

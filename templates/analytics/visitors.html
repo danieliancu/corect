@@ -2,7 +2,7 @@
 {% block crumbs %} &rsaquo; Anonymous visitors{% endblock %}
 {% block analytics %}
 {% include "analytics/filters.html" with show_converted=True search_placeholder="anon-xxxxxx or visitor UUID" %}
-<p class="analytics-note">{{ page_obj.paginator.count|number }} anonymous visitors with text or voice activity in {{ filters.period_label|lower }}. Only anonymous usage is counted here; no IP addresses, submitted text, transcripts or audio are stored. Total AI cost = text AI cost + voice input + voice output.</p>
+<p class="analytics-note">{{ page_obj.paginator.count|number }} anonymous visitors with text or voice activity in {{ filters.period_label|lower }}. Only anonymous usage is counted here; no IP addresses, submitted text, transcripts or audio are stored. Total AI cost = text AI cost + voice input (realtime + file) + voice output. Costs in pounds at $1 = £{{ gbp_per_usd }}.</p>
 <div class="module analytics-table-wrap">
   <table class="analytics-table">
     <thead><tr>
@@ -15,8 +15,12 @@
       <th scope="col" class="num">Translations</th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=tokens">Text tokens</a></th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=transcriptions">Voice transcriptions</a></th>
+      <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=realtime">Realtime sessions</a></th>
+      <th scope="col" class="num">Realtime audio</th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=speech_plays">TTS plays</a></th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=cost">Text AI cost</a></th>
+      <th scope="col" class="num">Realtime STT cost</th>
+      <th scope="col" class="num">File STT cost</th>
       <th scope="col" class="num">Voice input cost</th>
       <th scope="col" class="num">Voice output cost</th>
       <th scope="col" class="num"><a href="?{{ base_query }}&amp;sort=audio_cost">Audio cost</a></th>
@@ -34,14 +38,18 @@
         <td class="num">{{ visitor.translations|number }}</td>
         <td class="num">{{ visitor.tokens_total|number }}</td>
         <td class="num">{{ visitor.transcriptions|number }}</td>
+        <td class="num">{{ visitor.realtime_sessions|number }}</td>
+        <td class="num">{{ visitor.realtime_seconds|duration }}</td>
         <td class="num">{{ visitor.speech_plays|number }}</td>
         <td class="num">{{ visitor.cost|money }}</td>
+        <td class="num">{{ visitor.realtime_stt_cost|money }}</td>
+        <td class="num">{{ visitor.file_stt_cost|money }}</td>
         <td class="num">{{ visitor.stt_cost|money }}</td>
         <td class="num">{{ visitor.tts_cost|money }}</td>
         <td class="num">{{ visitor.audio_cost|money }}</td>
         <td class="num"><strong>{{ visitor.total_cost|money }}</strong></td>
         <td>{% if visitor.converted_user %}Yes · <a href="{% url 'analytics:user' visitor.converted_user.pk %}">{{ visitor.converted_user.get_username }}</a>{% elif visitor.converted_at %}Yes · deleted user{% else %}No{% endif %}</td>
-      </tr>{% empty %}<tr><td colspan="16">No anonymous visitors match.</td></tr>{% endfor %}
+      </tr>{% empty %}<tr><td colspan="20">No anonymous visitors match.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

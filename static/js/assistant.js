@@ -3,21 +3,19 @@
   const form = document.getElementById("assistant-form");
   if (!form) return;
   const text = document.getElementById("text");
-  const buttons = [...form.querySelectorAll("button[type=submit]")];
   const status = document.getElementById("request-status");
   const result = document.getElementById("result");
+  // Corectare and Traducere never change their look while a request runs; `busy` alone blocks repeat submissions.
   let busy = false;
-  const labels = buttons.map(
-    (button) => button.querySelector(".button-label").textContent,
-  );
-  const count = () =>
-    form
-      .querySelectorAll("[data-count]")
-      .forEach(
-        (el) => (el.textContent = String(Array.from(text.value).length)),
-      );
+  const count = () => {
+    const length = Array.from(text.value).length;
+    form.querySelectorAll("[data-count]").forEach((el) => (el.textContent = String(length)));
+    // An empty box shows an invitation to speak or type instead of "0/2000".
+    form.querySelectorAll("[data-counter]").forEach((el) => el.classList.toggle("is-empty", length === 0));
+  };
   text.addEventListener("input", count);
-  count();  function measureResult() {
+  count();
+  function measureResult() {
     result.parentElement.style.setProperty(
       "--result-height",
       `${result.getBoundingClientRect().height}px`,
@@ -66,10 +64,6 @@
   }
   function restore() {
     busy = false;
-    buttons.forEach((button, i) => {
-      button.disabled = false;
-      button.querySelector(".button-label").textContent = labels[i];
-    });
     result.setAttribute("aria-busy", "false");
     status.textContent = "";
   }
@@ -81,10 +75,6 @@
     }
     busy = true;
     const active = event.detail.elt;
-    buttons.forEach((button) => (button.disabled = true));
-    if (active.dataset.loading)
-      active.querySelector(".button-label").textContent =
-        active.dataset.loading;
     status.textContent = active.dataset.loading || "Se lucrează…";
     result.setAttribute("aria-busy", "true");
     const actions = document.getElementById("result-actions");
@@ -124,7 +114,6 @@
     }
     busy = true;
     status.textContent = event.submitter?.dataset.loading || "Se lucrează…";
-    setTimeout(() => buttons.forEach((button) => (button.disabled = true)), 0);
   });
   window.addEventListener("pageshow", restore);
 })();

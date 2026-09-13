@@ -13,7 +13,8 @@
   <div class="analytics-card"><span>All time</span><strong>{{ summary.requests|number }}</strong><small>{{ summary.corrections|number }} corrections · {{ summary.translations|number }} translations</small></div>
   <div class="analytics-card"><span>Successful</span><strong>{{ summary.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
   <div class="analytics-card"><span>Failed</span><strong>{{ summary.failures|number }}</strong><small>{{ summary.rejections|number }} rejected</small></div>
-  <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio</small></div>
+  <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio · {{ costs.stt|money }} voice input</small></div>
+  <div class="analytics-card"><span>Realtime transcription</span><strong>{{ audio_totals.stt_realtime|number }}</strong><small>{{ audio_totals.stt_realtime_seconds|duration }} · {{ costs.stt_realtime|money }} · file fallback {{ audio_totals.stt_file|number }} · {{ costs.stt_file|money }}</small></div>
   <div class="analytics-card"><span>British TTS plays</span><strong>{{ audio_totals.speech_plays|number }}</strong><small>{{ audio_totals.speech_correction|number }} correction · {{ audio_totals.speech_native|number }} native · {{ audio_totals.speech_translation|number }} translation</small></div>
   <div class="analytics-card"><span>Text input tokens</span><strong>{{ summary.tokens_in|number }}</strong><small>{{ summary.tokens_cached|number }} cached</small></div>
   <div class="analytics-card"><span>Text output tokens</span><strong>{{ summary.tokens_out|number }}</strong><small>Including reasoning</small></div>

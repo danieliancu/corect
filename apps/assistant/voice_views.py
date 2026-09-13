@@ -1,4 +1,5 @@
-"""Voice endpoints: transcribe a finished recording, and speak a signed sentence that Corect.uk generated."""
+"""Voice endpoints: start and finish live transcription, transcribe a finished recording, and speak a signed sentence
+that Corect.uk generated."""
 import io
 import logging
 
@@ -6,7 +7,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.files.uploadhandler import FileUploadHandler, StopUpload
 from django.db import DatabaseError
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_POST
@@ -16,8 +17,9 @@ from apps.analytics.services.recording import record_audio_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
 from .services.limits import actor_key, claim_voice
 from .services.openai_client import AssistantError
-from .services.voice import (SPEECH_UNAVAILABLE, VOICE_UNAVAILABLE, VoiceError, declared_type_matches, read_speech_token,
-                             sniff_audio, synthesize_speech, transcribe)
+from .services.realtime import OUTCOMES, finish_session, parse_seconds, read_session_token, start_session
+from .services.voice import (REALTIME_CALLS_URL, SPEECH_UNAVAILABLE, VOICE_UNAVAILABLE, VoiceError, create_realtime_secret,
+                             declared_type_matches, read_speech_token, sniff_audio, synthesize_speech, transcribe)
 
 logger = logging.getLogger("apps.assistant")
 MULTIPART_OVERHEAD = 64 * 1024
@@ -81,6 +83,58 @@ def claim_or_reject(request, operation, visitor, **event):
         logger.error("voice_database_unavailable operation=%s", operation)
         return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
     return None
+
+
+@require_POST
+@csrf_protect
+@never_cache
+def start_realtime_transcription(request):
+    """Mints a short-lived client secret for one live transcription session. The session configuration is fixed on the
+    server: nothing in the request body is read, and the normal API key never leaves the server."""
+    if not settings.VOICE_REALTIME_ENABLED:
+        raise Http404
+    visitor = resolve_visitor(request)
+    live = {"stt_mode": AudioUsageEvent.SttMode.REALTIME, "model": settings.OPENAI_LIVE_TRANSCRIBE_MODEL}
+    rejected = claim_or_reject(request, Operation.TRANSCRIPTION, visitor, **live)
+    if rejected:
+        return finish(request, rejected, visitor)
+    try:
+        secret, expires_at = create_realtime_secret()
+    except VoiceError as exc:
+        record_audio_event(request=request, operation=Operation.TRANSCRIPTION, status=Status.FAILED, error_code=exc.code,
+                           visitor=visitor, provider_called=exc.code != "voice_not_configured", **live)
+        logger.warning("voice_failed code=%s operation=realtime", exc.code)
+        return finish(request, error_response(exc), visitor)
+    try:
+        session = start_session(request, visitor)
+    except DatabaseError:
+        logger.error("voice_database_unavailable operation=realtime")
+        return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
+    return finish(request, JsonResponse({"client_secret": secret, "expires_at": expires_at, "session": session,
+                                         "calls_url": REALTIME_CALLS_URL, "max_seconds": settings.VOICE_MAX_SECONDS}),
+                  visitor)
+
+
+@require_POST
+@csrf_protect
+@never_cache
+def finish_realtime_transcription(request):
+    """Accounts for a live session exactly once. Receives only the signed session, how it ended and the provider's
+    reported duration: never transcript text."""
+    outcome = request.POST.get("outcome", "")
+    try:
+        if outcome not in OUTCOMES:
+            raise VoiceError("realtime_session_invalid", VOICE_UNAVAILABLE, 400)
+        session_id = read_session_token(request.POST.get("session", ""))
+    except VoiceError as exc:
+        logger.warning("voice_failed code=%s operation=realtime", exc.code)
+        return error_response(exc)
+    try:
+        finish_session(session_id, outcome=outcome, reported_seconds=parse_seconds(request.POST.get("provider_seconds")))
+    except DatabaseError:
+        logger.error("voice_database_unavailable operation=realtime")
+        return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
+    return JsonResponse({"finished": True})
 
 
 @csrf_exempt

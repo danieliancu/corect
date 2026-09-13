@@ -1,9 +1,9 @@
 {% load assistant_ui %}{% if result.has_errors and kind == 'correction' and not error %}
   {% include 'assistant/correction_result.html' %}
 {% else %}
-<div class="result-heading"><span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><h2>{% if kind == 'translation' %}Traducere{% else %}Corectură{% endif %}</h2></div>
+<div class="result-heading">{% if result and not error and kind != 'translation' %}{% speech_button result.corrected_text "correction" "heading" %}{% else %}<span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span>{% endif %}<h2>{% if kind == 'translation' %}Traducere{% else %}Corectură{% endif %}</h2></div>
 {% if error %}
-  <div class="error-box" role="alert">{{ error }}</div><p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>
+  <div class="error-box" role="alert">{{ error }}</div>{% if not empty_text %}<p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>{% endif %}
 {% elif result %}
   {% if kind == 'translation' %}
     <p class="eyebrow">{% if result.target_language == 'en' %}Română → engleză britanică{% else %}Engleză → română{% endif %}</p>
@@ -11,7 +11,7 @@
     {% if result.target_language == 'en' %}<div class="spoken-sentence"><p class="result-text" lang="en-GB">{{ result.translated_text }}</p>{% speech_button result.translated_text "translation" %}</div>
     {% else %}<p class="result-text" lang="ro">{{ result.translated_text }}</p>{% endif %}
   {% else %}
-    <div class="spoken-sentence"><p class="result-text" lang="en-GB">{{ result.corrected_text }}</p>{% speech_button result.corrected_text "correction" %}</div>
+    <p class="result-text" lang="en-GB">{{ result.corrected_text }}</p>
     {% if not result.has_errors %}<p class="success-note" lang="ro">✓ Textul tău este corect. Bravo!</p>{% endif %}
     {% for correction in result.corrections %}
       <div class="correction-item">

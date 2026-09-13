@@ -509,6 +509,8 @@ hr {
   padding: 0 40px;
   margin: auto;
   min-height: 100vh;
+  /* On phones 100vh includes the browser's address bar, so the page would be taller than the visible screen. */
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
 }
@@ -825,7 +827,6 @@ main {
   box-shadow: 0 14px 36px #0a50c833;
   color: #fff;
 }
-.editor-card .desktop-count,
 .editor-card .editor-help,
 .editor-card .request-status {
   color: #eef4ff;
@@ -866,19 +867,19 @@ main {
     align-self: start;
   }
 }
+/* The editor label is for screen readers only; the counter and its hint sit inside the text box beside the microphone. */
 .editor-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 11px;
-  gap: 10px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 .editor-heading label {
   font-size: 18px;
   font-weight: 650;
   letter-spacing: -0.4px;
 }
-.desktop-count,
 .mobile-count {
   color: var(--muted);
   font-size: 14px;
@@ -909,7 +910,13 @@ textarea:focus {
   border-color: var(--blue);
 }
 .mobile-count {
-  display: none;
+  display: block;
+  position: absolute;
+  bottom: 18px;
+  right: 60px;
+  pointer-events: none;
+  background: #fff;
+  padding-left: 6px;
 }
 .action-buttons {
   display: grid;
@@ -958,13 +965,21 @@ textarea:focus {
   width: 23px;
   height: 27px;
 }
-.request-status {
-  color: var(--muted);
-  margin: 0;
-  font-size: 14px;
+.character-count.is-empty .count-value,
+.character-count:not(.is-empty) .count-hint {
+  display: none;
 }
-.request-status:not(:empty) {
-  margin-top: 12px;
+/* Request progress is announced to screen readers only; the buttons themselves show "Corectăm…" / "Traducem…". */
+.request-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .result-card {
   padding: 21px 27px 25px;
@@ -1189,8 +1204,25 @@ textarea:focus {
 .category-row:last-child {
   border: 0;
 }
-.category-row strong {
-  color: var(--blue-dark);
+.category-name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 13px;
+  background: #e63748;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 a.category-row {
   color: var(--navy);
@@ -1198,11 +1230,6 @@ a.category-row {
 a.category-row:hover {
   text-decoration: none;
   color: var(--blue-dark);
-}
-.category-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
 }
 .category-arrow {
   color: var(--muted);
@@ -1848,6 +1875,15 @@ a.category-row:hover .category-arrow {
     min-height: 150px;
     padding-top: 6px;
   }
+  /* Short phones (360×640 and similar): the homepage still fits on one screen. */
+  @media (max-height: 700px) {
+    textarea {
+      height: 150px;
+    }
+    .empty-result {
+      min-height: 128px;
+    }
+  }
   .empty-result h3 {
     font-size: 18px;
   }
@@ -1875,18 +1911,30 @@ a.category-row:hover .category-arrow {
   .page-heading > p:not(.eyebrow) {
     font-size: 16px;
   }
-  .learning-grid,
-  .stat-grid {
+  .learning-grid {
     grid-template-columns: 1fr;
+  }
+  /* The three progress figures stay on one line: large number, label underneath. */
+  .stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
   }
   .stat {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 20px;
-    padding: 17px 23px;
+    justify-content: center;
+    gap: 4px;
+    padding: 15px 8px;
+    text-align: center;
   }
   .stat strong {
-    font-size: 32px;
+    font-size: 30px;
+    line-height: 1.1;
+  }
+  .stat span {
+    font-size: 13px;
+    line-height: 1.25;
   }
   .learning-grid .card {
     padding: 21px;

@@ -13,10 +13,11 @@ SPEECH_LABELS = {"correction": "Ascultă corectura în engleză britanică",
 
 
 @register.inclusion_tag("assistant/speech_button.html", takes_context=True)
-def speech_button(context, text, target):
-    """A speaker button carrying a signed token for this exact sentence. No audio is generated until it is pressed."""
+def speech_button(context, text, target, variant=""):
+    """A speaker button carrying a signed token for this exact sentence. No audio is generated until it is pressed.
+    `variant="heading"` is the large green button that takes the icon's place beside a result heading."""
     return {"token": make_speech_token(text, target, context.get("usage_event_id")) if text else "",
-            "label": SPEECH_LABELS[target]}
+            "label": SPEECH_LABELS[target], "variant": variant}
 
 
 def _segments(text, changed_ranges, snippets):

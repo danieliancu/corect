@@ -1,14 +1,22 @@
 from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from apps.assistant.models import RateBucket, SubmissionClaim
+from apps.assistant.models import RateBucket, RealtimeTranscriptionSession, SubmissionClaim
+from apps.assistant.services.realtime import abandon_expired_sessions
 
 
 class Command(BaseCommand):
-    help = "Delete expired rate buckets and submission claims older than seven days. Run daily."
+    help = ("Delete expired rate buckets and submission claims older than seven days, account for live transcription "
+            "sessions the browser never finished, and delete closed sessions after seven days. Run daily.")
 
     def handle(self, *args, **options):
         now = timezone.now()
         buckets, _ = RateBucket.objects.filter(expires_at__lt=now).delete()
         claims, _ = SubmissionClaim.objects.filter(created_at__lt=now - timedelta(days=7)).delete()
-        self.stdout.write(f"Removed {buckets} rate buckets and {claims} old submission claims.")
+        abandoned = abandon_expired_sessions(now)
+        # Only the operational rows go; their audio ledger rows are kept for good.
+        sessions, _ = RealtimeTranscriptionSession.objects.exclude(status=RealtimeTranscriptionSession.Status.OPEN) \
+            .filter(finished_at__lt=now - timedelta(days=7)).delete()
+        self.stdout.write(f"Removed {buckets} rate buckets and {claims} old submission claims. "
+                          f"Marked {abandoned} unfinished live transcription sessions as abandoned and removed "
+                          f"{sessions} closed ones.")

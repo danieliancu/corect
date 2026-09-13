@@ -38,5 +38,5 @@ class LedgerAdminTests(TestCase):
         self.assertContains(self.client.get("/admin/"), "Usage analytics")
         response = self.client.get("/admin/analytics/usageevent/", {"q": self.visitor.short_id})
         self.assertContains(response, self.visitor.short_id)
-        self.assertContains(response, "$0.000010")
+        self.assertContains(response, "£0.000007")  # $0.00001 at £0.74 per dollar
         self.assertEqual(self.client.get("/admin/analytics/usageevent/", {"q": "anon-zzzz"}).status_code, 200)

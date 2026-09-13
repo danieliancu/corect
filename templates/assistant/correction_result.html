@@ -1,11 +1,11 @@
 {% load assistant_ui %}
 <div class="correction-result">
   <div class="result-heading corrected-heading">
-    <span class="result-check" aria-hidden="true">{% include 'icons/check.html' %}</span>
+    {% speech_button result.corrected_text "correction" "heading" %}
     <h2>Corectură</h2>
     <span class="improvement-badge"><span aria-hidden="true">{% include 'icons/chart.html' %}</span>Text corectat</span>
   </div>
-  <div class="spoken-sentence"><p class="result-text corrected-sentence" lang="en-GB">{{ result.corrected_text }}</p>{% speech_button result.corrected_text "correction" %}</div>
+  <p class="result-text corrected-sentence" lang="en-GB">{{ result.corrected_text }}</p>
   <p class="correction-caption" lang="ro">Textul tău a fost corectat!</p>
 
   {% for correction in result.corrections %}
@@ -19,7 +19,7 @@
       <div class="correction-step">
         <div class="correction-comparison">
           <div class="comparison-side wrong-side">
-            <h3><span class="comparison-symbol" aria-hidden="true">×</span>Greșit</h3>
+            <h3><span class="comparison-symbol" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m5.5 5.5 9 9M14.5 5.5l-9 9"/></svg></span>Greșit</h3>
             <p lang="en-GB">{{ correction.original }}</p>
           </div>
           <div class="comparison-side correct-side">

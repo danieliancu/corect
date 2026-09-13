@@ -1,6 +1,7 @@
-"""Server-side voice: transcription of a finished recording, and British English speech generated on request.
+"""Server-side voice: short-lived credentials for live transcription, transcription of a finished recording, and British
+English speech generated on request.
 
-Audio, transcripts, speech text and provider payloads are never persisted or logged here.
+Audio, transcripts, speech text, client secrets and provider payloads are never persisted or logged here.
 """
 import base64
 import json
@@ -27,6 +28,10 @@ MAX_SPEECH_CHARACTERS = 4096
 SPEECH_UNAVAILABLE = "Acest audio nu mai este disponibil. Trimite din nou textul ca să asculți."
 VOICE_UNAVAILABLE = "Vocea este momentan indisponibilă. Încearcă din nou mai târziu."
 TOO_SLOW = "A durat prea mult. Încearcă din nou."
+# Live transcription: the browser posts its WebRTC offer here with the client secret; audio never passes through Django.
+REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
+REALTIME_SECRET_SECONDS = 30  # Only limits starting a session, so just long enough to connect.
+REALTIME_DELAY = "low"  # Words appear about a second after they are spoken, with better accuracy than "minimal".
 # Sniffed container -> (extension sent to the provider, MIME sent to the provider, accepted declared content types).
 AUDIO_FORMATS = {
     "webm": ("webm", "audio/webm", ("audio/webm", "video/webm")),
@@ -117,6 +122,35 @@ def transcribe(data: bytes, audio_format: str) -> tuple[str, AudioUsage]:
     if not text:
         raise VoiceError("transcription_empty", "Nu am înțeles înregistrarea. Încearcă din nou.", 422, usage)
     return text, usage
+
+
+def realtime_session_config() -> dict:
+    """The only live transcription session Corect.uk creates: text out, no assistant responses, never client-chosen."""
+    transcription = {"model": settings.OPENAI_LIVE_TRANSCRIBE_MODEL, "prompt": TRANSCRIPTION_PROMPT,
+                     "delay": REALTIME_DELAY}
+    if settings.VOICE_TRANSCRIBE_LANGUAGES:
+        # English and Romanian hints without forcing one language, so mixed speech is written as spoken.
+        transcription["languages"] = list(settings.VOICE_TRANSCRIBE_LANGUAGES)
+    # gpt-live-transcribe takes no voice activity detection: the browser commits the audio once, when the learner stops.
+    return {"type": "transcription", "audio": {"input": {
+        "transcription": transcription, "turn_detection": None, "noise_reduction": {"type": "near_field"}}}}
+
+
+def create_realtime_secret() -> tuple[str, int | None]:
+    """A short-lived client secret the browser uses to open one live transcription session over WebRTC."""
+    try:
+        with _client() as client:
+            secret = client.realtime.client_secrets.create(
+                expires_after={"anchor": "created_at", "seconds": REALTIME_SECRET_SECONDS},
+                session=realtime_session_config())
+    except APITimeoutError:
+        raise VoiceError("realtime_timeout", TOO_SLOW) from None
+    except (OpenAIError, httpx.HTTPError, ValueError):
+        raise VoiceError("realtime_unavailable") from None
+    value = getattr(secret, "value", None)
+    if not isinstance(value, str) or not value:
+        raise VoiceError("realtime_unavailable")
+    return value, _count(getattr(secret, "expires_at", None))
 
 
 def _sse_payloads(lines):

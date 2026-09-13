@@ -19,6 +19,10 @@ from .services.usage import collect_provider_usage
 
 logger = logging.getLogger("apps.assistant")
 REJECTION_CODES = {"rate_limit", "duplicate"}
+EMPTY_TEXT_MESSAGES = {
+    "correction": "Ca să facem corectura, scrie ceva în casetă sau apasă microfonul și vorbește.",
+    "translation": "Ca să facem traducerea, scrie ceva în casetă sau apasă microfonul și vorbește.",
+}
 
 
 @never_cache
@@ -33,7 +37,11 @@ def submit(request, kind):
     anonymous = not request.user.is_authenticated
     visitor = None
     if not form.is_valid():
-        context["error"] = (form.errors.get("text") or ["Formularul a expirat. Reîncarcă pagina și încearcă din nou."])[0]
+        if form.has_error("text", "required"):
+            # Nothing to work on: say what to do rather than suggesting the (empty) text was kept.
+            context["error"], context["empty_text"] = EMPTY_TEXT_MESSAGES[kind], True
+        else:
+            context["error"] = (form.errors.get("text") or ["Formularul a expirat. Reîncarcă pagina și încearcă din nou."])[0]
         status = 400
     else:
         visitor = get_or_create_visitor(request) if anonymous else existing_visitor(request)

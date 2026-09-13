@@ -52,18 +52,19 @@ class UsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
                     "input_tokens", "output_tokens", "total_tokens", "cost"]
     list_filter = ["audience", "request_type", "status", "model", "auto_translated", "is_backfilled", "created_at"]
 
-    @admin.display(description="Text AI cost", ordering="estimated_cost")
+    @admin.display(description="Text AI cost (£)", ordering="estimated_cost")
     def cost(self, obj):
         return format_money(obj.estimated_cost)
 
 
 @admin.register(AudioUsageEvent)
 class AudioUsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
-    list_display = ["id", "created_at", "operation", "audience", "identity", "speech_target", "model", "voice", "status",
-                    "error_code", "audio_seconds", "input_tokens", "output_tokens", "cost"]
-    list_filter = ["operation", "audience", "model", "voice", "status", "speech_target", "created_at"]
+    list_display = ["id", "created_at", "operation", "stt_mode", "audience", "identity", "speech_target", "model", "voice",
+                    "status", "error_code", "audio_seconds", "metering_source", "input_tokens", "output_tokens", "cost"]
+    list_filter = ["operation", "stt_mode", "audience", "model", "voice", "status", "speech_target", "metering_source",
+                   "created_at"]
 
-    @admin.display(description="Audio AI cost", ordering="estimated_cost")
+    @admin.display(description="Audio AI cost (£)", ordering="estimated_cost")
     def cost(self, obj):
         return format_money(obj.estimated_cost)
 
