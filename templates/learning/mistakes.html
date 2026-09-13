@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}My mistakes — Corect.uk{% endblock %}{% block content %}
+<section class="page-heading"><p class="eyebrow">NOTICE. UNDERSTAND. GROW.</p><h1>My mistakes</h1><p>Small patterns to work on, without the judgement.</p></section>
+<div class="learning-grid"><section class="card"><h2>Mistakes by category</h2>{% include 'learning/categories.html' %}</section><section class="card"><h2>Patterns to revisit</h2>{% for item in repeated %}<div class="pattern"><p><span class="muted">{{ item.original }}</span> → <strong>{{ item.replacement }}</strong></p><span class="pill">{{ item.total }} times</span></div>{% empty %}<p class="muted">No repeated patterns yet. Keep writing and we'll help you spot them.</p>{% endfor %}</section></div><p class="muted">British English preferences aren't counted as mistakes.</p><a class="button" href="{% url 'practice' %}">Try a little practice</a>
+{% endblock %}

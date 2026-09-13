@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% block title %}Saved {{ entry.get_request_type_display }} — Corect.uk{% endblock %}{% block content %}
+<section class="page-heading"><a class="text-link" href="{% url 'history' %}">← Your history</a><h1>{{ entry.get_request_type_display }}</h1><p>{{ entry.created_at|date:'j F Y · H:i' }}</p></section><div class="workspace detail-workspace"><section class="card"><h2>What you wrote</h2><p class="original-text">{{ entry.original_text }}</p></section><section class="card result-card">{% include 'assistant/result.html' %}</section></div>
+{% endblock %}

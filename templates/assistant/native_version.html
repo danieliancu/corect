@@ -1,0 +1,7 @@
+{% if result.native_text %}
+<section class="native-version" aria-label="How a native speaker would say it">
+  <div class="native-version-heading"><h3>Native version</h3><span>British English</span></div>
+  <p class="native-sentence" lang="en-GB">{{ result.native_text }}</p>
+  {% if result.native_explanation %}<p class="native-explanation" lang="ro">{{ result.native_explanation }}</p>{% endif %}
+</section>
+{% endif %}

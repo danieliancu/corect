@@ -1,0 +1,28 @@
+{% if result.has_errors and kind == 'correction' and not error %}
+  {% include 'assistant/correction_result.html' %}
+{% else %}
+<div class="result-heading"><span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><h2>{% if kind == 'translation' %}Translation{% else %}Correction{% endif %}</h2></div>
+{% if error %}
+  <div class="error-box" role="alert">{{ error }}</div><p class="muted">Your text is still here. You can edit it and try again.</p>
+{% elif result %}
+  {% if kind == 'translation' %}
+    <p class="eyebrow">{% if result.target_language == 'en' %}Romanian → British English{% else %}English → Romanian{% endif %}</p>
+    {% if auto_translated %}<p class="muted" lang="ro">Textul tău era în română, așa că l-am tradus.</p>{% endif %}
+    <p class="result-text" lang="{% if result.target_language == 'en' %}en-GB{% else %}ro{% endif %}">{{ result.translated_text }}</p>
+  {% else %}
+    <p class="result-text" lang="en-GB">{{ result.corrected_text }}</p>
+    {% if not result.has_errors %}<p class="success-note" lang="ro">✓ Textul tău este corect. Bravo!</p>{% endif %}
+    {% for correction in result.corrections %}
+      <div class="correction-item">
+        {% if correction.is_british_english_preference %}<p class="preference-label">British English suggestion</p><p><span>Original:</span> {{ correction.original }}</p><p><span class="right-label">Suggestion:</span> {{ correction.replacement }}</p>
+        {% else %}<div class="snippet-pair"><p><span class="wrong-label">Wrong:</span> {{ correction.original }}</p><p><span class="right-label">Correct:</span> {{ correction.replacement }}</p></div>{% endif %}
+        <p class="explanation" lang="ro"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span><span>{{ correction.explanation_ro }}</span></p>
+      </div>
+    {% endfor %}
+    {% if not result.corrections and result.overall_explanation %}<p class="explanation" lang="ro">{{ result.overall_explanation }}</p>{% endif %}
+    {% include 'assistant/native_version.html' %}  {% endif %}
+{% else %}
+  <div class="empty-result"><span class="empty-spark" aria-hidden="true">✧</span><h3>A little clarity starts here.</h3><p>Write something, then choose<br><strong>Correct</strong> or <strong>Translate</strong>.</p></div>
+  <p class="result-footnote"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span>Simple explanations in Romanian.<br>English that still sounds like you.</p>
+{% endif %}
+{% endif %}

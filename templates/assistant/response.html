@@ -1,0 +1,3 @@
+{% include 'assistant/result.html' %}
+{% include 'assistant/result_actions.html' with oob=True %}
+<input type="hidden" name="submission_token" id="submission-token" value="{{ submission_token }}" hx-swap-oob="outerHTML">

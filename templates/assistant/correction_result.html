@@ -1,0 +1,45 @@
+{% load assistant_ui %}
+<div class="correction-result">
+  <div class="result-heading corrected-heading">
+    <span class="result-check" aria-hidden="true">{% include 'icons/check.html' %}</span>
+    <h2>Correction</h2>
+    <span class="improvement-badge"><span aria-hidden="true">{% include 'icons/chart.html' %}</span>Text corrected</span>
+  </div>
+  <p class="result-text corrected-sentence" lang="en-GB">{{ result.corrected_text }}</p>
+  <p class="correction-caption" lang="ro">Textul tău a fost corectat!</p>
+
+  {% for correction in result.corrections %}
+    {% if correction.is_british_english_preference %}
+      <div class="preference-card">
+        <p class="preference-label">British English suggestion</p>
+        <p>{{ correction.original }} → <strong>{{ correction.replacement }}</strong></p>
+        <p class="muted" lang="ro">{{ correction.explanation_ro }}</p>
+      </div>
+    {% else %}
+      <div class="correction-step">
+        <div class="correction-comparison">
+          <div class="comparison-side wrong-side">
+            <h3><span class="comparison-symbol" aria-hidden="true">×</span>Wrong</h3>
+            <p lang="en-GB">{{ correction.original }}</p>
+          </div>
+          <div class="comparison-side correct-side">
+            <h3><span class="comparison-symbol" aria-hidden="true">{% include 'icons/check.html' %}</span>Correct</h3>
+            <p lang="en-GB">{{ correction.replacement|default:'(removed)' }}</p>
+          </div>
+        </div>
+        <div class="explanation-card">
+          <span class="explanation-bulb" aria-hidden="true">{% include 'icons/bulb.html' %}</span>
+          <div><h3>Explanation</h3><p lang="ro">{{ correction.explanation_ro }}</p></div>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  {% sentence_comparison result as comparison %}
+  <section class="sentence-comparison" aria-label="Your sentence before and after correction">
+    <div class="sentence-comparison-heading"><h3>Your sentence</h3><span>{{ result.original_text|length }} characters</span></div>
+    <p class="sentence-before" lang="en-GB"><span class="sr-only">Before: </span>{% for part in comparison.original %}{% if part.changed %}<mark>{{ part.text }}</mark>{% else %}{{ part.text }}{% endif %}{% endfor %}</p>
+    <span class="comparison-arrow" aria-hidden="true">↓</span>
+    <p class="sentence-after" lang="en-GB"><span class="sr-only">After: </span>{% for part in comparison.corrected %}{% if part.changed %}<mark>{{ part.text }}</mark>{% else %}{{ part.text }}{% endif %}{% endfor %}</p>
+  </section>
+  {% include 'assistant/native_version.html' %}</div>

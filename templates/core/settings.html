@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Settings — Corect.uk{% endblock %}{% block content %}
+<section class="page-heading"><p class="eyebrow">MADE FOR YOU</p><h1>Simple by design.</h1><p>Your coach is set up for Romanian speakers learning British English.</p></section>
+<div class="card settings-list"><div><strong>Explanation language</strong><span>Romanian</span></div><div><strong>English variant</strong><span>British English</span></div><div><strong>Correction behaviour</strong><span>Only when you press Correct</span></div><div><strong>Your text</strong><span>{% if user.is_authenticated %}Saved to your private history{% else %}Not saved while signed out{% endif %}</span></div></div>
+{% endblock %}
