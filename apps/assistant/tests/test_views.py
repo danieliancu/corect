@@ -267,6 +267,14 @@ class EndpointTests(TestCase):
         self.assertNotContains(response, 'class="result-check"')
         self.assertNotContains(response, '<div class="spoken-sentence"><p class="result-text corrected-sentence"')
 
+    def test_english_translation_speaker_sits_left_of_the_heading(self):
+        response = self.post("/assistant/translate/", translation_result().original_text, HTTP_HX_REQUEST="true")
+        html = response.content.decode()
+        speaker = html.index('class="speak-button speak-button--heading"')
+        self.assertLess(speaker, html.index("<h2>Traducere</h2>"))
+        self.assertEqual(html.count('class="speak-button'), 1)
+        self.assertNotIn('<div class="spoken-sentence"><p class="result-text"', html)
+
     def test_header_user_icon_follows_sign_in_state(self):
         response = self.client.get("/settings/")
         self.assertContains(response, 'class="user-link" href="/accounts/login/" aria-label="Autentificare"')

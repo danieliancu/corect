@@ -91,6 +91,9 @@
       mic.setAttribute("aria-pressed", String(active));
       mic.setAttribute("aria-label", LABELS[next] || LABELS.idle);
       if (overlay) overlay.hidden = next !== "connecting";
+      // Other homepage features (the example sentences) follow the microphone through this one signal.
+      mic.dataset.voiceState = next;
+      mic.dispatchEvent(new CustomEvent("voice-state", { bubbles: true, detail: { state: next } }));
     };
 
     const releaseMicrophone = () => {

@@ -15,18 +15,17 @@
 
 
 
-| Milestone                                       |                           Status |
-| ----------------------------------------------- | -------------------------------: |
-| **M1 — Core AI: Correct + Translate + Native**  |                       ✅ **DONE** |
-| **M2 — Accounts + History + Learning**          |                       ✅ **DONE** |
-| **M3 — Analytics + Anonymous + Tokens + Costs** |                       ✅ **DONE** |
-| **M4 — Voice input + British voice output**     |         🟡 **95% — IMPLEMENTAT** |
-| **M4.1 — Validare umană accent britanic**       |             🎯 **DE FĂCUT ACUM** |
-| **M4.2 — Transcriere live în timp real**        |  🔵 **OPȚIONAL / NEIMPLEMENTAT** |
-| **M5 — Production deployment**                  | 🎯 **URMĂTORUL MILESTONE MAJOR** |
-| **M6 — Private/Public Beta**                    |                                ⏳ |
-| **M7 — Monetisation + plans**                   |                                ⏳ |
-| **M8 — Optimisation din date reale**            |                                ⏳ |
+| Milestone                                       |                                           Status |
+| ----------------------------------------------- | -----------------------------------------------: |
+| **M1 — Core AI: Correct + Translate + Native**  |                                           ✅ DONE |
+| **M2 — Accounts + History + Learning**          |                                           ✅ DONE |
+| **M3 — Analytics + Anonymous + Tokens + Costs** |                                           ✅ DONE |
+| **M4 — Voice input + British voice output**     |                        🟢 **98% — practic DONE** |
+| **M5 — Production deployment**                  |                                 🎯 **URMĂTORUL** |
+| **M6 — Private/Public Beta**                    |                                                ⏳ |
+| **M7 — Monetisation + Free/Pro**                | 🟡 **doar proiectat conceptual, nu implementat** |
+| **M8 — Optimisation din date reale**            |                                                ⏳ |
+
 
 
 

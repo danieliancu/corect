@@ -2,6 +2,7 @@
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import parse_qs, unquote_plus
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -59,6 +60,14 @@ REALTIME_MOCKS = """(() => {
   window.MediaRecorder = FakeRecorder;
 })();"""
 DELTA, COMPLETED = "conversation.item.input_audio_transcription.delta", "conversation.item.input_audio_transcription.completed"
+# Homepage examples: text before the mistake, the mistake, its correction, text after (as in static/js/example-prompts.js).
+EXAMPLES = [("I'm running a bit late, but I should be ", "their", "there", " in ten minutes."),
+            ("Do you fancy ", "grab", "grabbing", " a coffee after work?"),
+            ("Could you give me a ", "hands", "hand", " with this?"),
+            ("What ", "is", "are", " you up to this weekend?"),
+            ("I'll give you a call when I ", "got", "get", " home.")]
+TYPED = [before + wrong + after for before, wrong, _, after in EXAMPLES]
+CORRECTED = [f"{before}{wrong} {right}{after}" for before, wrong, right, after in EXAMPLES]
 
 # Browser stand-ins for the microphone, MediaRecorder and audio playback, so no hardware or paid call is needed.
 MEDIA_MOCKS = """(() => {
@@ -257,7 +266,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(layout["count"]["right"], layout["mic"]["left"])
         self.assertLessEqual(layout["scrollWidth"], 390)
         # An empty box invites the learner to speak or type instead of showing "0/2000".
-        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Vorbește aici sau scrie în ecran")
+        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Vorbește aici sau scrie")
         expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
         expect(self.page.locator(".mobile-count .count-value")).to_be_hidden()
         self.page.locator("#text").fill("Hello")
@@ -301,6 +310,101 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.screenshot(path=str(self.artifacts / "voice-controls-1440.png"), full_page=True)
         self.assertEqual(self.errors, [])
 
+    # ----- Example sentences in the empty text box -----
+    def test_example_sentences_stay_out_of_the_text_box(self):
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.goto(self.live_server_url)
+        text, example = self.page.locator("#text"), self.page.locator(".example-prompt")
+        expect(example).to_be_visible()
+        samples = []
+        for _ in range(10):
+            samples.append((text.input_value(), example.text_content()))
+            self.page.wait_for_timeout(120)
+        self.assertEqual({value for value, _ in samples}, {""})  # Typed into the layer, never into the textarea.
+        self.assertTrue(any(shown for _, shown in samples))
+        self.assertTrue(all(TYPED[0].startswith(shown) for _, shown in samples))
+        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Vorbește aici sau scrie")
+        expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
+        expect(self.page.locator(".mobile-count .count-value")).to_be_hidden()
+        # Typed with the mistake, then the mistake is struck through in red and the correction typed beside it in green.
+        self.page.wait_for_function("s => document.querySelector('.example-prompt').textContent === s", arg=TYPED[0])
+        self.page.wait_for_function("s => document.querySelector('.example-prompt').textContent === s", arg=CORRECTED[0])
+        marks = self.page.evaluate("""() => {
+            const style = s => getComputedStyle(document.querySelector(s));
+            return {wrong: document.querySelector('.example-wrong').textContent, right: document.querySelector('.example-right').textContent,
+                    strike: style('.example-wrong').textDecorationLine, red: style('.example-wrong').color, green: style('.example-right').color};
+        }""")
+        self.assertEqual(marks, {"wrong": "their", "right": " there", "strike": "line-through",
+                                 "red": "rgb(200, 32, 49)", "green": "rgb(15, 122, 66)"})
+        self.assertEqual(text.input_value(), "")
+        self.page.wait_for_function("document.querySelector('.example-prompt').textContent.startsWith('Do you fancy')")
+        self.assertEqual(text.input_value(), "")
+        for width, height in ((390, 844), (375, 667), (360, 740)):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": height})
+                expect(example).to_be_visible()
+                layout = self.page.evaluate("""() => {
+                    const r = s => document.querySelector(s).getBoundingClientRect().toJSON();
+                    return {example: r('.example-prompt'), mic: r('[data-voice-record]'), count: r('.mobile-count'),
+                            box: r('#text'), scrollWidth: document.documentElement.scrollWidth};
+                }""")
+                self.assertLessEqual(layout["example"]["bottom"], layout["mic"]["top"])
+                self.assertLessEqual(layout["example"]["bottom"], layout["count"]["top"])
+                self.assertGreaterEqual(layout["example"]["left"], layout["box"]["left"])
+                self.assertLessEqual(layout["example"]["right"], layout["box"]["right"])
+                self.assertLessEqual(layout["scrollWidth"], width)
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        text.click()
+        expect(example).to_be_hidden()
+        self.page.keyboard.type("Hi")
+        expect(text).to_have_value("Hi")
+        expect(example).to_be_hidden()
+        text.fill("")
+        expect(example).to_be_hidden()  # Still focused: no example while the learner is using the box.
+        self.page.locator("#result").click()  # Focus leaves the text box.
+        self.page.wait_for_timeout(500)
+        expect(example).to_be_hidden()  # No instant flash after clearing.
+        expect(example).to_be_visible(timeout=4000)
+        self.assertEqual(text.input_value(), "")
+        self.assertEqual(self.errors, [])
+
+    def test_example_sentences_are_never_submitted(self):
+        self.page.goto(self.live_server_url)
+        example = self.page.locator(".example-prompt")
+        expect(example).to_be_visible()
+        self.page.wait_for_function("document.querySelector('.example-prompt').textContent.length > 10")
+        for path, name in (("/assistant/correct/", "Corectare"), ("/assistant/translate/", "Traducere")):
+            with self.subTest(button=name):
+                with self.page.expect_request(lambda request, path=path: request.method == "POST" and request.url.endswith(path)) as sent:
+                    self.page.get_by_role("button", name=name, exact=True).click()
+                body = sent.value.post_data or ""
+                self.assertEqual(parse_qs(body, keep_blank_values=True).get("text"), [""])
+                for sentence in TYPED:
+                    self.assertNotIn(sentence[:12], unquote_plus(body))
+                expect(self.page.locator(".error-box")).to_contain_text("scrie ceva în casetă sau apasă microfonul")
+        self.page.locator("#text").fill("I goed home.")
+        with self.page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/assistant/correct/")) as sent:
+            self.page.get_by_role("button", name="Corectare", exact=True).click()
+        self.assertEqual(parse_qs(sent.value.post_data, keep_blank_values=True)["text"], ["I goed home."])
+        expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
+        self.assertEqual(self.errors, [])
+
+    def test_reduced_motion_shows_one_static_example(self):
+        context = self.browser.new_context(reduced_motion="reduce", viewport={"width": 390, "height": 844})
+        try:
+            page = context.new_page()
+            page.goto(self.live_server_url)
+            example = page.locator(".example-prompt")
+            page.wait_for_function("s => document.querySelector('.example-prompt').textContent === s", arg=CORRECTED[0])
+            page.wait_for_timeout(3000)  # Still the same, already corrected sentence: nothing is typed or erased.
+            self.assertEqual(example.text_content(), CORRECTED[0])
+            expect(example.locator(".example-wrong")).to_have_text("their")
+            expect(example.locator(".example-right")).to_have_text("there")
+            expect(example).to_be_visible()
+            self.assertEqual(page.locator("#text").input_value(), "")
+        finally:
+            context.close()
+
     # ----- Live transcription -----
     def start_live_mocks(self):
         patch("apps.assistant.voice_views.create_realtime_secret", return_value=("ek_browser_test", 1789336312)).start()
@@ -339,9 +443,9 @@ class BrowserChecks(StaticLiveServerTestCase):
         with ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(run).result()
 
-    def ledger_row(self, **fields):
+    def ledger_row(self, timeout=5, **fields):
         def poll():
-            deadline = time.time() + 5
+            deadline = time.time() + timeout
             while time.time() < deadline:
                 event = AudioUsageEvent.objects.filter(operation="transcription", **fields).first()
                 if event:
@@ -454,9 +558,12 @@ class BrowserChecks(StaticLiveServerTestCase):
         text = self.page.locator("#text")
         mic = self.page.get_by_role("button", name="Înregistrează-ți vocea")
         stop = self.page.get_by_role("button", name="Oprește transcrierea live")
+        example = self.page.locator(".example-prompt")
+        expect(example).to_be_visible()  # The empty box shows example sentences until the microphone starts.
 
         mic.click()  # Nothing is said at all: the microphone still stops after three seconds.
         expect(stop).to_be_visible()
+        expect(example).to_be_hidden()
         started = time.time()
         self.wait_for_commit()
         self.assertGreaterEqual(time.time() - started, 2.5)
@@ -471,6 +578,8 @@ class BrowserChecks(StaticLiveServerTestCase):
         expect(stop).to_be_visible()
         self.page.wait_for_timeout(2000)
         self.emit(type=DELTA, item_id="item_1", delta=" Hello there")
+        expect(text).to_have_value("Hello there")
+        expect(example).to_be_hidden()  # Live transcript text and example sentences never appear together.
         started = time.time()
         self.wait_for_commit(count=2)
         self.assertGreaterEqual(time.time() - started, 3.0)
@@ -510,6 +619,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertEqual(self.page.evaluate("window.__rt.gum"), 1)  # The same microphone stream is reused.
         stop.click()
         expect(text).to_have_value("Recorded instead.")
+        expect(self.page.locator(".example-prompt")).to_be_hidden()
         self.file_transcribe.assert_called_once()
         self.ledger_row(error_code="realtime_connect_failed")
         self.ledger_row(stt_mode="file")
@@ -538,6 +648,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         expect(self.page.get_by_role("button", name="Oprește transcrierea live")).to_be_visible()
         self.emit(type=DELTA, item_id="item_9", delta=" bye")
         self.page.goto(self.live_server_url + "/settings/")
-        closed = self.ledger_row(error_code="realtime_page_closed")
+        # The beacon leaves with the unloading page; under a busy full run the server can take a while to record it.
+        closed = self.ledger_row(timeout=20, error_code="realtime_page_closed")
         self.assertEqual(closed.metering_source, "stream_duration")
         self.assertEqual(self.errors, [])

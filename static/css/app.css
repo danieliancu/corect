@@ -909,6 +909,30 @@ textarea::placeholder {
 textarea:focus {
   border-color: var(--blue);
 }
+/* Example sentences in the empty text box: a decorative layer over the textarea, never its value. Position, padding
+   and font are copied from the textarea by example-prompts.js so the text lines up with real input. */
+.example-prompt {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: #66758a;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  user-select: none;
+}
+.example-prompt[hidden] {
+  display: none;
+}
+.example-prompt .example-wrong {
+  color: #c82031;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+.example-prompt .example-right {
+  color: #0f7a42;
+  font-weight: 600;
+}
 .mobile-count {
   display: block;
   position: absolute;
