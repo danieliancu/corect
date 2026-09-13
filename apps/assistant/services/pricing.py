@@ -41,6 +41,68 @@ def price_for(*models: str) -> ModelPrice | None:
     return None
 
 
+@dataclass(frozen=True)
+class AudioPrice:
+    """USD. per_minute bills audio duration; the token prices bill text input and audio output tokens."""
+
+    per_minute: Decimal | None = None
+    input_per_1m: Decimal | None = None
+    output_per_1m: Decimal | None = None
+
+
+AUDIO_PRICE_KEYS = ("per_minute", "input_per_1m", "output_per_1m")
+
+
+def parse_audio_pricing(raw) -> dict[str, AudioPrice]:
+    """Validates {model: {per_minute and/or input_per_1m, output_per_1m}}; raises ValueError when malformed."""
+    if not isinstance(raw, dict):
+        raise ValueError("expected an object keyed by model name")
+    prices = {}
+    for model, values in raw.items():
+        if not isinstance(values, dict) or not any(key in values for key in AUDIO_PRICE_KEYS):
+            raise ValueError(f"{model} needs at least one of {', '.join(AUDIO_PRICE_KEYS)}")
+        amounts = {}
+        for key in AUDIO_PRICE_KEYS:
+            if key not in values:
+                continue
+            try:
+                amount = Decimal(str(values[key]))
+            except InvalidOperation:
+                raise ValueError(f"{model} {key} must be a number") from None
+            if not amount.is_finite() or amount < 0:
+                raise ValueError(f"{model} prices must be non-negative numbers")
+            amounts[key] = amount
+        prices[str(model)] = AudioPrice(**amounts)
+    return prices
+
+
+def _audio_price(usage):
+    return settings.OPENAI_AUDIO_PRICING.get(usage.model) if usage is not None and usage.model else None
+
+
+def _audio_token_cost(usage, price):
+    if None in (usage.input_tokens, usage.output_tokens, price.input_per_1m, price.output_per_1m):
+        return None
+    return ((usage.input_tokens * price.input_per_1m + usage.output_tokens * price.output_per_1m) / MILLION
+            ).quantize(COST_PLACES)
+
+
+def estimate_transcription_cost(usage) -> Decimal | None:
+    """Duration-billed: seconds ÷ 60 × per-minute price. Token-billed when the provider reports tokens and prices exist."""
+    price = _audio_price(usage)
+    if price is None:
+        return None
+    if usage.audio_seconds is not None and price.per_minute is not None:
+        return (usage.audio_seconds / 60 * price.per_minute).quantize(COST_PLACES)
+    return _audio_token_cost(usage, price)
+
+
+def estimate_speech_cost(usage) -> Decimal | None:
+    """(text input tokens × input price + audio output tokens × output price) ÷ 1M, from provider-reported usage."""
+    price = _audio_price(usage)
+    return None if price is None else _audio_token_cost(usage, price)
+
+
 def estimate_cost(usage) -> Decimal | None:
     """Estimated USD cost of one provider call, or None when tokens or the model's price are unknown."""
     if usage is None or usage.input_tokens is None or usage.output_tokens is None:

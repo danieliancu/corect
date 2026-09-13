@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, time, timedelta
 from urllib.parse import urlencode
 
@@ -54,6 +54,10 @@ class ReportFilters:
         if self.model:
             conditions["model"] = self.model
         return Q(**{prefix + key: value for key, value in conditions.items()})
+
+    def audio_q(self, prefix="", include_period=True):
+        """Conditions on AudioUsageEvent fields: period, audience and model. Request type applies to text only."""
+        return replace(self, request_type="all").events_q(prefix, include_period)
 
     def querystring(self, **extra):
         params = {"period": self.period, "audience": self.audience, "type": self.request_type, "model": self.model, **extra}

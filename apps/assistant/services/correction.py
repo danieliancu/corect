@@ -21,9 +21,9 @@ def same_words(first: str, second: str) -> bool:
 
 def validate_text(text: str) -> None:
     if not isinstance(text, str) or not text.strip():
-        raise AssistantError("empty", "Write a little text first.")
+        raise AssistantError("empty", "Scrie mai întâi puțin text.")
     if len(text) > settings.ASSISTANT_MAX_CHARACTERS:
-        raise AssistantError("too_long", f"Please use {settings.ASSISTANT_MAX_CHARACTERS:,} characters or fewer.")
+        raise AssistantError("too_long", f"Folosește cel mult {settings.ASSISTANT_MAX_CHARACTERS} de caractere.")
 
 
 class CorrectionService:

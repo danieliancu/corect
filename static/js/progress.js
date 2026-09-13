@@ -18,6 +18,9 @@
     ink: token("--chart-ink"),
     border: token("--chart-border"),
   };
+  // Romanian plural: 1 greșeală, 2–19 greșeli, 20 de greșeli.
+  const romanianMistakes = (n) =>
+    n === 1 ? "1 greșeală" : n === 0 || (n % 100 >= 1 && n % 100 <= 19) ? `${n} greșeli` : `${n} de greșeli`;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
   Chart.defaults.font.size = 12;
@@ -80,7 +83,7 @@
         callbacks: {
           title: (items) => days[items[0].dataIndex].long,
           label: (item) =>
-            `${item.parsed.y} ${item.parsed.y === 1 ? "mistake" : "mistakes"}`,
+            romanianMistakes(item.parsed.y),
         },
       },
     },

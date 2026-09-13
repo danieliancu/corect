@@ -5,8 +5,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import DatabaseError
 
-from apps.analytics.models import UsageEvent
-from apps.assistant.services.pricing import estimate_cost
+from apps.analytics.models import AudioUsageEvent, UsageEvent
+from apps.assistant.services.pricing import estimate_cost, estimate_speech_cost, estimate_transcription_cost
 from apps.assistant.services.prompts import PROMPT_VERSION
 
 logger = logging.getLogger("apps.analytics")
@@ -37,4 +37,32 @@ def record_usage_event(*, request, kind, status, calls=(), error_code="", visito
             estimated_cost=cost, assistant_request=assistant_request, **tokens)
     except DatabaseError:
         logger.error("usage_event_unavailable")
+        return None
+
+
+def record_audio_event(*, request, operation, status, usage=None, error_code="", visitor=None, speech_target="",
+                       usage_event_id=None, provider_called=False):
+    """One audio ledger row per transcription or speech request: usage, cost and identity only, never content."""
+    user = request.user if request.user.is_authenticated else None
+    speech = operation == AudioUsageEvent.Operation.SPEECH
+    model = usage.model if usage else (settings.OPENAI_TTS_MODEL if speech else settings.OPENAI_TRANSCRIBE_MODEL)
+    voice = ((usage.voice if usage and usage.voice else settings.OPENAI_TTS_VOICE) if speech else "")
+    if status == AudioUsageEvent.Status.REJECTED:
+        # Rejected before any provider call, so nothing was consumed.
+        tokens, seconds, cost = dict.fromkeys(("input_tokens", "output_tokens", "total_tokens"), 0), None, Decimal(0)
+    else:
+        tokens = {field: getattr(usage, field) if usage else None
+                  for field in ("input_tokens", "output_tokens", "total_tokens")}
+        seconds = usage.audio_seconds if usage else None
+        cost = (estimate_speech_cost(usage) if speech else estimate_transcription_cost(usage)) if usage else None
+    try:
+        linked = usage_event_id if usage_event_id and UsageEvent.objects.filter(pk=usage_event_id).exists() else None
+        return AudioUsageEvent.objects.create(
+            operation=operation, audience=UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS,
+            user=user, visitor=visitor, usage_event_id=linked, speech_target=speech_target if speech else "",
+            model=model[:100], voice=voice[:40], status=status, error_code=error_code,
+            provider_calls=1 if provider_called and status != AudioUsageEvent.Status.REJECTED else 0,
+            audio_seconds=seconds, estimated_cost=cost, **tokens)
+    except DatabaseError:
+        logger.error("audio_usage_event_unavailable")
         return None

@@ -6,7 +6,7 @@ if (menu) {
     summary.setAttribute("aria-expanded", String(menu.open));
     summary.setAttribute(
       "aria-label",
-      menu.open ? "Close navigation" : "Open navigation",
+      menu.open ? "Închide meniul" : "Deschide meniul",
     );
   });
   document.addEventListener("keydown", (event) => {

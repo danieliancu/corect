@@ -6,7 +6,8 @@ from django.views.decorators.cache import never_cache
 
 
 def home_context(**kwargs):
-    return {"max_characters": settings.ASSISTANT_MAX_CHARACTERS, "submission_token": str(uuid4()), **kwargs}
+    return {"max_characters": settings.ASSISTANT_MAX_CHARACTERS, "voice_max_seconds": settings.VOICE_MAX_SECONDS,
+            "submission_token": str(uuid4()), **kwargs}
 
 
 @never_cache

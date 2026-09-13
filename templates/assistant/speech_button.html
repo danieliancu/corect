@@ -1,0 +1,1 @@
+{% if token %}<button type="button" class="speak-button" data-speech-token="{{ token }}" data-speech-url="{% url 'speech' %}" aria-label="{{ label }}" aria-pressed="false" title="{{ label }}"><span class="speak-icon" aria-hidden="true">{% include 'icons/volume.html' %}</span><span class="voice-spinner" aria-hidden="true"></span></button>{% endif %}

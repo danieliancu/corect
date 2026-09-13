@@ -1,31 +1,39 @@
-"""Staff-only usage analytics. Every figure is a database aggregate over the usage ledger."""
+"""Staff-only usage analytics. Every figure is a database aggregate over the text and audio usage ledgers."""
 from dataclasses import replace
 from datetime import timedelta
+from decimal import Decimal
+from functools import reduce
+from operator import add
 
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Max, Min, Q, Sum
-from django.db.models.functions import TruncDate, TruncMonth
+from django.db.models import (Case, Count, DecimalField, F, Max, Min, OuterRef, Q, Subquery, Sum, Value, When)
+from django.db.models.functions import Coalesce, TruncDate, TruncMonth
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
 from .identifiers import visitor_lookup
-from .models import AnonymousVisitor, UsageEvent
+from .models import AnonymousVisitor, AudioUsageEvent, UsageEvent
 
 User = get_user_model()
 PAGE_SIZE = 50
-USER_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "last_active": "last_active",
-              "joined": "date_joined", "username": "username"}
-VISITOR_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "last_seen": "last_seen_at",
-                 "first_seen": "first_seen_at", "active_days": "active_days"}
+MONEY = DecimalField(max_digits=16, decimal_places=8)
+ZERO = Value(Decimal(0), output_field=MONEY)
+USER_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "audio_cost": "audio_cost",
+              "total_cost": "total_cost", "transcriptions": "transcriptions", "speech_plays": "speech_plays",
+              "last_active": "last_active", "joined": "date_joined", "username": "username"}
+VISITOR_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "audio_cost": "audio_cost",
+                 "total_cost": "total_cost", "transcriptions": "transcriptions", "speech_plays": "speech_plays",
+                 "last_seen": "last_seen_at", "first_seen": "first_seen_at", "active_days": "active_days"}
 
 
 def usage_aggregates(prefix="", scope=None):
-    """Conditional aggregates over usage events, directly (prefix "") or through a relation ("usage_events__").
+    """Conditional aggregates over text usage events, directly (prefix "") or through a relation ("usage_events__").
 
     Aliases never reuse UsageEvent field names: Django would resolve a later filter on that name to the aggregate.
     """
@@ -48,6 +56,75 @@ def usage_aggregates(prefix="", scope=None):
         "tokens_out": total("output_tokens"), "tokens_total": total("total_tokens"), "cost": total("estimated_cost"),
         "without_tokens": count(total_tokens__isnull=True), "without_cost": count(estimated_cost__isnull=True),
     }
+
+
+def audio_aggregates(scope=None):
+    """Conditional aggregates over audio usage events, split by operation (speech to text, text to speech)."""
+    scope = scope if scope is not None else Q()
+
+    def where(**conditions):
+        return (scope & Q(**conditions)) or None
+
+    def count(**conditions):
+        return Count("id", filter=where(**conditions))
+
+    def total(field, **conditions):
+        return Sum(field, filter=where(**conditions))
+
+    stt, tts = {"operation": "transcription"}, {"operation": "speech"}
+    return {
+        "audio_calls": count(), "transcriptions": count(**stt), "speech_plays": count(**tts),
+        "speech_correction": count(speech_target="correction", **tts), "speech_native": count(speech_target="native", **tts),
+        "speech_translation": count(speech_target="translation", **tts),
+        "audio_failures": count(status="failed"), "audio_rejections": count(status="rejected"),
+        "stt_seconds": total("audio_seconds", **stt), "stt_cost": total("estimated_cost", **stt),
+        "tts_tokens_in": total("input_tokens", **tts), "tts_tokens_out": total("output_tokens", **tts),
+        "tts_cost": total("estimated_cost", **tts), "audio_cost": total("estimated_cost"),
+        "audio_without_cost": count(estimated_cost__isnull=True),
+    }
+
+
+def known_sum(*values):
+    """The sum of the known values, or None when none is known."""
+    known = [value for value in values if value is not None]
+    return sum(known, Decimal(0)) if known else None
+
+
+def cost_breakdown(text_cost, stt_cost, tts_cost):
+    """Grand total = text AI + speech to text + text to speech, with each source's share of it."""
+    audio = known_sum(stt_cost, tts_cost)
+    total = known_sum(text_cost, audio)
+
+    def share(value):
+        return rate(value, total) if value is not None and total else None
+    return {"total": total, "text": text_cost, "audio": audio, "stt": stt_cost, "tts": tts_cost,
+            "text_share": share(text_cost), "audio_share": share(audio), "stt_share": share(stt_cost),
+            "tts_share": share(tts_cost)}
+
+
+def optional_total(*fields):
+    """Database sum of annotated money fields, NULL only when every part is unknown, so rows can sort by it."""
+    return Case(When(Q(**{f"{field}__isnull": True for field in fields}), then=Value(None, output_field=MONEY)),
+                default=reduce(add, (Coalesce(F(field), ZERO) for field in fields)), output_field=MONEY)
+
+
+def audio_columns(owner_field, scope):
+    """Per-row audio figures as correlated subqueries, so they never multiply the row's text aggregates."""
+    rows = AudioUsageEvent.objects.filter(scope, **{owner_field: OuterRef("pk")}).order_by().values(owner_field)
+
+    def subquery(expression, **conditions):
+        return Subquery(rows.filter(**conditions).annotate(value=expression).values("value")[:1])
+    return {
+        "transcriptions": Coalesce(subquery(Count("id"), operation="transcription"), 0),
+        "speech_plays": Coalesce(subquery(Count("id"), operation="speech"), 0),
+        "stt_cost": subquery(Sum("estimated_cost"), operation="transcription"),
+        "tts_cost": subquery(Sum("estimated_cost"), operation="speech"),
+    }
+
+
+def with_costs(queryset):
+    return queryset.annotate(audio_cost=optional_total("stt_cost", "tts_cost")) \
+        .annotate(total_cost=optional_total("cost", "stt_cost", "tts_cost"))
 
 
 def windows():
@@ -83,8 +160,22 @@ def breakdowns(events):
     }
 
 
+def audio_breakdowns(audio):
+    totals = audio.aggregate(**audio_aggregates())
+    return {
+        "audio_totals": totals,
+        "audio_errors": audio.exclude(status="success").values("operation", "status", "error_code")
+        .annotate(total=Count("id")).order_by("-total", "error_code"),
+        "audio_by_model": audio.values("operation", "model", "voice").annotate(
+            calls=Count("id"), seconds=Sum("audio_seconds"), tokens_in=Sum("input_tokens"),
+            tokens_out=Sum("output_tokens"), spend=Sum("estimated_cost")).order_by("operation", "-calls", "model"),
+    }
+
+
 def model_choices():
-    return list(UsageEvent.objects.exclude(model="").order_by("model").values_list("model", flat=True).distinct())
+    text = UsageEvent.objects.exclude(model="").values_list("model", flat=True).distinct()
+    audio = AudioUsageEvent.objects.exclude(model="").values_list("model", flat=True).distinct()
+    return sorted(set(text) | set(audio))
 
 
 def ordered(queryset, field, descending=True):
@@ -92,7 +183,10 @@ def ordered(queryset, field, descending=True):
 
 
 def render_report(request, template, title, section, context):
-    return render(request, template, {**admin.site.each_context(request), "title": title, "section": section, **context})
+    ai_models = {"text": settings.OPENAI_MODEL, "stt": settings.OPENAI_TRANSCRIBE_MODEL,
+                 "tts": settings.OPENAI_TTS_MODEL, "voice": settings.OPENAI_TTS_VOICE}
+    return render(request, template, {**admin.site.each_context(request), "title": title, "section": section,
+                                      "ai_models": ai_models, **context})
 
 
 def filter_context(filters, models, **extra):
@@ -107,6 +201,7 @@ def dashboard(request):
     start = filters.start
     events = UsageEvent.objects.filter(filters.events_q())
     totals = events.aggregate(**usage_aggregates())
+    audio = audio_breakdowns(AudioUsageEvent.objects.filter(filters.audio_q()))
     recent = UsageEvent.objects.filter(filters.events_q(include_period=False))
     users = User.objects.aggregate(total=Count("id"),
                                    new=Count("id", filter=Q(date_joined__gte=start) if start else None))
@@ -116,16 +211,19 @@ def dashboard(request):
     visitors["all_time"] = AnonymousVisitor.objects.count()
     visitors["active"] = (events.filter(audience="anonymous", visitor__isnull=False)
                           .values("visitor").distinct().count())
-    top_users = [] if filters.audience == "anonymous" else ordered(
-        User.objects.annotate(**usage_aggregates("usage_events__", replace(filters, audience="registered")
-                                                 .events_q("usage_events__"))).filter(requests__gt=0), "requests")[:10]
-    top_visitors = [] if filters.audience == "registered" else ordered(
-        AnonymousVisitor.objects.select_related("converted_user").annotate(**usage_aggregates(
-            "usage_events__", replace(filters, audience="anonymous").events_q("usage_events__")))
-        .filter(requests__gt=0), "requests")[:10]
+    registered, anonymous = replace(filters, audience="registered"), replace(filters, audience="anonymous")
+    top_users = [] if filters.audience == "anonymous" else ordered(with_costs(
+        User.objects.annotate(**usage_aggregates("usage_events__", registered.events_q("usage_events__")),
+                              **audio_columns("user", registered.audio_q()))).filter(requests__gt=0), "requests")[:10]
+    top_visitors = [] if filters.audience == "registered" else ordered(with_costs(
+        AnonymousVisitor.objects.select_related("converted_user").annotate(
+            **usage_aggregates("usage_events__", anonymous.events_q("usage_events__")),
+            **audio_columns("visitor", anonymous.audio_q()))).filter(requests__gt=0), "requests")[:10]
     return render_report(request, "analytics/dashboard.html", "Usage analytics", "dashboard", {
-        **filter_context(filters, models), **breakdowns(events), "totals": totals, "windows": recent.aggregate(**windows()),
-        "users": users, "visitors": visitors, "top_users": top_users, "top_visitors": top_visitors,
+        **filter_context(filters, models), **breakdowns(events), **audio, "totals": totals,
+        "costs": cost_breakdown(totals["cost"], audio["audio_totals"]["stt_cost"], audio["audio_totals"]["tts_cost"]),
+        "windows": recent.aggregate(**windows()), "users": users, "visitors": visitors,
+        "top_users": top_users, "top_visitors": top_visitors,
         "success_rate": rate(totals["successes"], totals["successes"] + totals["failures"]),
         "signup_rate": rate(visitors["signed_up"], visitors["total"]),
         "series": activity_series(recent, start)})
@@ -137,8 +235,9 @@ def users_report(request):
     filters = replace(ReportFilters.from_request(request, models), audience="registered")
     query = request.GET.get("q", "").strip()
     sort = request.GET.get("sort") if request.GET.get("sort") in USER_SORTS else "requests"
-    users = User.objects.annotate(**usage_aggregates("usage_events__", filters.events_q("usage_events__")),
-                                  last_active=Max("usage_events__created_at"))
+    users = with_costs(User.objects.annotate(**usage_aggregates("usage_events__", filters.events_q("usage_events__")),
+                                             **audio_columns("user", filters.audio_q()),
+                                             last_active=Max("usage_events__created_at")))
     if query:
         users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
     users = ordered(users, USER_SORTS[sort], descending=sort != "username")
@@ -152,8 +251,10 @@ def user_detail(request, pk):
     member = get_object_or_404(User, pk=pk)
     events = UsageEvent.objects.filter(user=member)
     summary = events.aggregate(**usage_aggregates(), **windows(), last_active=Max("created_at"))
+    audio = audio_breakdowns(AudioUsageEvent.objects.filter(user=member))
     return render_report(request, "analytics/user_detail.html", f"Usage: {member.get_username()}", "users", {
-        **breakdowns(events), "member": member, "summary": summary,
+        **breakdowns(events), **audio, "member": member, "summary": summary,
+        "costs": cost_breakdown(summary["cost"], audio["audio_totals"]["stt_cost"], audio["audio_totals"]["tts_cost"]),
         "success_rate": rate(summary["successes"], summary["successes"] + summary["failures"]),
         "visitors": member.converted_visitors.order_by("converted_at"),
         "series": activity_series(events, day_start(29))})
@@ -167,10 +268,10 @@ def visitors_report(request):
     query = request.GET.get("q", "").strip()
     converted = request.GET.get("converted") if request.GET.get("converted") in ("yes", "no") else ""
     sort = request.GET.get("sort") if request.GET.get("sort") in VISITOR_SORTS else "requests"
-    visitors = (AnonymousVisitor.objects.select_related("converted_user")
-                .annotate(**usage_aggregates("usage_events__", scope),
-                          active_days=Count(TruncDate("usage_events__created_at"), distinct=True, filter=scope))
-                .filter(requests__gt=0))
+    visitors = (with_costs(AnonymousVisitor.objects.select_related("converted_user").annotate(
+        **usage_aggregates("usage_events__", scope), **audio_columns("visitor", filters.audio_q()),
+        active_days=Count(TruncDate("usage_events__created_at"), distinct=True, filter=scope)))
+        .filter(Q(requests__gt=0) | Q(transcriptions__gt=0) | Q(speech_plays__gt=0)))
     if converted:
         visitors = visitors.filter(converted_user__isnull=converted == "no")
     if query:
@@ -190,11 +291,13 @@ def visitor_detail(request, pk):
     summary = events.aggregate(**usage_aggregates(), active_days=Count(TruncDate("created_at"), distinct=True),
                                first_request=Min("created_at"), last_request=Max("created_at"),
                                before_conversion=Count("id", filter=before))
+    audio = audio_breakdowns(AudioUsageEvent.objects.filter(visitor=visitor, audience="anonymous"))
     after = None
     if visitor.converted_user_id and visitor.converted_at:
         after = UsageEvent.objects.filter(user_id=visitor.converted_user_id, created_at__gte=visitor.converted_at) \
             .aggregate(**usage_aggregates())
     return render_report(request, "analytics/visitor_detail.html", f"Usage: {visitor.short_id}", "visitors", {
-        **breakdowns(events), "visitor": visitor, "summary": summary, "after": after,
+        **breakdowns(events), **audio, "visitor": visitor, "summary": summary, "after": after,
+        "costs": cost_breakdown(summary["cost"], audio["audio_totals"]["stt_cost"], audio["audio_totals"]["tts_cost"]),
         "success_rate": rate(summary["successes"], summary["successes"] + summary["failures"]),
         "series": activity_series(events, day_start(29))})

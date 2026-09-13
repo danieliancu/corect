@@ -1,31 +1,32 @@
 {% extends 'base.html' %}{% load static %}
 {% block body_class %}home-page{% endblock %}
-{% block scripts %}<script src="{% static 'js/assistant.js' %}" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'js/assistant.js' %}" defer></script><script src="{% static 'js/voice.js' %}" defer></script>{% endblock %}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
-  <h1 id="hero-title">Write. Learn. Speak with confidence.</h1>
-  <p>Get instant corrections, clear explanations, and support to become<br class="desktop-break"> a better English speaker.</p>
+  <h1 id="hero-title">Scrie. Învață. Vorbește cu încredere.</h1>
+  <p>Primești corecturi pe loc, explicații clare și sprijin ca să vorbești<br class="desktop-break"> tot mai bine engleza.</p>
 </section>
 <div class="workspace">
   <section class="editor-card card" aria-labelledby="editor-label">
     <form id="assistant-form" method="post" action="{% url 'correct' %}#result" hx-sync="this:drop">
       {% csrf_token %}<input type="hidden" name="submission_token" id="submission-token" value="{{ submission_token }}">
-      <div class="editor-heading"><label id="editor-label" for="text">Write your English here</label><span class="desktop-count" aria-hidden="true"><span data-count>{{ input_text|length }}</span>/{{ max_characters }}</span></div>
-      <div class="textarea-wrap"><textarea id="text" name="text" maxlength="{{ max_characters }}" required placeholder="Alege Correct pentru corectare sau Translate pentru traducere din engleză sau română." aria-describedby="editor-help character-count" spellcheck="false">{{ input_text }}</textarea><span class="mobile-count" id="character-count"><span data-count>{{ input_text|length }}</span>/{{ max_characters }}</span></div>
+      <div class="editor-heading"><label id="editor-label" for="text">Scrie textul tău aici</label><span class="desktop-count" aria-hidden="true"><span data-count>{{ input_text|length }}</span>/{{ max_characters }}</span></div>
+      <div class="textarea-wrap"><textarea id="text" name="text" maxlength="{{ max_characters }}" required placeholder="Alege Corectare pentru engleză sau Traducere (din engleză sau română)." aria-describedby="editor-help character-count" spellcheck="false">{{ input_text }}</textarea><span class="mobile-count" id="character-count"><span data-count>{{ input_text|length }}</span>/{{ max_characters }}</span><button type="button" class="mic-button" data-voice-record data-transcribe-url="{% url 'transcribe' %}" data-max-seconds="{{ voice_max_seconds }}" aria-label="Înregistrează-ți vocea" aria-pressed="false" hidden><span class="mic-icon" aria-hidden="true">{% include 'icons/microphone.html' %}</span><span class="voice-spinner" aria-hidden="true"></span></button></div>
+      <p id="voice-status" class="voice-status" role="status" aria-live="polite"></p>
       <div class="action-buttons">
-        <button type="submit" class="button correct-button" formaction="{% url 'correct' %}#result" hx-post="{% url 'correct' %}" hx-target="#result" hx-swap="innerHTML" data-loading="Correcting…"><span class="action-icon" aria-hidden="true">✦</span><span class="button-label">Correct</span></button>
-        <button type="submit" class="button secondary" formaction="{% url 'translate' %}" hx-post="{% url 'translate' %}" hx-target="#result" hx-swap="innerHTML" data-loading="Translating…"><span class="translate-icon" aria-hidden="true">文<span>A</span></span><span class="button-label">Translate</span></button>
+        <button type="submit" class="button correct-button" formaction="{% url 'correct' %}#result" hx-post="{% url 'correct' %}" hx-target="#result" hx-swap="innerHTML" data-loading="Corectăm…"><span class="action-icon" aria-hidden="true">✦</span><span class="button-label">Corectare</span></button>
+        <button type="submit" class="button secondary" formaction="{% url 'translate' %}" hx-post="{% url 'translate' %}" hx-target="#result" hx-swap="innerHTML" data-loading="Traducem…"><span class="translate-icon" aria-hidden="true">文<span>A</span></span><span class="button-label">Traducere</span></button>
       </div>
-      <p class="editor-help" id="editor-help"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span>Write a sentence, paragraph, or even a whole message. We'll help you make it better.</p>
+      <p class="editor-help" id="editor-help"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span>Scrie o propoziție, un paragraf sau chiar un mesaj întreg. Te ajutăm să-l faci mai bun.</p>
       <p id="request-status" class="request-status" role="status" aria-live="polite"></p>
     </form>
   </section>
-  <section class="result-card card{% if kind == 'correction' %} is-correction-active{% endif %}" id="result" tabindex="-1" aria-live="polite" aria-atomic="true" aria-label="Your result">{% include 'assistant/result.html' %}</section>
+  <section class="result-card card{% if kind == 'correction' %} is-correction-active{% endif %}" id="result" tabindex="-1" aria-live="polite" aria-atomic="true" aria-label="Rezultatul tău">{% include 'assistant/result.html' %}</section>
   {% include 'assistant/result_actions.html' %}
 </div>
-<section class="benefits" aria-label="How Corect.uk helps">
-  <div><span class="round-icon" aria-hidden="true">{% include 'icons/chat.html' %}</span><p><strong>Instant feedback</strong><span>Clear, easy-to-understand corrections</span></p></div>
-  <div><span class="round-icon" aria-hidden="true">{% include 'icons/book.html' %}</span><p><strong>Learn as you go</strong><span>Simple explanations that stick</span></p></div>
-  <div><span class="round-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span><p><strong>Make real progress</strong><span>Build confidence every day</span></p></div>
+<section class="benefits" aria-label="Cum te ajută Corect.uk">
+  <div><span class="round-icon" aria-hidden="true">{% include 'icons/chat.html' %}</span><p><strong>Răspuns imediat</strong><span>Corecturi clare, ușor de înțeles</span></p></div>
+  <div><span class="round-icon" aria-hidden="true">{% include 'icons/book.html' %}</span><p><strong>Înveți din mers</strong><span>Explicații simple, care rămân</span></p></div>
+  <div><span class="round-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span><p><strong>Progres real</strong><span>Mai multă încredere în fiecare zi</span></p></div>
 </section>
 {% endblock %}

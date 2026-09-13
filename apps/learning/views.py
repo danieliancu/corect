@@ -90,12 +90,12 @@ def practice(request):
         # Links from a mistake category open that category's exercise.
         position = next((i for i, index in enumerate(ordered) if QUESTIONS[index][0] == request.GET["category"]), position)
     category, question, options, answer, explanation = QUESTIONS[ordered[position]]
-    context = {"category": category.replace("_", " "), "question": question, "options": options,
+    context = {"category": category, "question": question, "options": options,
         "position": position, "next": (position + 1) % len(ordered), "personalised": category in ranked}
     if request.method == "POST":
         choice = request.POST.get("answer")
         if choice not in {str(i) for i in range(len(options))}:
-            context["error"] = "Choose an answer first."
+            context["error"] = "Alege mai întâi un răspuns."
         else:
             context.update(checked=True, correct=int(choice) == answer, explanation=explanation, answer=options[answer])
     return render(request, "learning/practice.html", context)

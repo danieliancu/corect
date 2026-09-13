@@ -32,7 +32,7 @@
     const loading = document.createElement("div");
     loading.className = "result-loading";
     const heading = document.createElement("h2");
-    heading.textContent = correcting ? "Correction" : "Translation";
+    heading.textContent = correcting ? "Corectură" : "Traducere";
     const spinner = document.createElement("span");
     spinner.className = "result-spinner";
     spinner.setAttribute("aria-hidden", "true");
@@ -85,7 +85,7 @@
     if (active.dataset.loading)
       active.querySelector(".button-label").textContent =
         active.dataset.loading;
-    status.textContent = active.dataset.loading || "Working…";
+    status.textContent = active.dataset.loading || "Se lucrează…";
     result.setAttribute("aria-busy", "true");
     const actions = document.getElementById("result-actions");
     if (actions) actions.hidden = true;
@@ -102,7 +102,7 @@
     if (form.contains(event.detail.elt)) {
       restore();
       if (!event.detail.successful && !result.querySelector('[role="alert"]'))
-        showConnectionError("Something went wrong. Please try again.");
+        showConnectionError("Ceva nu a mers. Încearcă din nou.");
     }
   });
   ["htmx:sendError", "htmx:timeout"].forEach((name) =>
@@ -110,7 +110,7 @@
       if (form.contains(event.detail.elt)) {
         restore();
         status.textContent =
-          "Connection interrupted. Check your connection and try again.";
+          "Conexiunea s-a întrerupt. Verifică internetul și încearcă din nou.";
         showConnectionError(status.textContent);
       }
     }),
@@ -123,7 +123,7 @@
       return;
     }
     busy = true;
-    status.textContent = event.submitter?.dataset.loading || "Working…";
+    status.textContent = event.submitter?.dataset.loading || "Se lucrează…";
     setTimeout(() => buttons.forEach((button) => (button.disabled = true)), 0);
   });
   window.addEventListener("pageshow", restore);

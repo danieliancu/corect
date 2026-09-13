@@ -1,54 +1,54 @@
 {% load static %}<!doctype html>
-<html lang="en-GB">
+<html lang="ro">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}corect.uk — Correct &amp; Translate English{% endblock %}</title>
-  <meta name="description" content="Write with confidence. Correct your British English, understand mistakes in Romanian, and translate naturally between English and Romanian.">
+  <title>{% block title %}corect.uk — Corectare și traducere în engleză{% endblock %}</title>
+  <meta name="description" content="Scrie cu încredere. Corectează-ți engleza britanică, înțelege greșelile în română și tradu natural între engleză și română.">
   <meta property="og:title" content="corect.uk — Vorbești corect.">
-  <meta property="og:description" content="Your simple British English assistant, with clear explanations in Romanian.">
+  <meta property="og:description" content="Asistentul tău simplu pentru engleza britanică, cu explicații clare în română.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#287dff">
   <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/voice.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/navigation.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">Sari la conținut</a>
 <div class="site-shell">
   <header class="site-header">
-    <a class="brand" href="{% url 'home' %}" aria-label="Corect.uk home">
+    <a class="brand" href="{% url 'home' %}" aria-label="Corect.uk — pagina principală">
       <img src="{% static 'img/logo.svg' %}" alt="" width="58" height="58">
       <span class="brand-copy"><strong>corect.uk</strong><span class="tagline" lang="ro"><span class="sr-only">Acum ești sigur.</span><span class="tagline-letters" aria-hidden="true"><span>A</span><span>c</span><span>u</span><span>m</span><span>&nbsp;</span><span>e</span><span>ș</span><span>t</span><span>i</span><span>&nbsp;</span><span>s</span><span>i</span><span>g</span><span>u</span><span>r</span><span>.</span></span></span></span>
     </a>
-    <nav class="desktop-nav" aria-label="Main navigation">
-      <a href="{% url 'history' %}">History</a><a href="{% url 'mistakes' %}">My mistakes</a><a href="{% url 'practice' %}">Practice</a><a href="{% url 'progress' %}">Progress</a><a href="{% url 'settings' %}">Settings</a>
-      {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-text-button" type="submit">Sign out</button></form><a class="button small secondary" href="{% url 'profile' %}">Profile</a>
-      {% else %}<a href="{% url 'signup' %}">Create account</a><a href="{% url 'login' %}">Sign in</a>{% endif %}
+    <nav class="desktop-nav" aria-label="Navigare principală">
+      <a href="{% url 'history' %}">Istoric</a><a href="{% url 'mistakes' %}">Greșelile mele</a><a href="{% url 'progress' %}">Progres</a><a href="{% url 'practice' %}">Exersează</a><a href="{% url 'settings' %}">Setări</a>
+      {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-text-button" type="submit">Deconectare</button></form>
+      {% else %}<a href="{% url 'signup' %}">Creează cont</a><a href="{% url 'login' %}">Autentificare</a>{% endif %}
     </nav>
-    {% if user.is_authenticated %}<a class="user-link is-signed-in" href="{% url 'profile' %}" aria-label="Profile for {{ user.get_username }}" title="Profile"><span class="user-initial" aria-hidden="true">{{ user.get_username|first|upper }}</span></a>
-    {% else %}<a class="user-link" href="{% url 'login' %}" aria-label="Sign in" title="Sign in"><span aria-hidden="true">{% include 'icons/user.html' %}</span></a>{% endif %}
+    {% if user.is_authenticated %}<a class="user-link is-signed-in" href="{% url 'profile' %}" aria-label="Profil: {{ user.get_username }}" title="Profil"><span class="user-initial" aria-hidden="true">{{ user.get_username|first|upper }}</span></a>
+    {% else %}<a class="user-link" href="{% url 'login' %}" aria-label="Autentificare" title="Autentificare"><span aria-hidden="true">{% include 'icons/user.html' %}</span></a>{% endif %}
     <details class="nav-menu" id="navigation-menu">
-      <summary aria-label="Open navigation"><span class="menu-lines" aria-hidden="true"></span></summary>
-      <nav aria-label="All pages">
-        <a href="{% url 'home' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/home.html' %}</span>Home</a>
-        <a href="{% url 'history' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/clock.html' %}</span>History</a>
-        <a href="{% url 'mistakes' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/circle-x.html' %}</span>My mistakes</a>
-        <a href="{% url 'practice' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/target.html' %}</span>Practice</a>
-        <a href="{% url 'progress' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>Progress</a>
-        <a href="{% url 'settings' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/gear.html' %}</span>Settings</a>
+      <summary aria-label="Deschide meniul"><span class="menu-lines" aria-hidden="true"></span></summary>
+      <nav aria-label="Toate paginile">
+        <a href="{% url 'home' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/home.html' %}</span>Acasă</a>
+        <a href="{% url 'history' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/clock.html' %}</span>Istoric</a>
+        <a href="{% url 'mistakes' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/circle-x.html' %}</span>Greșelile mele</a>
+        <a href="{% url 'progress' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>Progres</a>
+        <a href="{% url 'practice' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/target.html' %}</span>Exersează</a>
+        <a href="{% url 'settings' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/gear.html' %}</span>Setări</a>
         <hr>
-        {% if user.is_authenticated %}<a href="{% url 'profile' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/user.html' %}</span>Profile</a>
-        <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-logout" type="submit"><span class="nav-icon" aria-hidden="true">{% include 'icons/logout.html' %}</span>Sign out</button></form>
-        {% else %}<a href="{% url 'login' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/login.html' %}</span>Sign in</a>
-        <a href="{% url 'signup' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/user-plus.html' %}</span>Create account</a>{% endif %}
+        {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-logout" type="submit"><span class="nav-icon" aria-hidden="true">{% include 'icons/logout.html' %}</span>Deconectare</button></form>
+        {% else %}<a href="{% url 'login' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/login.html' %}</span>Autentificare</a>
+        <a href="{% url 'signup' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/user-plus.html' %}</span>Creează cont</a>{% endif %}
       </nav>
     </details>
   </header>
   <main id="main">{% if messages %}<div class="messages">{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>
-  <footer class="site-footer"><span lang="ro">Vorbești corect.</span><a href="{% url 'settings' %}">British English · Romanian explanations</a></footer>
+  <footer class="site-footer"><span lang="ro">Vorbești corect.</span><a href="{% url 'settings' %}">Engleză britanică · explicații în română</a></footer>
 </div>
 </body>
 </html>

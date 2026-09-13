@@ -4,7 +4,19 @@ from difflib import SequenceMatcher
 
 from django import template
 
+from apps.assistant.services.voice import make_speech_token
+
 register = template.Library()
+SPEECH_LABELS = {"correction": "Ascultă corectura în engleză britanică",
+                 "native": "Ascultă versiunea nativă în engleză britanică",
+                 "translation": "Ascultă traducerea în engleză britanică"}
+
+
+@register.inclusion_tag("assistant/speech_button.html", takes_context=True)
+def speech_button(context, text, target):
+    """A speaker button carrying a signed token for this exact sentence. No audio is generated until it is pressed."""
+    return {"token": make_speech_token(text, target, context.get("usage_event_id")) if text else "",
+            "label": SPEECH_LABELS[target]}
 
 
 def _segments(text, changed_ranges, snippets):

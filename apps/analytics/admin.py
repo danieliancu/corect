@@ -4,7 +4,7 @@ from django.utils.html import format_html
 
 from .formatting import format_money
 from .identifiers import visitor_lookup
-from .models import AnonymousVisitor, UsageEvent
+from .models import AnonymousVisitor, AudioUsageEvent, UsageEvent
 
 
 class LedgerAdmin(admin.ModelAdmin):
@@ -20,11 +20,9 @@ class LedgerAdmin(admin.ModelAdmin):
         return request.user.is_superuser
 
 
-@admin.register(UsageEvent)
-class UsageEventAdmin(LedgerAdmin):
-    list_display = ["created_at", "identity", "request_type", "auto_translated", "status", "error_code", "model",
-                    "input_tokens", "output_tokens", "total_tokens", "cost"]
-    list_filter = ["audience", "request_type", "status", "model", "auto_translated", "is_backfilled", "created_at"]
+class LedgerIdentityMixin:
+    """Shows who a ledger row belongs to and lets staff search by username, email or visitor ID."""
+
     search_fields = ["user__username", "user__email", "error_code"]
     search_help_text = "Username, email, error code, visitor UUID or anon-xxxxxx"
     date_hierarchy = "created_at"
@@ -47,7 +45,25 @@ class UsageEventAdmin(LedgerAdmin):
             return obj.visitor.short_id
         return "deleted user" if obj.audience == UsageEvent.Audience.REGISTERED else "—"
 
-    @admin.display(description="Estimated cost", ordering="estimated_cost")
+
+@admin.register(UsageEvent)
+class UsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
+    list_display = ["created_at", "identity", "request_type", "auto_translated", "status", "error_code", "model",
+                    "input_tokens", "output_tokens", "total_tokens", "cost"]
+    list_filter = ["audience", "request_type", "status", "model", "auto_translated", "is_backfilled", "created_at"]
+
+    @admin.display(description="Text AI cost", ordering="estimated_cost")
+    def cost(self, obj):
+        return format_money(obj.estimated_cost)
+
+
+@admin.register(AudioUsageEvent)
+class AudioUsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
+    list_display = ["id", "created_at", "operation", "audience", "identity", "speech_target", "model", "voice", "status",
+                    "error_code", "audio_seconds", "input_tokens", "output_tokens", "cost"]
+    list_filter = ["operation", "audience", "model", "voice", "status", "speech_target", "created_at"]
+
+    @admin.display(description="Audio AI cost", ordering="estimated_cost")
     def cost(self, obj):
         return format_money(obj.estimated_cost)
 

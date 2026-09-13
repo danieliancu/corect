@@ -5,7 +5,7 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
-from apps.assistant.services.pricing import parse_pricing
+from apps.assistant.services.pricing import parse_audio_pricing, parse_pricing
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -22,7 +22,8 @@ INSTALLED_APPS = [
     "apps.core", "apps.accounts", "apps.assistant", "apps.learning", "apps.analytics",
 ]
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.middleware.security.SecurityMiddleware", "apps.core.middleware.AdminEnglishMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -38,7 +39,7 @@ DATABASES = {"default": {"ENGINE": "django.db.backends.postgresql", "NAME": os.g
     "HOST": os.getenv("DATABASE_HOST", "127.0.0.1"), "PORT": os.getenv("DATABASE_PORT", "5434"), "CONN_MAX_AGE": 60}}
 AUTH_PASSWORD_VALIDATORS = [{"NAME": f"django.contrib.auth.password_validation.{name}"} for name in
     ("UserAttributeSimilarityValidator", "MinimumLengthValidator", "CommonPasswordValidator", "NumericPasswordValidator")]
-LANGUAGE_CODE = "en-gb"
+LANGUAGE_CODE = "ro"  # The public site is Romanian; AdminEnglishMiddleware keeps /admin/ in English.
 TIME_ZONE = "Europe/London"
 USE_I18N = True
 USE_TZ = True
@@ -65,6 +66,35 @@ except ValueError as exc:
     raise ImproperlyConfigured(f"OPENAI_PRICING is invalid: {exc}") from None
 # First-party random visitor ID cookie for anonymous usage analytics; never an IP address or submitted text.
 ANALYTICS_VISITOR_COOKIE = os.getenv("ANALYTICS_VISITOR_COOKIE", "true").lower() == "true"
+# Voice: a finished recording is transcribed server-side; British English speech is generated only on request.
+OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-transcribe")
+OPENAI_TTS_MODEL = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+OPENAI_TTS_VOICE = os.getenv("OPENAI_TTS_VOICE", "cedar")
+try:
+    OPENAI_TTS_SPEED = float(os.getenv("OPENAI_TTS_SPEED", "1.0"))
+except ValueError:
+    OPENAI_TTS_SPEED = -1.0
+if not 0.25 <= OPENAI_TTS_SPEED <= 4.0:
+    raise ImproperlyConfigured("OPENAI_TTS_SPEED must be a number from 0.25 to 4.0.")
+# USD, OpenAI standard tier, from https://developers.openai.com/api/docs/pricing (checked 13 September 2026):
+# gpt-transcribe per audio minute; gpt-4o-mini-tts per 1M text input tokens and 1M audio output tokens.
+# OPENAI_AUDIO_PRICING (JSON) replaces this table; "{}" leaves audio costs unknown while usage is still recorded.
+DEFAULT_OPENAI_AUDIO_PRICING = {"gpt-transcribe": {"per_minute": "0.0045"},
+                                "gpt-4o-mini-tts": {"input_per_1m": "0.60", "output_per_1m": "12.00"}}
+try:
+    OPENAI_AUDIO_PRICING = parse_audio_pricing(json.loads(os.environ["OPENAI_AUDIO_PRICING"])
+                                               if os.getenv("OPENAI_AUDIO_PRICING") else DEFAULT_OPENAI_AUDIO_PRICING)
+except ValueError as exc:
+    raise ImproperlyConfigured(f"OPENAI_AUDIO_PRICING is invalid: {exc}") from None
+VOICE_MAX_SECONDS = int(os.getenv("VOICE_MAX_SECONDS", "60"))
+VOICE_MAX_BYTES = int(os.getenv("VOICE_MAX_BYTES", "5000000"))
+VOICE_TRANSCRIBE_LANGUAGES = [code.strip() for code in os.getenv("VOICE_TRANSCRIBE_LANGUAGES", "en,ro").split(",")
+                              if code.strip()]
+VOICE_TRANSCRIBE_LIMIT_MINUTE = int(os.getenv("VOICE_TRANSCRIBE_LIMIT_MINUTE", "5"))
+VOICE_TRANSCRIBE_LIMIT_DAY = int(os.getenv("VOICE_TRANSCRIBE_LIMIT_DAY", "50"))
+VOICE_TTS_LIMIT_MINUTE = int(os.getenv("VOICE_TTS_LIMIT_MINUTE", "10"))
+VOICE_TTS_LIMIT_DAY = int(os.getenv("VOICE_TTS_LIMIT_DAY", "100"))
+VOICE_SPEECH_TOKEN_MAX_AGE = int(os.getenv("VOICE_SPEECH_TOKEN_MAX_AGE", "2700"))
 ASSISTANT_MAX_CHARACTERS = int(os.getenv("ASSISTANT_MAX_CHARACTERS", "2000"))
 RATE_LIMIT_MINUTE = int(os.getenv("RATE_LIMIT_MINUTE", "10"))
 RATE_LIMIT_DAY = int(os.getenv("RATE_LIMIT_DAY", "100"))

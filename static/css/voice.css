@@ -1,0 +1,157 @@
+/* Voice input (microphone inside the text box) and British voice output (speaker buttons). */
+.textarea-wrap textarea {
+  padding-bottom: 60px;
+}
+.mic-button,
+.speak-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mic-button[hidden] {
+  display: none;
+}
+.mic-button {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: #eaf2ff;
+  color: var(--blue-dark);
+}
+.mic-button:hover {
+  background: #d8e9ff;
+}
+.editor-card .mic-button:focus-visible {
+  outline: 3px solid #075cc9;
+  outline-offset: 2px;
+}
+.mic-button svg,
+.speak-button svg {
+  width: 22px;
+  height: 22px;
+}
+.mic-button.is-recording {
+  background: #e63748;
+  color: #fff;
+}
+.mic-button.is-recording::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: mic-pulse 1.4s ease-out infinite;
+}
+.mic-button:disabled {
+  cursor: wait;
+  opacity: 1;
+}
+.voice-spinner {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: voice-spin 0.8s linear infinite;
+}
+.is-busy .mic-icon,
+.is-busy .speak-icon {
+  display: none;
+}
+.is-busy .voice-spinner {
+  display: block;
+}
+.voice-status {
+  margin: 8px 2px 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.voice-status:empty {
+  display: none;
+}
+.editor-card .voice-status {
+  color: #eef4ff;
+}
+.editor-card .voice-status.is-error {
+  color: #fff;
+  font-weight: 600;
+}
+.spoken-sentence {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.spoken-sentence > p {
+  flex: 1;
+  min-width: 0;
+}
+.speak-button {
+  margin-top: -2px;
+  background: #e4efff;
+  color: var(--blue-dark);
+}
+.speak-button:hover {
+  background: #d3e5ff;
+}
+.speak-button:focus-visible {
+  outline: 3px solid #075cc9;
+  outline-offset: 2px;
+}
+.speak-button.is-playing {
+  background: var(--blue);
+  color: #fff;
+}
+.native-version .spoken-sentence {
+  align-items: center;
+}
+.native-version .speak-button {
+  margin-top: 0;
+  background: #e2d9ff;
+  color: #5b3fc4;
+}
+.native-version .speak-button.is-playing {
+  background: #6a4ee0;
+  color: #fff;
+}
+@keyframes mic-pulse {
+  from {
+    box-shadow: 0 0 0 0 #e6374866;
+  }
+  to {
+    box-shadow: 0 0 0 12px #e6374800;
+  }
+}
+@keyframes voice-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-button.is-recording::after,
+  .voice-spinner {
+    animation: none;
+  }
+}
+@media (max-width: 1023px) {
+  /* The character counter moves left of the microphone. */
+  .textarea-wrap .mobile-count {
+    right: 60px;
+  }
+}
+@media (max-width: 600px) {
+  .textarea-wrap .mobile-count {
+    right: 58px;
+  }
+  .mic-button {
+    right: 6px;
+    bottom: 6px;
+  }
+}

@@ -103,7 +103,7 @@ class VisitorPrivacyTests(TestCase):
         self.assertNotIn(VISITOR_COOKIE, response.cookies)
         self.assertFalse(AnonymousVisitor.objects.exists())
         self.assertIsNone(UsageEvent.objects.get().visitor)
-        self.assertContains(self.client.get("/settings/"), "<strong>Usage analytics</strong><span>Off</span>", html=False)
+        self.assertContains(self.client.get("/settings/"), "<strong>Statistici de utilizare</strong><span>Dezactivat</span>", html=False)
 
     def test_settings_page_discloses_the_visitor_cookie(self):
-        self.assertContains(self.client.get("/settings/"), "A random visitor ID cookie counts your requests, never your text")
+        self.assertContains(self.client.get("/settings/"), "Un cookie cu un ID aleator de vizitator îți numără cererile, niciodată textul")

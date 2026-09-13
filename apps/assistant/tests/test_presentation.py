@@ -53,8 +53,12 @@ class CorrectionPresentationTests(SimpleTestCase):
                 html = render(result=result, kind="correction", user=user)
                 self.assertNotIn(" hidden", html.split(">", 1)[0])
                 self.assertIn('href="/" data-new-correction', html)
-                self.assertEqual("Sign in / Create account" in html, sign_in)
-        for context in ({}, {"result": result, "kind": "translation"}, {"result": result, "kind": "correction", "error": "Oops"}):
+                self.assertEqual("Autentificare / Creează cont" in html, sign_in)
+        translation = render(result=result, kind="translation", user=SimpleNamespace(is_authenticated=True))
+        self.assertNotIn(" hidden", translation.split(">", 1)[0])
+        self.assertIn('href="/" data-new-correction', translation)
+        for context in ({}, {"result": result, "kind": "correction", "error": "Oops"},
+                        {"result": result, "kind": "translation", "error": "Oops"}):
             html = render(**context)
             self.assertIn(" hidden", html.split(">", 1)[0])
             self.assertNotIn("data-new-correction", html)
@@ -80,4 +84,4 @@ class CorrectionPresentationTests(SimpleTestCase):
         self.assertIn("Textul tău este corect", html)
         html = render_to_string("assistant/result.html", {"result": {"translated_text": "Hello", "target_language": "en"}, "kind": "translation"})
         self.assertNotIn('class="correction-comparison"', html)
-        self.assertIn("Translation", html)
+        self.assertIn("Traducere", html)

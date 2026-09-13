@@ -10,7 +10,7 @@ logger = logging.getLogger("apps.assistant")
 
 
 class AssistantError(Exception):
-    def __init__(self, code="provider_error", message="Something went wrong. Please try again.", retry_after=None):
+    def __init__(self, code="provider_error", message="Ceva nu a mers. Încearcă din nou.", retry_after=None):
         self.code = code
         self.message = message
         self.retry_after = retry_after
@@ -19,7 +19,7 @@ class AssistantError(Exception):
 
 def parse_response(prompt: str, text: str, schema: type[Result]) -> ParsedResponse[Result]:
     if not settings.OPENAI_API_KEY or not settings.OPENAI_MODEL:
-        raise AssistantError("not_configured", "The English coach is temporarily unavailable. Please try again later.")
+        raise AssistantError("not_configured", "Asistentul este momentan indisponibil. Încearcă din nou mai târziu.")
     try:
         with OpenAI(api_key=settings.OPENAI_API_KEY, timeout=settings.OPENAI_TIMEOUT, max_retries=0) as client:
             response = client.responses.parse(
@@ -34,12 +34,12 @@ def parse_response(prompt: str, text: str, schema: type[Result]) -> ParsedRespon
             raise AssistantError("incomplete")
         if any(getattr(part, "type", None) == "refusal" for item in response.output
                for part in getattr(item, "content", [])):
-            raise AssistantError("refused", "This text couldn't be processed. Please try a different sentence.")
+            raise AssistantError("refused", "Acest text nu a putut fi procesat. Încearcă o altă propoziție.")
         if response.output_parsed is None:
             raise AssistantError("missing_output")
         return ParsedResponse(schema.model_validate(response.output_parsed.model_dump()), usage)
     except APITimeoutError:
-        raise AssistantError("timeout", "That took too long. Please try again.") from None
+        raise AssistantError("timeout", "A durat prea mult. Încearcă din nou.") from None
     except (OpenAIError, ValidationError, ValueError):
         # Exception text can contain user content or provider payloads. Never log it.
         raise AssistantError("invalid_or_failed_response") from None

@@ -27,7 +27,8 @@ class EndpointTests(TestCase):
     def test_homepage_anonymous_no_calls_or_fake_results(self):
         response = self.client.get("/")
         self.assertContains(response, 'maxlength="2000"')
-        self.assertContains(response, "A little clarity starts here.")
+        self.assertContains(response, "Scrie ceva, apoi alege")
+        self.assertNotContains(response, "Aici începe claritatea.")
         self.assertNotContains(response, "didn&#x27;t go")
         self.correct.assert_not_called()
         self.translate.assert_not_called()
@@ -54,7 +55,7 @@ class EndpointTests(TestCase):
             if authenticated:
                 self.client.force_login(self.user)
             response = self.post("/assistant/translate/", translation_result().original_text)
-            self.assertContains(response, "Romanian → British English")
+            self.assertContains(response, "Română → engleză britanică")
         self.assertEqual(AssistantRequest.objects.count(), 1)
         self.assertEqual(AssistantRequest.objects.get().request_type, "translation")
         self.assertFalse(GrammarCorrection.objects.exists())
@@ -64,7 +65,7 @@ class EndpointTests(TestCase):
         self.correct.side_effect = AssistantError("romanian_input", "Textul pare să fie în română.")
         text = translation_result().original_text
         response = self.post(text=text, HTTP_HX_REQUEST="true")
-        self.assertContains(response, "Romanian → British English")
+        self.assertContains(response, "Română → engleză britanică")
         self.assertContains(response, "l-am tradus")
         self.translate.assert_called_once_with(text)
         self.assertEqual(AssistantRequest.objects.get().request_type, "translation")
@@ -73,7 +74,7 @@ class EndpointTests(TestCase):
         response = self.post(HTTP_HX_REQUEST="true")
         self.assertContains(response, 'hx-swap-oob="outerHTML"')
         self.assertContains(response, 'id="result-actions" class="result-actions" hx-swap-oob="true"')
-        self.assertContains(response, "Sign in / Create account")
+        self.assertContains(response, "Autentificare / Creează cont")
         self.assertNotContains(response, "<!doctype")
 
     def test_invalid_input_never_calls_services(self):
@@ -129,7 +130,7 @@ class EndpointTests(TestCase):
         self.client.force_login(self.user)
         self.correct.side_effect = AssistantError("timeout")
         response = self.post(HTTP_HX_REQUEST="true")
-        self.assertContains(response, "Something went wrong", status_code=503)
+        self.assertContains(response, "Ceva nu a mers", status_code=503)
         entry = AssistantRequest.objects.get()
         self.assertEqual(entry.status, "failed")
         self.assertEqual(entry.original_text, "")
@@ -171,10 +172,10 @@ class EndpointTests(TestCase):
         self.assertContains(response, 'id="trend-data"')
         self.assertContains(response, "vendor/chart.umd.min.js")
         response = self.client.get("/mistakes/")
-        self.assertContains(response, "2 times")
+        self.assertContains(response, "de 2 ori")
         self.assertEqual(self.client.get("/practice/").status_code, 200)
         response = self.client.post("/practice/", {"position": 0, "answer": "1"})
-        self.assertContains(response, "That's right!", html=False)
+        self.assertContains(response, "Corect!", html=False)
 
     def test_account_signup_login_profile_logout(self):
         response = self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
@@ -192,12 +193,12 @@ class EndpointTests(TestCase):
         profile = lambda **data: self.client.post("/accounts/profile/", {"action": "profile", "email": "", **data})
         password = lambda old: self.client.post("/accounts/profile/", {"action": "password", "old_password": old,
             "new_password1": "A-new-pass-5823", "new_password2": "A-new-pass-5823"})
-        self.assertContains(profile(username="other"), "already exists")
+        self.assertContains(profile(username="other"), "există deja")
         self.assertRedirects(profile(username="ana-maria"), "/accounts/profile/")
         self.assertEqual(User.objects.get(pk=self.user.pk).username, "ana-maria")
         self.assertEqual(password("wrong-password").status_code, 200)
         self.assertRedirects(password("test-password"), "/accounts/profile/")
-        self.assertContains(self.client.get("/accounts/profile/"), "Signed in as ana-maria")
+        self.assertContains(self.client.get("/accounts/profile/"), "Autentificat ca ana-maria")
         self.client.logout()
         self.assertTrue(self.client.login(username="ana-maria", password="A-new-pass-5823"))
 
@@ -208,12 +209,12 @@ class EndpointTests(TestCase):
             with self.subTest(identifier=identifier):
                 self.assertRedirects(self.client.post("/accounts/login/", {"username": identifier, "password": "test-password"}), "/")
                 self.client.logout()
-        self.assertContains(self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "wrong"}), "username or email")
+        self.assertContains(self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "wrong"}), "nume de utilizator sau email")
         self.other.email = "ana@example.com"
         self.other.save()
         response = self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "test-password"})
-        self.assertContains(response, "username or email")
-        self.assertContains(self.client.get("/accounts/login/"), "Username or email")
+        self.assertContains(response, "nume de utilizator sau email")
+        self.assertContains(self.client.get("/accounts/login/"), "Nume de utilizator sau email")
 
     def test_mistake_category_page_lists_only_own_mistakes(self):
         self.assertEqual(self.client.get("/mistakes/verb_form/").status_code, 302)
@@ -236,12 +237,12 @@ class EndpointTests(TestCase):
 
     def test_header_user_icon_follows_sign_in_state(self):
         response = self.client.get("/settings/")
-        self.assertContains(response, 'class="user-link" href="/accounts/login/" aria-label="Sign in"')
+        self.assertContains(response, 'class="user-link" href="/accounts/login/" aria-label="Autentificare"')
         self.assertContains(response, '<span class="nav-icon" aria-hidden="true">', count=8)
         self.client.force_login(self.user)
         response = self.client.get("/settings/")
-        self.assertContains(response, 'class="user-link is-signed-in" href="/accounts/profile/" aria-label="Profile for ana"')
+        self.assertContains(response, 'class="user-link is-signed-in" href="/accounts/profile/" aria-label="Profil: ana"')
         self.assertContains(response, '<span class="user-initial" aria-hidden="true">A</span>')
 
     def test_settings_accessible_without_account(self):
-        self.assertContains(self.client.get("/settings/"), "Not saved while signed out")
+        self.assertContains(self.client.get("/settings/"), "Nu se salvează cât nu ești autentificat")

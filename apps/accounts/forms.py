@@ -12,11 +12,12 @@ class SignupForm(UserCreationForm):
 
 class LoginForm(AuthenticationForm):
     error_messages = {**AuthenticationForm.error_messages,
-        "invalid_login": "Please enter a correct username or email and password. Both fields may be case-sensitive."}
+        "invalid_login": "Introdu un nume de utilizator sau email și o parolă corecte. Ambele câmpuri pot ține cont de "
+                         "literele mari."}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["username"].label = "Username or email"
+        self.fields["username"].label = "Nume de utilizator sau email"
 
 
 class ProfileForm(forms.ModelForm):

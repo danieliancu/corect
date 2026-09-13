@@ -1,24 +1,24 @@
-{% extends 'base.html' %}{% load static %}{% block title %}Progress — Corect.uk{% endblock %}
+{% extends 'base.html' %}{% load static %}{% block title %}Progres — Corect.uk{% endblock %}
 {% block scripts %}<script src="{% static 'vendor/chart.umd.min.js' %}" defer></script><script src="{% static 'js/progress.js' %}" defer></script>{% endblock %}
 {% block content %}
-<section class="page-heading"><p class="eyebrow">KEEP SHOWING UP</p><h1>Your progress</h1><p>Every sentence is another moment of practice.</p></section>
-<div class="stat-grid"><div class="card stat"><strong>{{ correction_count }}</strong><span>Corrections made</span></div><div class="card stat"><strong>{{ translation_count }}</strong><span>Translations made</span></div><div class="card stat"><strong>{{ mistake_count }}</strong><span>Mistakes detected</span></div></div>
+<section class="page-heading"><p class="eyebrow">CONTINUĂ SĂ REVII</p><h1>Progresul tău</h1><p>Fiecare propoziție e încă un moment de exercițiu.</p></section>
+<div class="stat-grid"><div class="card stat"><strong>{{ correction_count }}</strong><span>Corecturi făcute</span></div><div class="card stat"><strong>{{ translation_count }}</strong><span>Traduceri făcute</span></div><div class="card stat"><strong>{{ mistake_count }}</strong><span>Greșeli găsite</span></div></div>
 <div class="learning-grid">
   <section class="card trend-card">
     <div class="chart-heading">
-      <div><h2>Mistakes over time</h2><p class="muted">Last 30 days</p></div>
-      <div class="chart-toggle" role="group" aria-label="Chart view" data-chart hidden>
-        <button type="button" data-view="trend" aria-pressed="true">Trend</button><button type="button" data-view="daily" aria-pressed="false">By day</button>
+      <div><h2>Greșeli în timp</h2><p class="muted">Ultimele 30 de zile</p></div>
+      <div class="chart-toggle" role="group" aria-label="Tipul graficului" data-chart hidden>
+        <button type="button" data-view="trend" aria-pressed="true">Evoluție</button><button type="button" data-view="daily" aria-pressed="false">Pe zile</button>
       </div>
     </div>
-    <div class="chart-frame" data-chart hidden><canvas id="trend-chart" role="img" aria-label="Mistakes per day over the last 30 days. Daily values are listed in the table below."></canvas></div>
-    <details class="trend-data"><summary>View daily counts</summary>
-      <table class="trend-table"><thead><tr><th scope="col">Day</th><th scope="col">Mistakes</th></tr></thead>
+    <div class="chart-frame" data-chart hidden><canvas id="trend-chart" role="img" aria-label="Greșeli pe zi în ultimele 30 de zile. Valorile zilnice sunt în tabelul de mai jos."></canvas></div>
+    <details class="trend-data"><summary>Vezi valorile zilnice</summary>
+      <table class="trend-table"><thead><tr><th scope="col">Ziua</th><th scope="col">Greșeli</th></tr></thead>
         <tbody>{% for day in trend %}<tr><td>{{ day.date|date:'j M' }}</td><td>{{ day.total }}</td></tr>{% endfor %}</tbody></table>
     </details>
     {{ trend_data|json_script:"trend-data" }}
   </section>
-  <section class="card"><h2>Top mistake categories</h2>{% include 'learning/categories.html' %}</section>
+  <section class="card"><h2>Categoriile cu cele mai multe greșeli</h2>{% include 'learning/categories.html' %}</section>
 </div>
-<p class="muted">These numbers show your activity, not a proficiency score. More writing can mean more recorded mistakes.</p>
+<p class="muted">Aceste cifre arată activitatea ta, nu un nivel de competență. Mai mult scris poate însemna mai multe greșeli înregistrate.</p>
 {% endblock %}

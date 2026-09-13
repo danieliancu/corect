@@ -33,7 +33,7 @@ def submit(request, kind):
     anonymous = not request.user.is_authenticated
     visitor = None
     if not form.is_valid():
-        context["error"] = (form.errors.get("text") or ["Your form expired. Please reload and try again."])[0]
+        context["error"] = (form.errors.get("text") or ["Formularul a expirat. Reîncarcă pagina și încearcă din nou."])[0]
         status = 400
     else:
         visitor = get_or_create_visitor(request) if anonymous else existing_visitor(request)
@@ -71,10 +71,12 @@ def submit(request, kind):
                         logger.error("assistant_failure_record_unavailable")
             except DatabaseError:
                 logger.error("assistant_database_unavailable kind=%s", kind)
-                context["error"] = "We couldn't finish your request. Please try again later."
+                context["error"] = "Nu am putut finaliza cererea. Încearcă din nou mai târziu."
                 status = 503
                 usage.update(status=UsageEvent.Status.FAILED, error_code="database_unavailable")
-        record_usage_event(request=request, kind=requested_kind, calls=calls, visitor=visitor, **usage)
+        event = record_usage_event(request=request, kind=requested_kind, calls=calls, visitor=visitor, **usage)
+        if event is not None:
+            context["usage_event_id"] = event.pk  # Links later speech requests to this correction.
     template = "assistant/response.html" if request.headers.get("HX-Request") == "true" else "core/home.html"
     response = render(request, template, context, status=status)
     if status == 429:

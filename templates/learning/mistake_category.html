@@ -1,19 +1,19 @@
-{% extends 'base.html' %}{% load learning_labels %}{% block title %}{{ category|category_label }} mistakes — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← My mistakes</a><h1>{{ category|category_label }}</h1><p>{{ page_obj.paginator.count }} mistake{{ page_obj.paginator.count|pluralize }} recorded in this category.</p></section>
+{% extends 'base.html' %}{% load learning_labels %}{% block title %}Greșeli: {{ category|category_label }} — Corect.uk{% endblock %}{% block content %}
+<section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← Greșelile mele</a><h1>{{ category|category_label }}</h1><p>Greșeli înregistrate în această categorie: {{ page_obj.paginator.count }}.</p></section>
 <div class="mistake-list">
   {% for item in page_obj %}
     <article class="card mistake-item">
       <div class="row-between">
-        <p class="mistake-change" lang="en-GB"><span class="mistake-wrong">{{ item.original }}</span> <span aria-hidden="true">→</span><span class="sr-only">corrected to</span> <strong class="mistake-right">{{ item.replacement|default:'(removed)' }}</strong></p>
+        <p class="mistake-change" lang="en-GB"><span class="mistake-wrong">{{ item.original }}</span> <span aria-hidden="true">→</span><span class="sr-only" lang="ro">corectat în</span> <strong class="mistake-right">{{ item.replacement|default:'(eliminat)' }}</strong></p>
         <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:'j M Y' }}</time>
       </div>
       <p class="muted" lang="ro">{{ item.explanation_ro }}</p>
-      <a class="text-link" href="{% url 'history_detail' item.request_id %}">See the full correction →</a>
+      <a class="text-link" href="{% url 'history_detail' item.request_id %}">Vezi corectura completă →</a>
     </article>
   {% empty %}
-    <div class="card empty-page"><h2>No mistakes here yet.</h2><p>When a correction finds this kind of mistake, it will appear here.</p></div>
+    <div class="card empty-page"><h2>Încă nu sunt greșeli aici.</h2><p>Când o corectură găsește acest tip de greșeală, o vei vedea aici.</p></div>
   {% endfor %}
 </div>
-{% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Mistake pages">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Next →</a>{% endif %}</nav>{% endif %}
-{% if has_practice %}<a class="button" href="{% url 'practice' %}?category={{ category }}">Practise this</a>{% endif %}
+{% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Paginile cu greșeli">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← Înapoi</a>{% endif %}<span>Pagina {{ page_obj.number }} din {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Înainte →</a>{% endif %}</nav>{% endif %}
+{% if has_practice %}<a class="button" href="{% url 'practice' %}?category={{ category }}">Exersează asta</a>{% endif %}
 {% endblock %}

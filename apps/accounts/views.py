@@ -19,8 +19,9 @@ def signup(request):
         link_visitor(request, user, via="signup")
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         return redirect("home")
-    return render(request, "accounts/form.html", {"form": form, "title": "Create your account",
-        "intro": "Keep your history. Learn from your mistakes. See how far you go.", "button": "Create account", "signup": True})
+    return render(request, "accounts/form.html", {"form": form, "title": "Creează-ți contul",
+        "intro": "Păstrează-ți istoricul. Învață din greșeli. Vezi cât de departe ajungi.", "button": "Creează cont",
+        "signup": True})
 
 
 @login_required
@@ -34,11 +35,11 @@ def profile(request):
     password_form.fields["old_password"].widget.attrs.pop("autofocus", None)  # don't jump to the second form
     if action == "profile" and profile_form.is_valid():
         profile_form.save()
-        messages.success(request, "Your profile has been updated.")
+        messages.success(request, "Profilul tău a fost actualizat.")
         return redirect("profile")
     if action == "password" and password_form.is_valid():
         update_session_auth_hash(request, password_form.save())
-        messages.success(request, "Your password has been changed.")
+        messages.success(request, "Parola ta a fost schimbată.")
         return redirect("profile")
     return render(request, "accounts/profile.html", {"profile_form": profile_form, "password_form": password_form,
         "username": username})

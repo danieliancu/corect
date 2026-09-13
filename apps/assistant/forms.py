@@ -11,7 +11,7 @@ class AssistantForm(forms.Form):
         # so normalise both before the text reaches the services.
         text = self.cleaned_data["text"].replace("\r\n", "\n").replace("\r", "\n").strip()
         if not text.strip():
-            raise forms.ValidationError("Write a little text first.")
+            raise forms.ValidationError("Scrie mai întâi puțin text.")
         if len(text) > settings.ASSISTANT_MAX_CHARACTERS:
-            raise forms.ValidationError(f"Please use {settings.ASSISTANT_MAX_CHARACTERS:,} characters or fewer.")
+            raise forms.ValidationError(f"Folosește cel mult {settings.ASSISTANT_MAX_CHARACTERS} de caractere.")
         return text
