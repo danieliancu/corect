@@ -13,6 +13,7 @@ from openai import APIConnectionError, APITimeoutError
 
 from apps.analytics.models import AnonymousVisitor, AudioUsageEvent, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
+from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.services.voice import (BRITISH_TTS_INSTRUCTIONS, SPEECH_TOKEN_SALT, VoiceError, make_speech_token,
                                            read_speech_token)
 from .examples import correction_result, translation_result
@@ -139,6 +140,7 @@ class SpeechEndpointTests(TestCase):
         self.assertEqual(AudioUsageEvent.objects.latest("pk").status, "rejected")
 
     def test_speech_links_to_the_correction_and_the_anonymous_visitor(self):
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)  # Analytics allowed.
         with patch("apps.assistant.views.CorrectionService.correct", return_value=correction_result()):
             page = self.client.post("/assistant/correct/", {"text": correction_result().original_text,
                                                             "submission_token": uuid4()})

@@ -1,0 +1,13 @@
+{# Cookie settings: the anonymous analytics switch (on by default). `prefix` keeps ids unique on a page. #}
+<form class="consent-form" method="post" action="{% url 'consent' %}" data-consent-form>
+  {% csrf_token %}<input type="hidden" name="next" value="{{ consent_next|default:request.get_full_path }}">
+  <h2 id="{{ prefix }}-title">Setări cookie-uri</h2>
+  {% if consent.analytics_available %}
+  <p>Folosim cookie-uri necesare pentru funcționarea Corect.uk și un identificator anonim pentru a înțelege cum este utilizat site-ul. Poți opri identificatorul oricând.</p>
+  <label class="consent-check" for="{{ prefix }}-analytics"><input type="checkbox" id="{{ prefix }}-analytics" name="allow_analytics"{% if consent.analytics %} checked{% endif %}><span>Permit analytics anonim <small>Debifează și salvează ca să îl oprești.</small></span></label>
+  {% else %}
+  <p>Folosim doar cookie-uri necesare pentru funcționarea Corect.uk.</p>
+  {% endif %}
+  <p>Detalii în <a href="{% url 'privacy' %}">Politica de confidențialitate</a> și în <a href="{% url 'terms' %}">Termeni</a>.</p>
+  <div class="consent-actions"><button class="button" type="submit">Salvează</button>{% if in_dialog %}<button class="button secondary" type="button" data-consent-close>Închide</button>{% endif %}</div>
+</form>

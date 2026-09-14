@@ -113,10 +113,33 @@ VOICE_SPEECH_TOKEN_MAX_AGE = int(os.getenv("VOICE_SPEECH_TOKEN_MAX_AGE", "2700")
 ASSISTANT_MAX_CHARACTERS = int(os.getenv("ASSISTANT_MAX_CHARACTERS", "2000"))
 RATE_LIMIT_MINUTE = int(os.getenv("RATE_LIMIT_MINUTE", "10"))
 RATE_LIMIT_DAY = int(os.getenv("RATE_LIMIT_DAY", "100"))
+# Abuse guardrails. Text sent to Correct/Translate is checked with OpenAI's free moderation endpoint, in parallel with
+# the correction so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
+CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"
+OPENAI_MODERATION_MODEL = os.getenv("OPENAI_MODERATION_MODEL", "omni-moderation-latest")
 # Public contact address; the Contact page and footer link appear only when it is set.
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
-# Pro price shown on the homepage plans. Display only: payments and plan limits are not implemented yet.
+# Pro prices shown on the homepage plans. Display only: payments and plan limits are not implemented yet.
+# With the promotion on, the normal price is shown struck through beside the promotional monthly price.
 PRO_DISPLAY_PRICE = os.getenv("PRO_DISPLAY_PRICE", "£9.99").strip()
+PRO_PROMO_ENABLED = os.getenv("PRO_PROMO_ENABLED", "true").lower() == "true"
+PRO_PROMO_PRICE = os.getenv("PRO_PROMO_PRICE", "£4.99").strip()
+# Legal identity used by the Terms, the Privacy notice, Contact and the footer (apps/core/legal.py). Leave anything you
+# do not have empty: nothing is invented. With DEBUG off, the operator name, service address and CONTACT_EMAIL are
+# required (apps/core/checks.py).
+LEGAL_OPERATOR_TYPE = os.getenv("LEGAL_OPERATOR_TYPE", "sole_trader").strip()  # sole_trader or company
+LEGAL_OPERATOR_NAME = os.getenv("LEGAL_OPERATOR_NAME", "").strip()
+LEGAL_TRADING_NAME = os.getenv("LEGAL_TRADING_NAME", "Corect.uk").strip()
+LEGAL_SERVICE_ADDRESS = os.getenv("LEGAL_SERVICE_ADDRESS", "").strip()
+LEGAL_JURISDICTION = os.getenv("LEGAL_JURISDICTION", "England and Wales").strip()
+LEGAL_COUNTRY = os.getenv("LEGAL_COUNTRY", "United Kingdom").strip()
+COMPANY_NUMBER = os.getenv("COMPANY_NUMBER", "").strip()
+VAT_NUMBER = os.getenv("VAT_NUMBER", "").strip()
+LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
+# Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
+# privacy.html: everyone (including signed-in users) is then asked to accept the new version.
+TERMS_VERSION = "2026-09-14"
+PRIVACY_VERSION = "2026-09-14"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

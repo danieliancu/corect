@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 
 from apps.analytics.models import AnonymousVisitor, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
+from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.models import AssistantRequest
 from apps.assistant.services.openai_client import AssistantError
 from apps.assistant.services.pricing import parse_pricing
@@ -65,6 +66,7 @@ class UsageRecordingTests(TestCase):
                          ("translation", Decimal("0.00015200"), "translation"))
 
     def test_anonymous_correction_and_translation_are_counted_without_history(self):
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)  # Analytics allowed: events carry the visitor.
         self.correct.side_effect = replying(correction_result(), provider_usage())
         self.translate.side_effect = replying(translation_result(), provider_usage(400, 0, 60, 0))
         self.post()

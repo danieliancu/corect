@@ -2,9 +2,15 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods
 
+from apps.analytics.services.visitors import delete_visitor_cookie
+from .consent import acceptance_required, analytics_chosen, record_acceptance, set_consent_cookie
+from .legal import retention_facts
 from .plans import display_plans
 
 
@@ -20,7 +26,8 @@ def home(request):
 
 
 def privacy_page(request):
-    return render(request, "core/privacy.html", {"visitor_cookie": settings.ANALYTICS_VISITOR_COOKIE})
+    return render(request, "core/privacy.html", {"visitor_cookie": settings.ANALYTICS_VISITOR_COOKIE,
+                                                 "retention": retention_facts()})
 
 
 def terms_page(request):
@@ -28,6 +35,30 @@ def terms_page(request):
 
 
 def contact_page(request):
-    if not settings.CONTACT_EMAIL:
+    if not (settings.CONTACT_EMAIL or settings.LEGAL_SERVICE_ADDRESS):
         raise Http404
     return render(request, "core/contact.html")
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def consent_page(request):
+    """"Am înțeles" on the notice bar (acknowledge) or the cookie settings form (the analytics choice).
+
+    Either records that the current Terms and Privacy versions were shown: in the necessary consent cookie and, for a
+    signed-in user who has not accepted them yet, against the account. Analytics is on only when explicitly ticked.
+    """
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = reverse("home")
+    if request.method == "GET":
+        return render(request, "core/consent.html", {"consent_next": next_url})
+    if request.user.is_authenticated and acceptance_required(request):
+        record_acceptance(request.user, "visit")
+    if "acknowledge" in request.POST:
+        analytics = analytics_chosen(request)  # "Am înțeles" keeps the analytics choice as it was (off by default).
+    else:
+        analytics = request.POST.get("allow_analytics") == "on"
+    analytics = analytics and settings.ANALYTICS_VISITOR_COOKIE
+    response = set_consent_cookie(redirect(next_url), analytics)
+    return response if analytics else delete_visitor_cookie(response)

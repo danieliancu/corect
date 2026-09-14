@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 from apps.analytics.models import AudioUsageEvent
 from apps.analytics.services.recording import record_audio_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
+from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
 from .services.limits import actor_key, claim_voice
 from .services.openai_client import AssistantError
 from .services.realtime import OUTCOMES, finish_session, parse_seconds, read_session_token, start_session
@@ -60,7 +61,7 @@ def error_response(error: VoiceError):
 
 def finish(request, response, visitor):
     if not request.user.is_authenticated:
-        attach_visitor_cookie(response, visitor)
+        attach_visitor_cookie(request, response, visitor)
     return response
 
 
@@ -69,7 +70,10 @@ def resolve_visitor(request):
 
 
 def claim_or_reject(request, operation, visitor, **event):
-    """Counts the call against the voice quota; returns an error response when the quota is full."""
+    """Counts the call against the voice quota; returns an error response when the quota is full or the account is
+    suspended."""
+    if is_suspended(request.user):
+        return error_response(VoiceError("account_suspended", SUSPENDED_MESSAGE, 403))
     try:
         claim_voice(actor_key(request), operation)
     except AssistantError as exc:

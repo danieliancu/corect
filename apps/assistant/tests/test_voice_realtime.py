@@ -16,6 +16,7 @@ from openai import APIConnectionError, APITimeoutError
 
 from apps.analytics.models import AnonymousVisitor, AudioUsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
+from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.models import AssistantRequest, RateBucket, RealtimeTranscriptionSession
 from apps.assistant.services.pricing import parse_audio_pricing
 from apps.assistant.services.voice import REALTIME_CALLS_URL, TRANSCRIPTION_PROMPT
@@ -124,6 +125,7 @@ class RealtimeSessionEndpointTests(RealtimeCase):
         self.assertFalse(Session.objects.exists())
 
     def test_anonymous_visitors_are_tracked_and_the_cookie_can_be_switched_off(self):
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)  # Analytics allowed.
         response = self.start()
         self.assertIn(VISITOR_COOKIE, response.cookies)
         visitor = AnonymousVisitor.objects.get()

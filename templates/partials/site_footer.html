@@ -4,7 +4,8 @@
     {% if user.is_authenticated %}<a href="{% url 'history' %}">Istoric</a>{% endif %}
     <a href="{% url 'privacy' %}">Confidențialitate</a>
     <a href="{% url 'terms' %}">Termeni</a>
-    {% if contact_email %}<a href="{% url 'contact' %}">Contact</a>{% endif %}
+    {% if legal.contact_available %}<a href="{% url 'contact' %}">Contact</a>{% endif %}
+    <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>
   </nav>
-  <p class="footer-copy">© {% now "Y" %} Corect.uk. Toate drepturile rezervate.</p>
+  <div class="footer-meta">{% if legal.public_statement %}<p>{{ legal.public_statement }}</p>{% endif %}<p class="footer-copy">© {% now "Y" %} Corect.uk. Toate drepturile rezervate.</p></div>
 </footer>

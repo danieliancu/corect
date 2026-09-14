@@ -1,18 +1,85 @@
 {% extends 'base.html' %}{% block title %}Termeni — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><p class="eyebrow">TERMENI</p><h1>Termeni de utilizare</h1><p>Regulile simple pentru folosirea Corect.uk în versiunea beta.</p></section>
+<section class="page-heading"><p class="eyebrow">TERMENI</p><h1>Termeni de utilizare</h1><p>Regulile pentru folosirea Corect.uk. Versiunea {{ legal.terms_version }}.</p></section>
 <div class="card legal-page">
-  <h2>Serviciul</h2>
-  <p>Corect.uk este în versiune beta și este oferit „ca atare”. Funcțiile se pot schimba și pot exista întreruperi.</p>
-  <h2>Rezultate generate automat</h2>
-  <p>Corecturile, traducerile, explicațiile și pronunția sunt generate cu ajutorul AI și pot conține greșeli. Verifică textele importante înainte să le folosești. Corect.uk nu înlocuiește un profesor sau un traducător autorizat.</p>
-  <h2>Utilizare corectă</h2>
-  <p>Există limite de utilizare pe minut și pe zi. Nu folosi serviciul pentru conținut ilegal sau abuziv ori pentru trimiterea automată de cereri în masă. Putem limita accesul în caz de abuz.</p>
-  <h2>Contul tău</h2>
-  <p>Ești responsabil pentru păstrarea parolei. Nu trimite în texte date personale sensibile.</p>
-  <h2>Planuri și plăți</h2>
-  <p>Planurile Free și Pro prezentate pe pagina principală sunt în pregătire. Pro nu poate fi cumpărat încă și nu se percep plăți.</p>
-  <h2>Modificări</h2>
-  <p>Putem actualiza acești termeni; versiunea curentă este mereu pe această pagină.{% if contact_email %} Pentru întrebări scrie-ne la <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endif %}</p>
-  <p class="legal-updated">Ultima actualizare: 14 septembrie 2026.</p>
+  <h2 id="operator">1. Cine operează Corect.uk</h2>
+  <p>{% if legal.public_statement %}{{ legal.public_statement }}{% else %}Corect.uk este un nume comercial.{% endif %} În acești Termeni, „noi” înseamnă operatorul Corect.uk, iar „tu” înseamnă persoana care folosește serviciul.{% if legal.contact_available %} Datele noastre de contact sunt pe <a href="{% url 'contact' %}">pagina Contact</a>.{% endif %}</p>
+
+  <h2 id="service">2. Ce este Corect.uk</h2>
+  <p>Corect.uk este un serviciu online care te ajută să înveți și să folosești engleza britanică, cu explicații în română: corectare, versiune nativă, traducere între română și engleză, voce în timp real, pronunție britanică, istoric, categorii de greșeli, progres și exerciții.</p>
+
+  <h2 id="acceptance">3. Acceptarea Termenilor</h2>
+  <p>Înainte să folosești funcțiile interactive îți cerem să accepți acești Termeni și să confirmi că ai citit <a href="{% url 'privacy' %}">Politica de confidențialitate</a>. Păstrăm versiunea pe care ai acceptat-o. Dacă Termenii se schimbă semnificativ, îți cerem din nou acceptarea. Dacă nu ești de acord cu Termenii, nu folosi serviciul.</p>
+
+  <h2 id="age">4. Vârsta minimă</h2>
+  <p>Trebuie să ai cel puțin 16 ani ca să folosești Corect.uk.</p>
+
+  <h2 id="accounts">5. Contul tău și securitatea lui</h2>
+  <ul>
+    <li>Folosește date corecte și un singur cont pentru tine. Contul este personal: nu îl împărți cu alte persoane.</li>
+    <li>Ești responsabil să îți păstrezi parola în siguranță. Dacă bănuiești că altcineva îți folosește contul, schimbă parola și anunță-ne.</li>
+    <li>Poți șterge oricând contul din pagina Profil.</li>
+  </ul>
+
+  <h2 id="educational">6. Un serviciu educațional</h2>
+  <p>Corect.uk este un serviciu de învățare și sprijin pentru limba engleză. Nu este consultanță profesională, juridică, medicală sau de altă natură și nu garantează rezultate la examene, angajare, rezultate în proceduri de imigrare sau atingerea unui anumit nivel de limbă.</p>
+
+  <h2 id="ai">7. Inteligența artificială și limitele ei</h2>
+  <p>Corect.uk folosește inteligență artificială. Corecturile, traducerile, explicațiile și pronunția pot fi ocazional greșite, incomplete sau nepotrivite contextului. Verifică textele importante înainte să le folosești și nu te baza doar pe Corect.uk pentru documente oficiale, juridice sau medicale.</p>
+
+  <h2 id="content">8. Conținutul tău</h2>
+  <p>Textele și înregistrările pe care le trimiți rămân ale tale. Ne dai permisiunea să le prelucrăm doar cât este necesar ca să îți oferim serviciul, inclusiv trimiterea lor către furnizorul nostru de inteligență artificială și, dacă ai cont, păstrarea corecturilor și traducerilor în istoricul tău. Trimite doar conținut pe care ai dreptul să îl folosești și evită datele personale sensibile, ale tale sau ale altora.</p>
+
+  <h2 id="intellectual-property">9. Proprietate intelectuală</h2>
+  <p>Site-ul, designul, textele, exercițiile și numele Corect.uk ne aparțin nouă sau celor care ne-au acordat licență. Nu le copia și nu le redistribui fără acordul nostru. Rezultatele generate pentru tine le poți folosi în scop personal.</p>
+
+  <h2 id="acceptable-use">10. Utilizare acceptabilă</h2>
+  <p>Nu folosi Corect.uk pentru:</p>
+  <ul>
+    <li>conținut ilegal, abuziv, amenințător sau care încalcă drepturile altora;</li>
+    <li>ocolirea măsurilor de securitate sau a limitelor de utilizare;</li>
+    <li>boți, cereri automate în masă sau extragerea automată de conținut (scraping);</li>
+    <li>revânzarea serviciului sau oferirea accesului către alte persoane;</li>
+    <li>activitate care pune în pericol funcționarea serviciului sau securitatea altor utilizatori.</li>
+  </ul>
+  <p>Verificăm automat textele trimise pentru conținut abuziv, de exemplu ură, hărțuire, violență, conținut sexual, autovătămare sau activități ilegale, și refuzăm cererile care încalcă aceste reguli. Refuzăm și textele care încearcă să dea instrucțiuni asistentului. Formularele au protecții împotriva trimiterilor automate.</p>
+
+  <h2 id="free">11. Serviciul gratuit</h2>
+  <p>Funcțiile de bază sunt gratuite. Pentru a proteja serviciul, folosirea gratuită are limite de utilizare pe minut și pe zi, pe care le putem ajusta în mod rezonabil.</p>
+
+  <h2 id="pro">12. Planul Pro (în pregătire)</h2>
+  <p>Planul Pro nu poate fi cumpărat încă și nu se percep plăți. Prețurile afișate pe pagina principală au caracter informativ. Înainte de lansare vom publica condițiile de plată, reînnoire, anulare și rambursare, iar ele se vor aplica doar după ce le accepți.</p>
+
+  <h2 id="fair-use">13. Utilizare rezonabilă (Fair Use)</h2>
+  <p>Când spunem că o funcție Pro este „nelimitată”, înseamnă că nu există un plafon numeric pentru utilizarea personală obișnuită de către o persoană. Politica de utilizare rezonabilă servește doar la prevenirea abuzului, de exemplu:</p>
+  <ul>
+    <li>boți sau alte programe automate;</li>
+    <li>cereri automate trimise în masă;</li>
+    <li>extragerea automată de conținut (scraping);</li>
+    <li>folosirea aceluiași cont de mai multe persoane;</li>
+    <li>revânzarea accesului sau a rezultatelor;</li>
+    <li>încercări de a ocoli măsurile de protecție;</li>
+    <li>trafic excesiv generat automat;</li>
+    <li>activitate care amenință disponibilitatea serviciului sau folosește infrastructura într-un mod vădit disproporționat.</li>
+  </ul>
+  <p>În astfel de situații putem limita temporar sau opri activitatea respectivă. Folosirea normală, de către tine, pentru învățare nu este tratată ca abuz.</p>
+
+  <h2 id="suspension">14. Suspendare pentru abuz sau securitate</h2>
+  <p>Putem limita sau suspenda accesul unui cont sau al unei conexiuni în caz de abuz, încălcare a acestor Termeni sau risc de securitate. Acționăm proporțional și, când este posibil și sigur, îți spunem motivul. Dacă nu ești de acord, ne poți scrie.</p>
+
+  <h2 id="availability">15. Disponibilitatea serviciului</h2>
+  <p>Ne străduim ca Corect.uk să funcționeze bine, dar pot exista întreruperi pentru mentenanță, actualizări sau probleme la furnizorii noștri. Nu putem garanta funcționarea neîntreruptă.</p>
+
+  <h2 id="changes">16. Modificări</h2>
+  <p>Putem schimba serviciul sau acești Termeni din motive rezonabile, de exemplu pentru funcții noi, securitate sau schimbări ale legii. La schimbările importante publicăm o versiune nouă și îți cerem din nou acceptarea.</p>
+
+  <h2 id="consumer-rights">17. Drepturile tale de consumator</h2>
+  <p>Nimic din acești Termeni nu limitează drepturile pe care consumatorii le au în mod obligatoriu potrivit legii. Nu excludem și nu limităm răspunderea în situațiile în care legea nu permite acest lucru, de exemplu pentru deces sau vătămare corporală cauzate de neglijență ori pentru fraudă.</p>
+
+  <h2 id="law">18. Legea aplicabilă</h2>
+  <p>Acești Termeni sunt guvernați de legea din {{ legal.jurisdiction }}. Disputele pot fi soluționate de instanțele din {{ legal.jurisdiction }}; dacă locuiești în altă parte a {{ legal.country }}, poți iniția procedura și la instanțele de acolo. Drepturile obligatorii din țara în care locuiești rămân valabile.</p>
+
+  <h2 id="complaints">19. Reclamații și contact</h2>
+  <p>Pentru întrebări sau reclamații despre serviciu, {% if legal.contact_email %}scrie-ne la <a href="mailto:{{ legal.contact_email }}">{{ legal.contact_email }}</a>{% elif legal.contact_available %}folosește datele de pe <a href="{% url 'contact' %}">pagina Contact</a>{% else %}contactează operatorul Corect.uk{% endif %}. Îți răspundem într-un termen rezonabil.</p>
+  <p class="legal-updated">Versiunea {{ legal.terms_version }}.{% if legal.legal_statement %} {{ legal.legal_statement }}{% endif %}</p>
 </div>
 {% endblock %}

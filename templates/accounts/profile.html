@@ -13,5 +13,12 @@
     {{ password_form.as_p }}
     <button class="button" type="submit">Schimbă parola</button>
   </form>
+  <form method="post" class="card account-form delete-account">{% csrf_token %}
+    <input type="hidden" name="action" value="delete">
+    <h2>Șterge contul</h2>
+    <p class="muted">Ștergem definitiv contul, istoricul corecturilor și traducerilor, greșelile înregistrate și confirmările Termenilor. Statisticile de utilizare (fără text, audio sau adresă IP) rămân, fără legătură cu contul tău. Acțiunea nu poate fi anulată.</p>
+    {{ delete_form.as_p }}
+    <button class="button danger-button" type="submit">Șterge contul definitiv</button>
+  </form>
 </section>
 {% endblock %}

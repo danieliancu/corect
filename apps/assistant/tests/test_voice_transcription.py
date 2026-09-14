@@ -12,6 +12,7 @@ from openai import APITimeoutError
 
 from apps.analytics.models import AnonymousVisitor, AudioUsageEvent, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
+from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
 from apps.assistant.services.voice import TRANSCRIPTION_PROMPT
 
@@ -67,6 +68,7 @@ class TranscriptionEndpointTests(TestCase):
         self.assertEqual(self.sdk.call_args.kwargs["max_retries"], 0)
 
     def test_anonymous_transcription_persists_no_audio_transcript_filename_or_ip(self):
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)  # Analytics allowed: the event carries the visitor.
         response = self.post()
         self.assertEqual(response.status_code, 200)
         stored = serializers.serialize("json", [
@@ -154,6 +156,7 @@ class TranscriptionEndpointTests(TestCase):
         self.api.audio.transcriptions.create.assert_not_called()
 
     def test_visitor_cookie_is_reused_and_can_be_switched_off(self):
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)  # Analytics allowed.
         self.post()
         self.post()
         self.assertEqual(AnonymousVisitor.objects.count(), 1)

@@ -14,6 +14,7 @@ urlpatterns = [
     path("confidentialitate/", core.privacy_page, name="privacy"),
     path("termeni/", core.terms_page, name="terms"),
     path("contact/", core.contact_page, name="contact"),
+    path("cookie-uri/", core.consent_page, name="consent"),
     path("assistant/correct/", assistant.submit, {"kind": "correction"}, name="correct"),
     path("assistant/translate/", assistant.submit, {"kind": "translation"}, name="translate"),
     path("assistant/realtime-transcription/session/", voice.start_realtime_transcription, name="realtime_session"),

@@ -1,0 +1,7 @@
+<section class="consent-bar" aria-label="Termeni și cookie-uri" data-consent-bar>
+  <form class="consent-bar-inner" method="post" action="{% url 'consent' %}">
+    {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><input type="hidden" name="acknowledge" value="1">
+    <p>Folosind Corect.uk, accepți <a href="{% url 'terms' %}">Termenii</a> și confirmi că ai cel puțin 16 ani. Vezi cum folosim datele în <a href="{% url 'privacy' %}">Politica de confidențialitate</a>.</p>
+    <button class="button small" type="submit">Am înțeles</button>
+  </form>
+</section>

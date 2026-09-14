@@ -3,11 +3,14 @@ from django.conf import settings
 
 
 EMPTY_TEXT = "Scrie sau spune ceva mai întâi."
+EXPIRED = "Formularul a expirat. Reîncarcă pagina și încearcă din nou."
 
 
 class AssistantForm(forms.Form):
     text = forms.CharField(strip=False, error_messages={"required": EMPTY_TEXT})
     submission_token = forms.UUIDField()
+    # Honeypot: hidden from people (templates/core/home.html); automated submissions tend to fill every field.
+    leave_empty = forms.CharField(required=False)
 
     def clean_text(self):
         # Browsers submit textarea line breaks as CRLF and the model doesn't echo outer whitespace reliably,
@@ -18,3 +21,8 @@ class AssistantForm(forms.Form):
         if len(text) > settings.ASSISTANT_MAX_CHARACTERS:
             raise forms.ValidationError(f"Folosește cel mult {settings.ASSISTANT_MAX_CHARACTERS} de caractere.")
         return text
+
+    def clean_leave_empty(self):
+        if self.cleaned_data["leave_empty"]:
+            raise forms.ValidationError(EXPIRED, code="automated")
+        return ""

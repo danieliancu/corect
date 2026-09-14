@@ -1,4 +1,5 @@
-"""First-party anonymous visitor identity for product analytics. Rate limiting keeps its own IP-based actor key."""
+"""First-party anonymous visitor identity for product analytics, used only after the visitor opts in
+(apps/core/consent.py). Rate limiting keeps its own IP-based actor key."""
 import logging
 import uuid
 
@@ -7,13 +8,14 @@ from django.db import DatabaseError
 from django.utils import timezone
 
 from apps.analytics.models import AnonymousVisitor
+from apps.core.consent import analytics_allowed
 
 VISITOR_COOKIE = "corect_visitor_id"
 VISITOR_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 logger = logging.getLogger("apps.analytics")
 
 
-def _cookie_id(request):
+def cookie_visitor_id(request):
     try:
         return uuid.UUID(request.COOKIES.get(VISITOR_COOKIE, ""))
     except (AttributeError, ValueError):
@@ -22,7 +24,7 @@ def _cookie_id(request):
 
 def existing_visitor(request):
     """The visitor already identified by this browser's cookie, without creating one."""
-    visitor_id = _cookie_id(request) if settings.ANALYTICS_VISITOR_COOKIE else None
+    visitor_id = cookie_visitor_id(request) if analytics_allowed(request) else None
     if visitor_id is None:
         return None
     try:
@@ -34,7 +36,7 @@ def existing_visitor(request):
 
 def get_or_create_visitor(request):
     """For anonymous submissions. An unknown cookie value is never adopted: a new random ID replaces it."""
-    if not settings.ANALYTICS_VISITOR_COOKIE:
+    if not analytics_allowed(request):
         return None
     now = timezone.now()
     try:
@@ -49,16 +51,22 @@ def get_or_create_visitor(request):
         return None
 
 
-def attach_visitor_cookie(response, visitor):
-    if visitor is not None and settings.ANALYTICS_VISITOR_COOKIE:
+def attach_visitor_cookie(request, response, visitor):
+    if visitor is not None and analytics_allowed(request):
         response.set_cookie(VISITOR_COOKIE, str(visitor.pk), max_age=VISITOR_COOKIE_MAX_AGE, httponly=True,
                             samesite="Lax", secure=settings.SESSION_COOKIE_SECURE)
     return response
 
 
+def delete_visitor_cookie(response):
+    """Removes the visitor ID from the browser (analytics withdrawn or account deleted). It is never regenerated."""
+    response.delete_cookie(VISITOR_COOKIE, samesite="Lax")
+    return response
+
+
 def link_visitor(request, user, via):
     """Records that this browser's anonymous visitor became `user`. The first conversion wins; nothing is copied."""
-    visitor_id = _cookie_id(request) if settings.ANALYTICS_VISITOR_COOKIE and request is not None else None
+    visitor_id = cookie_visitor_id(request) if analytics_allowed(request) else None
     if visitor_id is None:
         return 0
     try:

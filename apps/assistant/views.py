@@ -11,6 +11,7 @@ from apps.analytics.services.visitors import attach_visitor_cookie, existing_vis
 from apps.core.views import home_context
 from .forms import AssistantForm
 from .services.correction import CorrectionService
+from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
 from .services.limits import actor_key, claim_submission
 from .services.openai_client import AssistantError
 from .services.persistence import save_failure, save_result
@@ -18,7 +19,10 @@ from .services.translation import TranslationService
 from .services.usage import collect_provider_usage
 
 logger = logging.getLogger("apps.assistant")
-REJECTION_CODES = {"rate_limit", "duplicate"}
+# Refused by a rule rather than failed: quotas, duplicates and the abuse guardrails.
+REJECTION_CODES = {"rate_limit", "duplicate", "content_blocked", "instruction_attempt", "account_suspended"}
+STATUS_CODES = {"rate_limit": 429, "duplicate": 409, "language": 422, "romanian_input": 422, "content_blocked": 422,
+                "instruction_attempt": 422, "account_suspended": 403}
 EMPTY_TEXT_MESSAGES = {
     "correction": "Ca să facem corectura, scrie ceva în casetă sau apasă microfonul și vorbește.",
     "translation": "Ca să facem traducerea, scrie ceva în casetă sau apasă microfonul și vorbește.",
@@ -48,6 +52,8 @@ def submit(request, kind):
         usage = {"status": UsageEvent.Status.SUCCESS, "error_code": "", "assistant_request": None, "auto_translated": False}
         with collect_provider_usage() as calls:
             try:
+                if is_suspended(request.user):
+                    raise AssistantError("account_suspended", SUSPENDED_MESSAGE)
                 claim_submission(actor_key(request), form.cleaned_data["submission_token"])
                 accepted = True
                 text = form.cleaned_data["text"]
@@ -68,7 +74,7 @@ def submit(request, kind):
             except AssistantError as exc:
                 retry_after = exc.retry_after
                 context["error"] = exc.message
-                status = {"rate_limit": 429, "duplicate": 409, "language": 422, "romanian_input": 422}.get(exc.code, 503)
+                status = STATUS_CODES.get(exc.code, 503)
                 usage.update(status=UsageEvent.Status.REJECTED if exc.code in REJECTION_CODES else UsageEvent.Status.FAILED,
                              error_code=exc.code)
                 logger.warning("assistant_failed code=%s kind=%s", exc.code, kind)
@@ -90,5 +96,5 @@ def submit(request, kind):
     if status == 429:
         response["Retry-After"] = str(retry_after or 60)
     if anonymous:
-        attach_visitor_cookie(response, visitor)
+        attach_visitor_cookie(request, response, visitor)
     return response

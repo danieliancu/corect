@@ -1,8 +1,14 @@
 {% extends 'base.html' %}{% block title %}Contact — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><p class="eyebrow">CONTACT</p><h1>Scrie-ne.</h1><p>Ai o întrebare, o sugestie sau o problemă cu contul? Îți răspundem pe email.</p></section>
+<section class="page-heading"><p class="eyebrow">CONTACT</p><h1>Contact</h1><p>Pentru întrebări despre cont, date personale, serviciu sau reclamații, ne poți contacta folosind datele de mai jos.</p></section>
 <div class="card legal-page">
-  <h2>Email</h2>
-  <p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
-  <p>Nu trimite parole sau alte date sensibile prin email.</p>
+  <dl class="contact-details">
+    <div><dt>Serviciu</dt><dd>{{ legal.trading_name }}</dd></div>
+    {% if legal.operator_name %}<div><dt>Operator</dt><dd>{{ legal.operator_name }}</dd></div>{% endif %}
+    {% if legal.contact_email %}<div><dt>Email</dt><dd><a href="mailto:{{ legal.contact_email }}">{{ legal.contact_email }}</a></dd></div>{% endif %}
+    {% if legal.address %}<div><dt>Adresă de corespondență</dt><dd>{{ legal.address }}</dd></div>{% endif %}
+    {% if legal.company_number %}<div><dt>Număr de înregistrare</dt><dd>{{ legal.company_number }}</dd></div>{% endif %}
+    {% if legal.vat_number %}<div><dt>Cod TVA (VAT)</dt><dd>{{ legal.vat_number }}</dd></div>{% endif %}
+  </dl>
+  <p class="legal-updated">Nu trimite parole sau alte date sensibile prin email.</p>
 </div>
 {% endblock %}

@@ -1620,6 +1620,244 @@ a.category-row:hover .category-arrow {
   color: var(--muted);
   margin: 22px 0 0;
 }
+/* Signup: the required legal checkbox sits before its label. */
+.account-form p:has(> input[type="checkbox"]) {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 10px;
+}
+.account-form p:has(> input[type="checkbox"]) label {
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.account-form input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 1px 0 0;
+  padding: 0;
+  accent-color: var(--blue-dark);
+}
+.account-form a {
+  text-decoration: underline;
+}
+/* Honeypot fields: off screen for people, still present for automated submissions. */
+.form-trap,
+.account-form p:has(> .form-trap-input) {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.button.danger-button {
+  background: #c8202f;
+}
+.button.danger-button:hover {
+  background: #a91a27;
+}
+/* First-visit Terms/Privacy acceptance and cookie settings (templates/partials/consent_panel.html). */
+.consent-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100svh - 32px);
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--navy);
+  box-shadow: 0 24px 60px #0b163c33;
+  overflow: auto;
+}
+.consent-dialog::backdrop {
+  background: #0b163c8c;
+}
+.consent-form {
+  display: grid;
+  gap: 14px;
+  padding: 28px;
+}
+.consent-form h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.6px;
+}
+.consent-form p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.consent-form a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.consent-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fbff;
+  font-size: 15px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.consent-check input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--blue-dark);
+  cursor: pointer;
+}
+.consent-check small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+.consent-actions .button {
+  flex: 1 1 160px;
+  min-height: 50px;
+  font-size: 17px;
+}
+.consent-actions .button:disabled {
+  cursor: not-allowed;
+}
+.consent-form .error-box {
+  margin: 0;
+}
+.card.consent-card {
+  max-width: 850px;
+  margin-bottom: 24px;
+  padding: 0;
+}
+/* Notice bar: fixed at the bottom, over the page rather than pushing it, until "Am înțeles". */
+.consent-bar {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 40;
+  max-width: 980px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px #0b163c24;
+}
+.consent-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 12px 16px 12px 20px;
+}
+.consent-bar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.consent-bar a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.consent-bar .button {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 10px 22px;
+  font-size: 15px;
+}
+.footer-meta {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+.footer-meta p {
+  margin: 0;
+}
+/* Legal pages: tables scroll sideways on narrow screens instead of widening the page. */
+.legal-table-wrap {
+  overflow-x: auto;
+  margin: 10px 0 6px;
+}
+.legal-page table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.legal-page th,
+.legal-page td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.legal-page th {
+  background: #f8fbff;
+  color: var(--navy);
+  font-weight: 650;
+}
+.card.legal-page h3 {
+  margin: 20px 0 6px;
+  font-size: 17px;
+}
+.contact-details {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+.contact-details dt {
+  font-size: 14px;
+  font-weight: 650;
+}
+.contact-details dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .consent-form {
+    gap: 12px;
+    padding: 20px;
+  }
+  .consent-form h2 {
+    font-size: 21px;
+  }
+  .consent-form p,
+  .consent-check {
+    font-size: 14px;
+  }
+  .consent-check {
+    padding: 12px;
+  }
+  .consent-bar {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+  }
+  .consent-bar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .consent-bar p {
+    font-size: 12.5px;
+  }
+}
 .messages {
   background: var(--pale);
   padding: 12px 20px;
@@ -1787,8 +2025,8 @@ a.category-row:hover .category-arrow {
     margin-top: 40px;
     padding: 24px 0 30px;
   }
-  /* Phones and tablets: logo and links only; the copyright line is shown on desktop. */
-  .footer-copy {
+  /* Phones and tablets: logo and links only; the operator and copyright lines are shown on desktop. */
+  .footer-meta {
     display: none;
   }
   .empty-result {

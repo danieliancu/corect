@@ -208,7 +208,7 @@ class EndpointTests(TestCase):
 
     def test_account_signup_login_profile_logout(self):
         response = self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
-            "password1": "A-unique-pass-9431", "password2": "A-unique-pass-9431"})
+            "password1": "A-unique-pass-9431", "password2": "A-unique-pass-9431", "accept_legal": "on"})
         self.assertRedirects(response, "/")
         self.assertEqual(self.client.get("/accounts/profile/").status_code, 200)
         self.client.post("/accounts/profile/", {"action": "profile", "username": "new-learner", "email": "updated@example.com"})
@@ -316,4 +316,6 @@ class EndpointTests(TestCase):
     def test_settings_page_is_removed(self):
         self.assertEqual(self.client.get("/settings/").status_code, 404)
         for path in ("/", "/confidentialitate/"):
-            self.assertNotContains(self.client.get(path), "Setări")
+            response = self.client.get(path)
+            self.assertNotContains(response, 'href="/settings/"')
+            self.assertNotContains(response, "Setări</a>")  # Only "Setări cookie-uri" remains, in the footer.

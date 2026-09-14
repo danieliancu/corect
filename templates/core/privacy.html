@@ -1,29 +1,131 @@
 {% extends 'base.html' %}{% block title %}Confidențialitate — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><p class="eyebrow">CONFIDENȚIALITATE</p><h1>Datele tale, pe scurt.</h1><p>Ce păstrăm și ce nu păstrăm când folosești Corect.uk.</p></section>
+<section class="page-heading"><p class="eyebrow">CONFIDENȚIALITATE</p><h1>Politica de confidențialitate</h1><p>Ce date prelucrăm când folosești Corect.uk, de ce și ce drepturi ai. Versiunea {{ legal.privacy_version }}.</p></section>
 <div class="card legal-page">
-  <h2>Fără cont</h2>
+  <h2 id="controller">1. Cine este operatorul datelor</h2>
+  <p>{% if legal.public_statement %}{{ legal.public_statement }} Operatorul este responsabil (operator de date, „controller”) pentru datele descrise mai jos.{% else %}Operatorul Corect.uk este responsabil (operator de date, „controller”) pentru datele descrise mai jos.{% endif %}{% if legal.contact_email %} Pentru orice întrebare despre datele tale scrie-ne la <a href="mailto:{{ legal.contact_email }}">{{ legal.contact_email }}</a>.{% endif %}{% if legal.contact_available %} Toate datele de contact sunt pe <a href="{% url 'contact' %}">pagina Contact</a>.{% endif %}</p>
+
+  <h2 id="summary">2. Pe scurt</h2>
   <ul>
-    <li>Textul pe care îl scrii sau îl dictezi și rezultatele primite nu sunt salvate.</li>
-    <li>Pentru limitele de utilizare folosim o valoare criptografică (HMAC) derivată din adresa IP. Adresa IP nu este salvată, iar valoarea este păstrată cel mult 7 zile.</li>
-    <li>{% if visitor_cookie %}Prima dată când folosești Corectare, Traducere, microfonul sau pronunția, setăm cookie-ul <code>corect_visitor_id</code>: un ID aleator, valabil 12 luni, folosit doar ca să numărăm cererile. Simpla vizitare a paginilor nu setează acest cookie.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</li>
+    <li>Fără cont, textul pe care îl scrii sau îl dictezi și rezultatele nu sunt salvate.</li>
+    <li>Cu cont, corecturile și traducerile reușite sunt salvate în istoricul tău, până le ștergi împreună cu contul.</li>
+    <li>Pentru corectare, traducere, transcriere și pronunție, textul sau sunetul este trimis către OpenAI.</li>
+    <li>Nu salvăm înregistrări audio și nu salvăm adresa ta IP în baza de date.</li>
+    {% if visitor_cookie %}<li>Folosim un identificator anonim de analytics, pe care îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>.</li>{% endif %}
   </ul>
-  <h2>Cu cont</h2>
+
+  <h2 id="data">3. Ce date prelucrăm</h2>
+  <h3>Contul</h3>
+  <p>Numele de utilizator, adresa de email (opțională și neverificată), parola (păstrată doar sub formă criptată, ca hash), data creării contului și data ultimei autentificări. Păstrăm și confirmarea Termenilor și a Politicii de confidențialitate: versiunile și data.</p>
+  <h3>Corecturi, traduceri, greșeli și progres</h3>
+  <p>Dacă ai cont, pentru fiecare corectură sau traducere reușită păstrăm textul trimis, rezultatul (inclusiv explicațiile și versiunea nativă) și greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, un cod de eroare și data, fără text. Paginile Istoric, Greșelile mele și Progres sunt calculate din aceste date. Răspunsurile la exercițiile Practice nu sunt salvate. Fără cont, textul și rezultatele nu sunt salvate.</p>
+  <h3>Voce</h3>
   <ul>
-    <li>Păstrăm numele de utilizator, adresa de email și parola, stocată doar criptat (hash).</li>
-    <li>Textul și rezultatul sunt salvate în istoricul tău privat doar pentru cererile reușite trimise cu Corectare sau Traducere. Istoricul și statisticile tale sunt vizibile doar pentru tine.</li>
-    <li>Dacă îți creezi cont după ce ai folosit Corect.uk fără cont, ID-ul aleator de vizitator este legat de contul tău. Nimic nu este copiat în istoric.</li>
-    <li>La ștergerea contului, istoricul salvat este șters. Statisticile de utilizare rămân, fără legătură cu contul.{% if contact_email %} Pentru ștergerea contului scrie-ne la <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endif %}</li>
+    <li><strong>Transcriere în timp real:</strong> serverul nostru obține de la OpenAI o cheie temporară (valabilă 30 de secunde pentru pornire), iar browserul tău trimite sunetul direct către OpenAI. Sunetul nu trece prin serverele Corect.uk, iar textul transcris apare doar în pagina ta. Păstrăm o evidență tehnică a sesiunii (model, stare, orele de început și sfârșit și, dacă e cazul, contul sau identificatorul de analytics), fără sunet, text sau adresă IP.</li>
+    <li><strong>Transcriere după înregistrare</strong> (când transcrierea în timp real nu este disponibilă): înregistrarea este trimisă serverului nostru, ținută doar în memorie, fără numele fișierului, trimisă către OpenAI pentru transcriere și apoi eliminată. Nu este scrisă pe disc.</li>
+    <li><strong>Pronunție britanică:</strong> când apeși butonul de ascultare, propoziția în engleză este trimisă către OpenAI, care generează sunetul. Sunetul primit nu este salvat.</li>
   </ul>
-  <h2>Voce</h2>
+  <h3>Statistici de utilizare</h3>
+  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
+  <h3>Identificatorul anonim de analytics</h3>
+  <p>{% if visitor_cookie %}La prima corectare, traducere sau folosire a vocii creăm un identificator aleator, păstrat în cookie-ul <code>corect_visitor_id</code>. Împreună cu el păstrăm prima și ultima dată a folosirii și, dacă îți creezi cont sau te autentifici, legătura cu contul. Identificatorul este activ implicit. Îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>: atunci ștergem cookie-ul din browser și nu îl mai folosim.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</p>
+  <h3>Securitate și limite de utilizare</h3>
+  <p>Ca să prevenim abuzul, numărăm cererile pe minut și pe zi. Pentru vizitatorii fără cont folosim o valoare criptografică derivată din adresa IP cu o cheie secretă, nu adresa IP în sine; pentru conturi folosim identificatorul contului. Păstrăm și un cod pentru fiecare cerere trimisă, ca aceeași cerere să nu fie procesată de două ori.</p>
+  <h3>Jurnale</h3>
+  <p>Aplicația înregistrează în jurnale doar coduri de eroare, fără text, sunet, chei sau adrese IP. Serverul web și furnizorul de găzduire pot înregistra, ca orice site, adresa IP și cererile făcute către site, pentru securitate și funcționare.</p>
+  <h3>Acces în cadrul Corect.uk</h3>
+  <p>Operatorul poate vedea, în panoul de administrare, datele contului, istoricul salvat și statisticile de utilizare, doar pentru suport, securitate și rezolvarea problemelor.</p>
+
+  <h2 id="lawful-basis">4. De ce prelucrăm datele și pe ce bază legală</h2>
+  <div class="legal-table-wrap"><table>
+    <thead><tr><th scope="col">Scop</th><th scope="col">Bază legală</th></tr></thead>
+    <tbody>
+      <tr><td>Contul, corectarea, traducerea, istoricul, vocea, pronunția și funcțiile de învățare</td><td>Executarea contractului cu tine (Termenii) sau pașii pe care ni-i ceri</td></tr>
+      <tr><td>Securitate, prevenirea abuzului, limite de utilizare, protecția împotriva cererilor duplicate, jurnale necesare</td><td>Interes legitim: să protejăm serviciul și utilizatorii</td></tr>
+      <tr><td>Statistici de utilizare fără text (evidența costurilor și a funcționării)</td><td>Interes legitim: să înțelegem costurile și să menținem serviciul</td></tr>
+      <tr><td>Identificatorul anonim de analytics</td><td>Interes legitim: să înțelegem cum este folosit site-ul. Te poți opune oricând, oprindu-l din Setări cookie-uri</td></tr>
+      <tr><td>Păstrarea confirmării Termenilor și a Politicii</td><td>Interes legitim: să putem dovedi ce ți-am prezentat</td></tr>
+      <tr><td>Răspunsuri la cereri ale autorităților, când legea o cere</td><td>Obligație legală</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="cookies">5. Cookie-uri</h2>
+  <div class="legal-table-wrap"><table>
+    <thead><tr><th scope="col">Cookie</th><th scope="col">Pentru ce</th><th scope="col">Durată</th><th scope="col">Tip</th></tr></thead>
+    <tbody>
+      <tr><td><code>corect_consent</code></td><td>Ține minte că ai văzut versiunea curentă a Termenilor și a Politicii și setarea ta pentru analytics. Nu conține date personale.</td><td>12 luni</td><td>Necesar</td></tr>
+      <tr><td><code>sessionid</code></td><td>Te păstrează autentificat.</td><td>{{ retention.login_session_days }} zile</td><td>Necesar</td></tr>
+      <tr><td><code>csrftoken</code></td><td>Protejează formularele împotriva cererilor falsificate.</td><td>12 luni</td><td>Necesar</td></tr>
+      <tr><td><code>messages</code></td><td>Afișează o singură dată mesaje de confirmare, de exemplu după schimbarea parolei.</td><td>Până la afișare</td><td>Necesar</td></tr>
+      <tr><td><code>corect_visitor_id</code></td><td>Identificatorul anonim de analytics.</td><td>12 luni</td><td>Analytics, activ implicit; îl poți opri</td></tr>
+    </tbody>
+  </table></div>
+  <p>Poți schimba oricând setarea din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>. Dacă oprești analytics, ștergem cookie-ul <code>corect_visitor_id</code> din browser și nu mai asociem cererile tale cu el. Evidențele deja create rămân pseudonime (fără text, sunet sau adresă IP); ne poți cere să le ștergem.</p>
+
+  <h2 id="openai">6. Inteligența artificială: OpenAI</h2>
+  <p>Funcțiile AI nu pot funcționa fără ca o parte din conținutul tău să fie prelucrat de OpenAI, furnizorul modelelor pe care le folosim:</p>
   <ul>
-    <li>Înregistrările audio, transcrierile și vocea generată nu sunt salvate și nu apar în jurnale.</li>
-    <li>Transcrierea live trimite sunetul direct din browser către OpenAI; sunetul nu trece prin serverele Corect.uk.</li>
-    <li>Microfonul pornește doar când apeși butonul lui.</li>
+    <li>textul trimis pentru corectare sau traducere, care este verificat în același timp și de serviciul de moderare al OpenAI, ca să blocăm conținutul abuziv (păstrăm doar faptul că o cerere a fost refuzată și codul motivului, fără text);</li>
+    <li>sunetul de la microfon, trimis direct din browser pentru transcrierea în timp real;</li>
+    <li>înregistrarea trimisă pentru transcriere după înregistrare;</li>
+    <li>propoziția în engleză pentru care ceri pronunția.</li>
   </ul>
-  <h2>Procesare AI</h2>
-  <p>Textul și sunetul trimise sunt procesate de OpenAI pentru corectare, traducere, transcriere și pronunție. Cererile sunt trimise fără istoricul tău și cu opțiunea de a nu fi stocate, dar se aplică și politicile OpenAI privind datele.</p>
-  <h2>Statistici de utilizare</h2>
-  <p>Numărăm cererile, tipul lor, tokenurile, durata audio și costul estimat. Aceste statistici nu conțin text, audio sau adrese IP și sunt vizibile doar echipei Corect.uk.</p>
-  <p class="legal-updated">Ultima actualizare: 14 septembrie 2026.</p>
+  <p>Cheia noastră de acces la OpenAI rămâne pe server și nu ajunge în browser. Nu trimitem istoricul tău și nici numele contului. Cererile de corectare și traducere sunt trimise cu opțiunea <code>store=False</code>, prin care cerem ca răspunsurile să nu fie păstrate pentru a putea fi reluate ulterior. Asta nu înseamnă că OpenAI nu păstrează nimic: potrivit politicilor sale, OpenAI poate păstra datele primite prin API o perioadă limitată, de exemplu pentru prevenirea abuzurilor. Pentru transcriere și pronunție această opțiune nu se aplică.</p>
+
+  <h2 id="recipients">7. Cine mai primește datele</h2>
+  <ul>
+    <li>OpenAI, pentru funcțiile AI descrise mai sus.</li>
+    <li>{% if legal.hosting_provider %}{{ legal.hosting_provider }}{% else %}Furnizorul de găzduire și bază de date{% endif %}, care păstrează aplicația și datele în numele nostru.</li>
+    <li>Autorități publice, doar când legea ne obligă.</li>
+  </ul>
+  <p>Nu vindem datele tale și nu le folosim pentru publicitate.</p>
+
+  <h2 id="transfers">8. Transferuri în afara Regatului Unit</h2>
+  <p>OpenAI poate prelucra datele în Statele Unite ale Americii și în alte țări din afara Regatului Unit. Aceste transferuri se bazează pe garanțiile prevăzute în termenii de prelucrare a datelor ai furnizorului.</p>
+
+  <h2 id="retention">9. Cât timp păstrăm datele</h2>
+  <div class="legal-table-wrap"><table>
+    <thead><tr><th scope="col">Date</th><th scope="col">Cât timp</th></tr></thead>
+    <tbody>
+      <tr><td>Contul și confirmările Termenilor</td><td>Până ștergi contul</td></tr>
+      <tr><td>Istoricul corecturilor și traducerilor și greșelile găsite</td><td>Până ștergi contul</td></tr>
+      <tr><td>Sesiunea de autentificare</td><td>{{ retention.login_session_days }} zile de la autentificare; sesiunile expirate sunt șterse la curățarea zilnică</td></tr>
+      <tr><td>Contoarele pentru limitele de utilizare</td><td>Un minut sau o zi, apoi sunt șterse la curățarea zilnică</td></tr>
+      <tr><td>Codurile împotriva cererilor duplicate</td><td>{{ retention.submission_claim_days }} zile</td></tr>
+      <tr><td>Evidența tehnică a sesiunilor de transcriere în timp real</td><td>{{ retention.closed_session_days }} zile de la închiderea sesiunii</td></tr>
+      <tr><td>Statisticile de utilizare (fără text, sunet sau IP)</td><td>{% if retention.usage_ledger_days %}{{ retention.usage_ledger_days }} zile{% else %}Perioada nu este încă stabilită; până atunci nu sunt șterse automat. După ștergerea contului nu mai sunt legate de cont.{% endif %}</td></tr>
+      <tr><td>Identificatorul anonim de analytics (în baza de date)</td><td>{% if retention.visitor_record_days %}{{ retention.visitor_record_days }} zile{% else %}Perioada nu este încă stabilită; până atunci nu este șters automat. Îl ștergem la ștergerea contului sau la cerere.{% endif %}</td></tr>
+      <tr><td>Jurnalele serverului web și ale găzduirii</td><td>{% if retention.server_log_days %}{{ retention.server_log_days }} zile{% else %}Depind de furnizorul de găzduire; perioada nu este încă stabilită.{% endif %}</td></tr>
+      <tr><td>Înregistrări audio</td><td>Nu sunt păstrate</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="deletion">10. Ștergerea datelor</h2>
+  <p>Poți șterge contul oricând din pagina Profil. Ștergem atunci contul, istoricul, greșelile găsite, confirmările Termenilor și identificatorii de analytics legați de cont sau de browserul tău. Statisticile de utilizare rămân fără legătură cu tine (fără cont, identificator, text, sunet sau IP).{% if legal.contact_email %} Ne poți cere și prin email ștergerea altor date.{% endif %}</p>
+
+  <h2 id="security">11. Securitatea datelor</h2>
+  <p>Folosim măsuri tehnice și organizatorice potrivite: parolele sunt păstrate doar criptat, conexiunea este criptată (HTTPS) în producție, cookie-urile de autentificare sunt protejate, cheile de acces la furnizori rămân pe server, accesul la administrare este restricționat, iar jurnalele aplicației nu conțin conținutul tău. Nicio metodă nu este complet sigură, dar lucrăm ca riscurile să fie cât mai mici.</p>
+
+  <h2 id="age">12. Vârsta minimă</h2>
+  <p>Corect.uk este destinat persoanelor de cel puțin 16 ani. Dacă afli că un copil sub 16 ani ne-a trimis date, scrie-ne și le vom șterge.</p>
+
+  <h2 id="rights">13. Drepturile tale</h2>
+  <p>În condițiile prevăzute de lege, ai dreptul:</p>
+  <ul>
+    <li>să afli ce date avem despre tine și să primești o copie (dreptul de acces);</li>
+    <li>să ceri corectarea datelor greșite (numele de utilizator și emailul le poți schimba și singur, din Profil);</li>
+    <li>să ceri ștergerea datelor;</li>
+    <li>să ceri restricționarea prelucrării;</li>
+    <li>să te opui prelucrării bazate pe interesul nostru legitim, inclusiv folosirii identificatorului de analytics, pe care îl poți opri direct din Setări cookie-uri;</li>
+    <li>să primești datele pe care ni le-ai dat într-un format structurat și să le transmiți altui operator (portabilitate);</li>
+    <li>să îți retragi consimțământul, acolo unde o prelucrare se bazează pe consimțământ, fără să afecteze prelucrarea făcută înainte.</li>
+  </ul>
+  <p>Pentru aceste drepturi {% if legal.contact_email %}scrie-ne la <a href="mailto:{{ legal.contact_email }}">{{ legal.contact_email }}</a>{% else %}contactează operatorul{% endif %}. Îți răspundem, de regulă, în cel mult o lună.</p>
+
+  <h2 id="complaints">14. Plângere la ICO</h2>
+  <p>Dacă ești nemulțumit de felul în care îți prelucrăm datele, poți depune o plângere la Information Commissioner's Office (ICO), autoritatea pentru protecția datelor din Regatul Unit: <a href="https://ico.org.uk/make-a-complaint/" rel="noopener">ico.org.uk/make-a-complaint</a>. Nu ai nevoie de acordul nostru ca să faci asta. Dacă vrei, ne poți contacta și pe noi, ca să încercăm să rezolvăm problema.</p>
+
+  <h2 id="changes">15. Modificări ale acestei politici</h2>
+  <p>Putem actualiza această politică atunci când se schimbă serviciul sau legea. La schimbările importante publicăm o versiune nouă și te anunțăm printr-un mesaj pe site.</p>
+  <p class="legal-updated">Versiunea {{ legal.privacy_version }}.{% if legal.legal_statement %} {{ legal.legal_statement }}{% endif %}</p>
 </div>
 {% endblock %}

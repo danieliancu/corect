@@ -3,7 +3,7 @@ import re
 from django.conf import settings
 
 from apps.assistant.schemas import CorrectionResult
-from .openai_client import AssistantError, parse_response
+from .openai_client import AssistantError, guarded_parse
 from .prompts import CORRECTION_PROMPT
 
 
@@ -29,7 +29,7 @@ def validate_text(text: str) -> None:
 class CorrectionService:
     def correct(self, text: str) -> CorrectionResult:
         validate_text(text)
-        result = parse_response(CORRECTION_PROMPT, text, CorrectionResult).output
+        result = guarded_parse(CORRECTION_PROMPT, text, CorrectionResult).output
         if not same_text(result.original_text, text):
             raise AssistantError("invalid_original")
         result.original_text = text

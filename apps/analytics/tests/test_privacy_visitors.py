@@ -11,6 +11,7 @@ from apps.analytics.models import AnonymousVisitor, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
 from apps.assistant.tests.examples import correction_result
+from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from .test_recording import provider_usage, replying
 
 SUBMITTED_TEXT = "My secret sentance about Bucharest."
@@ -26,6 +27,8 @@ class VisitorPrivacyTests(TestCase):
         result.corrected_text = RESPONSE_TEXT
         patch("apps.assistant.views.CorrectionService.correct", side_effect=replying(result, provider_usage())).start()
         self.addCleanup(patch.stopall)
+        # These tests cover a visitor who allowed anonymous analytics; without that choice no visitor exists at all.
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)
 
     def post(self):
         return self.client.post("/assistant/correct/", {"text": SUBMITTED_TEXT, "submission_token": uuid4()},
@@ -43,6 +46,17 @@ class VisitorPrivacyTests(TestCase):
         for model in (UsageEvent, AnonymousVisitor):
             text_fields = [f.name for f in model._meta.get_fields() if isinstance(f, (models.TextField, models.JSONField))]
             self.assertEqual(text_fields, [], model.__name__)
+
+    def test_analytics_is_on_by_default_and_off_when_switched_off(self):
+        del self.client.cookies[CONSENT_COOKIE]
+        self.assertIn(VISITOR_COOKIE, self.post().cookies)  # No choice made yet: on by default.
+        self.client = self.client_class()
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(False)
+        response = self.post()
+        self.assertContains(response, RESPONSE_TEXT)
+        self.assertNotIn(VISITOR_COOKIE, response.cookies)
+        self.assertEqual(AnonymousVisitor.objects.count(), 1)
+        self.assertEqual(UsageEvent.objects.filter(visitor__isnull=True).count(), 1)
 
     def test_first_request_assigns_a_random_visitor_cookie_that_later_requests_reuse(self):
         cookie = self.post().cookies[VISITOR_COOKIE]
@@ -69,7 +83,7 @@ class VisitorPrivacyTests(TestCase):
         self.post()
         visitor = AnonymousVisitor.objects.get()
         self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
-                                                "password1": PASSWORD, "password2": PASSWORD})
+                                                "password1": PASSWORD, "password2": PASSWORD, "accept_legal": "on"})
         user = User.objects.get(username="new-learner")
         visitor.refresh_from_db()
         self.assertEqual((visitor.converted_user, visitor.converted_via), (user, "signup"))
@@ -97,6 +111,13 @@ class VisitorPrivacyTests(TestCase):
         self.assertEqual((visitor.converted_user, visitor.converted_via), (first, "login"))
         self.assertEqual(UsageEvent.objects.count(), 1)
 
+    def test_withdrawn_analytics_stops_conversion(self):
+        User.objects.create_user("existing", password=PASSWORD)
+        self.post()
+        self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(False)
+        self.client.post("/accounts/login/", {"username": "existing", "password": PASSWORD})
+        self.assertIsNone(AnonymousVisitor.objects.get().converted_user)
+
     @override_settings(ANALYTICS_VISITOR_COOKIE=False)
     def test_visitor_tracking_can_be_switched_off(self):
         response = self.post()
@@ -106,4 +127,5 @@ class VisitorPrivacyTests(TestCase):
         self.assertContains(self.client.get("/confidentialitate/"), "Cookie-ul de statistici pentru vizitatori este dezactivat.")
 
     def test_privacy_page_discloses_the_visitor_cookie(self):
-        self.assertContains(self.client.get("/confidentialitate/"), "setăm cookie-ul <code>corect_visitor_id</code>: un ID aleator")
+        self.assertContains(self.client.get("/confidentialitate/"),
+                            "păstrat în cookie-ul <code>corect_visitor_id</code>")

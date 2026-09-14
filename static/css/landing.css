@@ -86,10 +86,10 @@
     margin: 0;
   }
 
-  /* Features: 3 × 3 grid. */
+  /* Features: 4 × 3 grid. */
   .feature-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
   }
   .feature-card {
@@ -243,6 +243,29 @@
   .plan-price span {
     color: var(--muted);
     font-size: 18px;
+  }
+  /* Promotion: the normal price struck through, then the monthly price that applies. */
+  .plan-price-original {
+    align-self: center;
+    margin-right: 6px;
+    color: var(--muted);
+    font-size: 22px;
+    font-weight: 600;
+    text-decoration-thickness: 2px;
+  }
+  .plan-fair-use {
+    margin: -14px 0 24px;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .plan-fair-use a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .is-pro-member .plan-fair-use {
+    margin: 16px 0 0;
+    text-align: center;
   }
   .plan-features {
     display: grid;
@@ -415,7 +438,9 @@
   .feature-grid {
     gap: 12px;
   }
+  /* Four narrow columns: icon above the text. */
   .feature-card {
+    flex-direction: column;
     gap: 12px;
     padding: 20px 18px;
   }

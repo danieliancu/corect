@@ -1,0 +1,71 @@
+# Legal launch checklist — Corect.uk
+
+The application now contains Terms, a Privacy notice, versioned acceptance, opt-in analytics and a production check for
+blank legal identity. **That does not make Corect.uk legally compliant by itself.** The items below are business or
+professional actions that code cannot complete. None is done just because a configuration field exists.
+
+## Identity and contact
+
+- [ ] Decide the legal operator. Today there is no company: an individual can trade as Corect.uk
+      (`LEGAL_OPERATOR_TYPE=sole_trader`). Set `LEGAL_OPERATOR_NAME` to that person's full legal name.
+- [ ] Choose a service/correspondence address you can receive legal post at and set `LEGAL_SERVICE_ADDRESS`
+      (consider a service address instead of a home address).
+- [ ] Create a monitored public mailbox and set `CONTACT_EMAIL`.
+- [ ] If a Ltd/CIC is incorporated later: set `LEGAL_OPERATOR_TYPE=company`, the company name, `COMPANY_NUMBER`,
+      `VAT_NUMBER` if registered, review Terms/Privacy wording, and raise `TERMS_VERSION`/`PRIVACY_VERSION` so users
+      accept the new operator.
+
+## Data protection
+
+- [ ] Assess whether the ICO data protection fee applies and register/pay if it does (ico.org.uk).
+- [ ] Choose the production hosting and database provider; sign/accept its data processing agreement (DPA); set
+      `LEGAL_HOSTING_PROVIDER`; confirm where data is stored and the server/access-log retention period.
+- [ ] Review the OpenAI wording against the final production setup: API data processing addendum, contracting entity,
+      data retention (including abuse monitoring), international transfer mechanism, and whether `store=False` wording
+      is still accurate.
+- [ ] Decide retention periods still marked "nestabilit" in the Privacy notice: usage ledgers (`UsageEvent`,
+      `AudioUsageEvent`), anonymous visitor records, server logs. Implement automatic deletion for them, then update
+      `apps/core/legal.py:retention_facts` and raise `PRIVACY_VERSION`.
+- [ ] Schedule `python manage.py cleanup_assistant` daily in production (the stated retention for sessions, rate-limit
+      counters, duplicate-submission claims and live-session rows depends on it).
+- [ ] Decide how data access and portability requests are fulfilled (who exports what, within one month).
+
+## Notice, analytics and acceptance, verified in production
+
+- [ ] **Legal review of the product decisions made here:** first-visit Terms/age acceptance is a notice bar with only
+      "Am înțeles" (no tick box, nothing blocked), and anonymous analytics (`corect_visitor_id`) is **on by default**
+      with an opt-out in "Setări cookie-uri". Under PECR, non-essential analytics cookies have generally required prior
+      consent; the Data (Use and Access) Act 2025 adds exemptions for statistical cookies with clear information and an
+      easy way to object. Confirm whether that exemption is in force and applies, or switch analytics back to opt-in
+      (`apps/core/consent.py:analytics_chosen`).
+- [ ] First visit: the notice bar appears on every page until "Am înțeles"; its Terms and Privacy links work.
+- [ ] `corect_visitor_id` appears after the first Correct/Translate/voice action unless analytics was switched off.
+- [ ] Switching analytics off in "Setări cookie-uri" deletes `corect_visitor_id` and it does not come back.
+- [ ] Signup requires the checkbox and records a `LegalAcceptance` row with both versions.
+- [ ] A version bump shows the notice again to visitors and signed-in users.
+- [ ] Account deletion from Profile removes the account and history.
+
+## Abuse guardrails
+
+- [ ] Keep `CONTENT_MODERATION_ENABLED=true` in production and watch `content_blocked`, `instruction_attempt` and
+      `moderation_unavailable` counts in the staff analytics for false positives or outages (the check fails closed).
+- [ ] Review real refusals with a native speaker during beta: learners' ordinary sentences must not be blocked.
+- [ ] Decide who may suspend accounts in `/admin/` (Users → "Suspend selected accounts") and how appeals sent to the
+      contact address are handled.
+- [ ] Confirm the Privacy notice wording about OpenAI moderation matches the final provider terms.
+
+## Professional review
+
+- [ ] Have the Terms and Privacy notice reviewed by a qualified UK legal professional before commercial launch
+      (consumer law, UK GDPR/DPA 2018, PECR cookies, age threshold, governing law wording).
+- [ ] Confirm the Romanian-language documents are acceptable as the governing texts, or add an English version.
+
+## Before selling Pro
+
+- [ ] Choose a payment provider and add its disclosures to the Privacy notice (recipient, data shared, transfers).
+- [ ] Publish pricing, billing, renewal, cancellation and refund terms, including the UK 14-day cancellation right for
+      digital services and how it is waived or applied.
+- [ ] Make Pro rate limits match the public "nelimitat" promise (only Fair Use abuse controls); today every account,
+      including the admin-assigned "Pro" group, shares the same per-minute and per-day limits.
+- [ ] Review the promotional price presentation (£9.99 struck through, £4.99/lună) against pricing rules: the normal
+      price must be genuine.

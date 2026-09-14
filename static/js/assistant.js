@@ -92,7 +92,7 @@
   });
   document.body.addEventListener("htmx:beforeSwap", (event) => {
     if (event.detail.target !== result) return;
-    if ([400, 409, 422, 429, 503].includes(event.detail.xhr.status)) {
+    if ([400, 403, 409, 422, 429, 503].includes(event.detail.xhr.status)) {
       event.detail.shouldSwap = true;
       event.detail.isError = false;
     }

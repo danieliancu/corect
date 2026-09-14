@@ -18,6 +18,9 @@ from apps.analytics.models import AudioUsageEvent
 from apps.assistant.tests.examples import correction_result, translation_result
 from apps.assistant.services.openai_client import AssistantError
 from apps.assistant.services.voice import AudioUsage
+from apps.accounts.models import LegalAcceptance
+from apps.analytics.services.visitors import VISITOR_COOKIE
+from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 
 # Browser stand-ins for the microphone and the WebRTC connection to OpenAI: tests play the provider's transcript events.
 REALTIME_MOCKS = """(() => {
@@ -107,6 +110,9 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.runtime = sync_playwright().start()
         self.browser = self.runtime.chromium.launch()
         self.context = self.browser.new_context(viewport={"width": 1440, "height": 1000})
+        # Existing workflows start from a browser that already accepted the current Terms (analytics off); the consent
+        # tests use fresh contexts without this cookie.
+        self.context.add_cookies([self.consent_cookie()])
         self.page = self.context.new_page()
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
@@ -177,11 +183,23 @@ class BrowserChecks(StaticLiveServerTestCase):
                 expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_visible()
                 expect(marketing).to_be_visible()
                 cards = self.page.locator(".feature-card")
-                expect(cards).to_have_count(9)
-                for index in range(9):
+                expect(cards).to_have_count(12)
+                for index in range(12):
                     expect(cards.nth(index)).to_be_visible()
                 expect(self.page.locator(".feature-card.is-pro .pro-ribbon")).to_have_count(5)
-                expect(self.page.get_by_role("heading", name="Versiune nativă")).to_be_visible()
+                for title in ("Versiune nativă", "Scrii sau dictezi", "Pronunție britanică", "Explicații în română"):
+                    expect(self.page.get_by_role("heading", name=title, exact=True)).to_be_visible()
+                # Promotion: the normal price struck through, the promotional monthly price prominent, Fair Use linked.
+                pro = self.page.locator(".plan-pro")
+                expect(pro.locator("s.plan-price-original")).to_have_text("Preț normal: £9.99")
+                expect(pro.locator(".plan-price strong")).to_have_text("Preț actual: £4.99")
+                prices = pro.evaluate("""card => ({strike: getComputedStyle(card.querySelector('s')).textDecorationLine,
+                    old: parseFloat(getComputedStyle(card.querySelector('s')).fontSize),
+                    now: parseFloat(getComputedStyle(card.querySelector('.plan-price strong')).fontSize)})""")
+                self.assertIn("line-through", prices["strike"])
+                self.assertGreater(prices["now"], prices["old"])
+                expect(pro.locator(".plan-fair-use")).to_be_visible()
+                expect(pro.get_by_role("link", name="Fair Use")).to_have_attribute("href", "/termeni/#fair-use")
                 expect(self.page.get_by_text("Pentru administratori")).to_have_count(0)
                 expect(self.page.get_by_role("heading", name="Cum funcționează")).to_be_visible()
                 expect(self.page.locator(".step-card")).to_have_count(4)
@@ -236,6 +254,9 @@ class BrowserChecks(StaticLiveServerTestCase):
     def test_editor_link_focuses_text_box_and_pro_members_see_their_benefits(self):
         user = self.in_database_thread(lambda: User.objects.create_user(username="pro-learner",
                                                                         password="Browser-test-password-815"))
+        # An existing account that already accepted the current Terms, so no consent dialog covers the page.
+        self.in_database_thread(lambda: LegalAcceptance.objects.create(
+            user=user, terms_version=settings.TERMS_VERSION, privacy_version=settings.PRIVACY_VERSION, source="visit"))
         self.page.goto(self.live_server_url + "/accounts/login/")
         self.page.locator("#id_username").fill("pro-learner")
         self.page.locator("#id_password").fill("Browser-test-password-815")
@@ -305,6 +326,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.get_by_label("Email").fill("browser@example.com")
         self.page.locator("#id_password1").fill("Browser-test-password-815")
         self.page.locator("#id_password2").fill("Browser-test-password-815")
+        self.page.locator("#id_accept_legal").check()
         self.page.get_by_role("button", name="Creează cont", exact=True).click()
         expect(self.page.locator("#text")).to_be_visible()
         self.page.locator("#text").fill(correction_result().original_text)
@@ -521,6 +543,105 @@ class BrowserChecks(StaticLiveServerTestCase):
     def wait_for_commit(self, count=1):
         self.page.wait_for_function(
             f"window.__rt.sent.filter(event => event.type === 'input_audio_buffer.commit').length >= {count}")
+
+    def consent_cookie(self, analytics=False):
+        return {"name": CONSENT_COOKIE, "value": consent_cookie_value(analytics), "url": self.live_server_url}
+
+    def fresh_page(self, width, height):
+        """A browser that has never visited Corect.uk: no consent cookie."""
+        context = self.browser.new_context(viewport={"width": width, "height": height})  # Closed with the browser.
+        page = context.new_page()
+        page.on("pageerror", lambda error: self.errors.append(str(error)))
+        return context, page
+
+    @staticmethod
+    def cookie_values(context):
+        return {cookie["name"]: cookie["value"] for cookie in context.cookies()}
+
+    def test_notice_bar_and_cookie_settings_on_desktop(self):
+        context, page = self.fresh_page(1440, 900)
+        page.goto(self.live_server_url)
+        bar = page.locator("[data-consent-bar]")
+        expect(bar).to_be_visible()
+        expect(bar.get_by_role("link", name="Termenii")).to_have_attribute("href", "/termeni/")
+        expect(bar.get_by_role("link", name="Politica de confidențialitate")).to_have_attribute("href", "/confidentialitate/")
+        expect(bar.locator("input[type=checkbox]")).to_have_count(0)
+        expect(page.locator("#consent-dialog")).to_be_hidden()
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 1440)
+        page.screenshot(path=str(self.artifacts / "consent-bar-1440.png"))
+
+        def correct():
+            page.locator("#text").fill(correction_result().original_text)
+            page.get_by_role("button", name="Corectare", exact=True).click()
+            expect(page.locator(".result-text")).to_have_text(correction_result().corrected_text)
+
+        # Nothing is blocked: Correct works while the notice shows, and anonymous analytics is on by default.
+        correct()
+        self.assertIn(VISITOR_COOKIE, self.cookie_values(context))
+        bar.get_by_role("button", name="Am înțeles").click()
+        expect(page.locator("[data-consent-bar]")).to_have_count(0)
+        expect(page.locator(".result-text")).to_have_text(correction_result().corrected_text)  # No reload.
+        self.assertEqual(self.cookie_values(context)[CONSENT_COOKIE], consent_cookie_value(True))
+        page.reload()
+        expect(page.locator("[data-consent-bar]")).to_have_count(0)
+
+        def save_cookie_settings(allow):
+            page.locator(".site-footer").get_by_role("link", name="Setări cookie-uri").click()
+            dialog = page.locator("#consent-dialog")
+            expect(dialog).to_be_visible()
+            expect(dialog.get_by_role("heading", name="Setări cookie-uri")).to_be_visible()
+            dialog.locator("[name=allow_analytics]").set_checked(allow)
+            with page.expect_navigation():
+                dialog.get_by_role("button", name="Salvează").click()
+            expect(dialog).to_be_hidden()
+
+        save_cookie_settings(False)  # Switching off deletes the visitor cookie.
+        cookies = self.cookie_values(context)
+        self.assertNotIn(VISITOR_COOKIE, cookies)
+        self.assertEqual(cookies[CONSENT_COOKIE], consent_cookie_value(False))
+        correct()
+        self.assertNotIn(VISITOR_COOKIE, self.cookie_values(context))
+        save_cookie_settings(True)
+        correct()
+        self.assertIn(VISITOR_COOKIE, self.cookie_values(context))
+        self.assertEqual(self.errors, [])
+
+    def test_notice_bar_on_mobile(self):
+        context, page = self.fresh_page(390, 844)
+        page.goto(self.live_server_url)
+        bar = page.locator("[data-consent-bar]")
+        expect(bar).to_be_visible()
+        box = bar.bounding_box()
+        self.assertGreaterEqual(box["x"], 0)
+        self.assertLessEqual(box["x"] + box["width"], 390)
+        self.assertLessEqual(box["y"] + box["height"], 844)
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
+        expect(page.locator(".desktop-marketing")).to_be_hidden()
+        expect(page.get_by_role("button", name="Corectare", exact=True)).to_be_visible()
+        page.screenshot(path=str(self.artifacts / "consent-bar-390.png"))
+        bar.get_by_role("link", name="Termenii").click()
+        page.wait_for_url("**/termeni/")
+        expect(page.get_by_role("heading", name="Termeni de utilizare")).to_be_visible()
+        expect(page.locator("main .consent-form")).to_have_count(0)
+        page.locator("[data-consent-bar]").get_by_role("button", name="Am înțeles").click()
+        expect(page.locator("[data-consent-bar]")).to_have_count(0)
+        self.assertEqual(self.cookie_values(context)[CONSENT_COOKIE], consent_cookie_value(True))
+        page.goto(self.live_server_url)
+        expect(page.locator("[data-consent-bar]")).to_have_count(0)
+        expect(page.locator("#text")).to_be_visible()
+        page.locator(".site-footer").get_by_role("link", name="Setări cookie-uri").click()
+        dialog = page.locator("#consent-dialog")
+        expect(dialog).to_be_visible()
+        box = dialog.bounding_box()
+        self.assertGreaterEqual(box["x"], 0)
+        self.assertLessEqual(box["x"] + box["width"], 390)
+        page.screenshot(path=str(self.artifacts / "cookie-settings-390.png"))
+        dialog.locator("[name=allow_analytics]").uncheck()
+        with page.expect_navigation():
+            dialog.get_by_role("button", name="Salvează").click()
+        self.assertEqual(self.cookie_values(context)[CONSENT_COOKIE], consent_cookie_value(False))
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
+        self.assertEqual(self.errors, [])
 
     @staticmethod
     def in_database_thread(query):

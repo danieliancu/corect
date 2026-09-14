@@ -15,6 +15,7 @@
   {% block styles %}{% endblock %}
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/navigation.js' %}" defer></script>
+  <script src="{% static 'js/consent.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -50,5 +51,8 @@
   <main id="main">{% if messages %}<div class="messages">{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>
   {% include 'partials/site_footer.html' %}
 </div>
+{% if consent.required %}{% include 'partials/consent_bar.html' %}{% endif %}
+{# Cookie settings, opened by the "Setări cookie-uri" links (which also work without JavaScript, as /cookie-uri/). #}
+<dialog class="consent-dialog" id="consent-dialog" aria-labelledby="consent-dialog-title">{% include 'partials/consent_panel.html' with prefix="consent-dialog" in_dialog=True %}</dialog>
 </body>
 </html>
