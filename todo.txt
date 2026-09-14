@@ -1,120 +1,99 @@
-| Funcție                                      | Anonymous |              Free |                      Pro |
-| -------------------------------------------- | --------: | ----------------: | -----------------------: |
-| Corectări                                    |    3–5/zi |          15–20/zi |   foarte mare / fair use |
-| Traduceri                                    |    3–5/zi |          15–20/zi |   foarte mare / fair use |
-| Voice input                                  | după Stop | Realtime, limitat | Realtime, foarte generos |
-| British TTS                                  |    3–5/zi |          15–20/zi |           foarte generos |
-| History                                      |        ❌ |        ✅ limitat |                ✅ complet |
-| **Progress**                                 |        ❌ |                ❌ |                        ✅ |
-| **Mistake categories / analytics personale** |        ❌ |                ❌ |                        ✅ |
-| **Practice**                                 |        ❌ |                ❌ |                        ✅ |
-| Exerciții bazate pe greșelile tale           |        ❌ |                ❌ |                        ✅ |
-| Statistici de evoluție                       |        ❌ |                ❌ |                        ✅ |
+| Milestone                                       |                                     Status actual |
+| ----------------------------------------------- | ------------------------------------------------: |
+| **M1 — Core AI: Correct + Translate + Native**  |                                        ✅ **DONE** |
+| **M2 — Accounts + History + Learning**          |                                        ✅ **DONE** |
+| **M3 — Analytics + Anonymous + Tokens + Costs** |                                        ✅ **DONE** |
+| **M4 — Voice input + British voice output**     | 🟢 **FEATURE COMPLETE / validare manuală finală** |
+| **M5 — Production deployment**                  |                  🎯 **URMĂTORUL MILESTONE MAJOR** |
+| **M6 — Private/Public Beta**                    |                                                 ⏳ |
+| **M7 — Monetisation + Free/Pro**                |    🟡 **model conceptual definit, neimplementat** |
+| **M8 — Optimisation din date reale**            |                                                 ⏳ |
 
 
 
 
-
-| Milestone                                       |                                           Status |
-| ----------------------------------------------- | -----------------------------------------------: |
-| **M1 — Core AI: Correct + Translate + Native**  |                                           ✅ DONE |
-| **M2 — Accounts + History + Learning**          |                                           ✅ DONE |
-| **M3 — Analytics + Anonymous + Tokens + Costs** |                                           ✅ DONE |
-| **M4 — Voice input + British voice output**     |                        🟢 **98% — practic DONE** |
-| **M5 — Production deployment**                  |                                 🎯 **URMĂTORUL** |
-| **M6 — Private/Public Beta**                    |                                                ⏳ |
-| **M7 — Monetisation + Free/Pro**                | 🟡 **doar proiectat conceptual, nu implementat** |
-| **M8 — Optimisation din date reale**            |                                                ⏳ |
-
-
-
-
-
-
-| Zonă                                 |   Status | Starea reală acum                                      |
-| ------------------------------------ | -------: | ------------------------------------------------------ |
-| Django + PostgreSQL + HTMX           |   ✅ 100% | Arhitectură stabilă                                    |
-| UI responsive                        |    ✅ 99% | Desktop/mobile + voice UI verificat fără overflow      |
-| Interfață publică în română          |   ✅ 100% | Inclusiv mesaje și controale voice                     |
-| Correct                              |   ✅ 100% | Live                                                   |
-| British English                      |   ✅ 100% | Prompt dedicat                                         |
-| Native version                       |   ✅ 100% | Inclusiv engleză corectă dar nenaturală                |
-| Silent punctuation/capitalisation    |   ✅ 100% | Nu sunt raportate ca greșeli                           |
-| RO → Correct → EN                    |   ✅ 100% | Auto-translation                                       |
-| Translate RO ↔ EN                    |   ✅ 100% | Live                                                   |
-| OpenAI text                          |   ✅ 100% | `gpt-5.6-luna`, verificat live                         |
-| Structured Outputs                   |   ✅ 100% | Pydantic                                               |
-| `store=False`                        |   ✅ 100% | Păstrat                                                |
-| Accounts                             |    ✅ 98% | Signup/login/logout + username/email                   |
-| Profile                              |   ✅ 100% | Username, email, password                              |
-| History                              |   ✅ 100% | Privat per user                                        |
-| Mistake categories                   |   ✅ 100% | Pagini per categorie                                   |
-| Progress                             |   ✅ 100% | Chart.js + 30-day progress                             |
-| Practice                             |    ✅ 95% | Exerciții fără AI                                      |
-| Rate limiting text                   |   ✅ 100% | PostgreSQL + concurență                                |
-| Rate limiting voice                  |   ✅ 100% | STT și TTS au limite separate                          |
-| Duplicate submissions                |   ✅ 100% | Protejate                                              |
-| Admin Analytics                      |   ✅ 100% | `/admin/analytics/`                                    |
-| Registered analytics                 |   ✅ 100% | User + tokens + cost                                   |
-| Anonymous visitors                   |   ✅ 100% | UUID anonim                                            |
-| Anonymous → signup                   |   ✅ 100% | Conversion tracking                                    |
-| Anonymous privacy                    |   ✅ 100% | Fără text/răspuns/IP                                   |
-| Token tracking text                  |   ✅ 100% | Input/output/cached/reasoning                          |
-| Cost text OpenAI                     |   ✅ 100% | Cost real                                              |
-| Historical backfill                  |   ✅ 100% | 35/35 requesturi vechi                                 |
-| Error analytics                      |   ✅ 100% | failed/rejected/error codes                            |
-| Analytics filters                    |   ✅ 100% | Today / 7 / 30 / 90 / all                              |
-| 🎤 Microfon în textarea              |   ✅ 100% | Integrat în UI                                         |
-| 🎙️ Browser recording                |   ✅ 100% | `getUserMedia` + `MediaRecorder`                       |
-| Speech-to-text după Stop             |   ✅ 100% | `gpt-transcribe`                                       |
-| EN speech transcription              |   ✅ 100% | Testat                                                 |
-| RO speech transcription              |   ✅ 100% | Testat live cu diacritice                              |
-| Mixed EN/RO support                  |    ✅ 95% | Prompt/hints implementate                              |
-| Speech-to-text în timp real          |    🔴 0% | Nu există încă                                         |
-| 🔊 Correct pronunciation             |    ✅ 95% | Implementat și TTS funcțional                          |
-| 🔊 Native pronunciation              |    ✅ 95% | Implementat                                            |
-| 🔊 English translation pronunciation |    ✅ 95% | Implementat și aici                                    |
-| 🇬🇧 British TTS instructions        |   ✅ 100% | British Southern neutral explicit                      |
-| 🇬🇧 Accent britanic auzit/verificat |   🟡 80% | **Trebuie ascultat de om**                             |
-| TTS model                            |   ✅ 100% | `gpt-4o-mini-tts`                                      |
-| TTS voice                            |   ✅ 100% | `cedar`, configurabil                                  |
-| No autoplay                          |   ✅ 100% | Cost doar când apeși speaker                           |
-| TTS anti-abuse                       |   ✅ 100% | Signed expiring speech tokens                          |
-| Browser audio cache                  |   ✅ 100% | Reascultarea nu mai face call plătit în aceeași pagină |
-| Audio privacy                        |   ✅ 100% | Fără audio/transcript/sentence/IP în ledger            |
-| AudioUsageEvent                      |   ✅ 100% | Ledger separat pentru voice                            |
-| STT cost tracking                    |   ✅ 100% | Durată + cost                                          |
-| TTS token tracking                   |   ✅ 100% | Input/output/total tokens                              |
-| TTS cost tracking                    |   ✅ 100% | Cost separat                                           |
-| Admin: Text AI cost                  |   ✅ 100% | Separat                                                |
-| Admin: Voice input cost              |   ✅ 100% | Separat                                                |
-| Admin: British TTS cost              |   ✅ 100% | Separat                                                |
-| Admin: Total Audio cost              |   ✅ 100% | STT + TTS                                              |
-| Admin: Total AI cost                 |   ✅ 100% | Text + Audio                                           |
-| User audio cost                      |   ✅ 100% | Per registered user                                    |
-| Anonymous audio cost                 |   ✅ 100% | Per visitor                                            |
-| Tests backend                        |   ✅ 100% | **117 teste trecute**                                  |
-| Browser tests                        |   ✅ 100% | **5 workflows trecute**                                |
-| Live text smoke test                 |   ✅ 100% | Luna                                                   |
-| Live voice API test                  |   ✅ 100% | TTS + STT reale                                        |
-| Live human voice UX test             |   🟡 80% | Mai trebuie microfon + ascultare manuală               |
-| Accessibility                        |   🟡 85% | Axe trebuie rerulat după modificările recente          |
-| Voice male/female                    | 🟡 Later | Nu pentru V1                                           |
-| ElevenLabs                           | 🟡 Later | Doar dacă vocea OpenAI nu ne place                     |
-| Monetizare/plans                     |   🔴 10% | De proiectat                                           |
-| Deployment public                    |    🔴 0% | Următorul milestone major                              |
-| Production monitoring                |    🔴 0% | La deployment                                          |
-| Beta users                           |    🔴 0% | După deployment                                        |
-
-
-
-| Zonă                     |     Status | Starea reală acum                                                                      |
-| ------------------------ | ---------: | -------------------------------------------------------------------------------------- |
-| Monetizare / plans       | 🟡 **25%** | Structură decisă: Anonymous → Free → Pro; limitele exacte și plata încă neimplementate |
-| Anonymous plan           |     🟡 50% | Trial limitat; fără Progress/Mistakes/Practice                                         |
-| Free plan                |     🟡 40% | Corectare/Traducere/Voice/TTS limitate; fără Progress/Mistakes/Practice                |
-| Pro plan                 |     🟡 30% | Acces la learning features + limite foarte mari/fair-use                               |
-| Payments / subscriptions |      🔴 0% | De implementat                                                                         |
-| Plan enforcement         |     🔴 10% | Avem rate limiting, dar nu există încă entitlement system pe plan                      |
-| Founding users promo     |     🟡 20% | Concept stabilit; durată/ofertă finală de decis                                        |
-
+| Zonă                                |                 Status | Starea reală acum                                                     |
+| ----------------------------------- | ---------------------: | --------------------------------------------------------------------- |
+| Django + PostgreSQL + HTMX          |                 ✅ 100% | Arhitectură stabilă                                                   |
+| UI responsive                       |                  ✅ 99% | Desktop/mobile, voice și realtime verificate fără overflow            |
+| Interfață publică în română         |                 ✅ 100% | Inclusiv voice/realtime states                                        |
+| **Homepage animated examples**      |                 ✅ 100% | 5 exemple conversaționale animate                                     |
+| Example corrections                 |                 ✅ 100% | Greșeala tăiată roșu → corecția verde                                 |
+| Fake example isolation              |                 ✅ 100% | Overlay decorativ; nu intră în `textarea.value` și nu poate fi trimis |
+| Reduced motion                      |                 ✅ 100% | Exemplu static, fără typing animation                                 |
+| Correct                             |                 ✅ 100% | Live                                                                  |
+| British English                     |                 ✅ 100% | Prompt dedicat                                                        |
+| Native version                      |                 ✅ 100% | Inclusiv propoziții corecte dar nenaturale                            |
+| Silent punctuation/capitalisation   |                 ✅ 100% | Nu sunt raportate ca greșeli                                          |
+| RO → Correct → EN                   |                 ✅ 100% | Auto-translation                                                      |
+| Translate RO ↔ EN                   |                 ✅ 100% | Live                                                                  |
+| OpenAI text                         |                 ✅ 100% | `gpt-5.6-luna`, verificat live                                        |
+| Structured Outputs                  |                 ✅ 100% | Pydantic                                                              |
+| `store=False`                       |                 ✅ 100% | Păstrat                                                               |
+| Accounts                            |                  ✅ 98% | Signup/login/logout + username/email                                  |
+| Profile                             |                 ✅ 100% | Username, email, password                                             |
+| History                             |                 ✅ 100% | Privat per user                                                       |
+| Mistake categories                  |                 ✅ 100% | Pagini separate                                                       |
+| Progress                            |                 ✅ 100% | Chart.js + 30-day progress                                            |
+| Practice                            |                  ✅ 95% | Fără cost AI                                                          |
+| Rate limiting text                  |                 ✅ 100% | PostgreSQL + concurență                                               |
+| Rate limiting voice                 |                 ✅ 100% | STT/TTS separat                                                       |
+| Duplicate submissions               |                 ✅ 100% | Protejate                                                             |
+| Admin Analytics                     |                 ✅ 100% | `/admin/analytics/`                                                   |
+| Registered analytics                |                 ✅ 100% | User + tokens + cost                                                  |
+| Anonymous visitors                  |                 ✅ 100% | UUID anonim                                                           |
+| Anonymous → signup                  |                 ✅ 100% | Conversion tracking                                                   |
+| Anonymous privacy                   |                 ✅ 100% | Fără text/răspuns/IP                                                  |
+| Token tracking text                 |                 ✅ 100% | input/output/cached/reasoning                                         |
+| Cost text OpenAI                    |                 ✅ 100% | Cost real                                                             |
+| Historical backfill                 |                 ✅ 100% | 35/35                                                                 |
+| Error analytics                     |                 ✅ 100% | failed/rejected/error codes                                           |
+| Analytics filters                   |                 ✅ 100% | Today / 7 / 30 / 90 / all                                             |
+| 🎤 Microfon în textarea             |                 ✅ 100% | Integrat                                                              |
+| File recording fallback             |                 ✅ 100% | `MediaRecorder` + `gpt-transcribe`                                    |
+| **Realtime speech-to-text**         | ✅ **100% implementat** | `gpt-live-transcribe` + WebRTC                                        |
+| Realtime text while speaking        |                 ✅ 100% | Deltas apar înainte de Stop                                           |
+| Realtime authentication             |                 ✅ 100% | Client secret temporar; API key nu ajunge în browser                  |
+| Realtime → Django audio proxy       |                 ✅ 100% | **Nu există**; audio merge direct browser → OpenAI                    |
+| Auto-stop silence                   |                 ✅ 100% | După ~3 secunde fără transcript nou                                   |
+| Hard voice limit                    |                 ✅ 100% | `VOICE_MAX_SECONDS=60`                                                |
+| EN realtime transcription           |                 ✅ 100% | Verificat live                                                        |
+| RO realtime transcription           |                 ✅ 100% | Verificat live, inclusiv diacritice                                   |
+| Mixed EN/RO                         |                 🟡 90% | Suport implementat; testul sintetic mixed nu a fost suficient de bun  |
+| Realtime fallback                   |                 ✅ 100% | `gpt-transcribe` dacă live nu poate porni                             |
+| Realtime kill switch                |                 ✅ 100% | `VOICE_REALTIME_ENABLED`                                              |
+| Realtime session cleanup            |                 ✅ 100% | Sesiunile abandonate sunt închise/curățate                            |
+| 🔊 Correct pronunciation            |                  ✅ 95% | Funcțional                                                            |
+| 🔊 Native pronunciation             |                  ✅ 95% | Funcțional                                                            |
+| 🔊 Translation pronunciation        |                  ✅ 95% | Funcțional                                                            |
+| 🇬🇧 British TTS instructions       |                 ✅ 100% | Neutral Southern British explicit                                     |
+| 🇬🇧 Accent British verificat de om |                 🟡 80% | Încă trebuie ascultat manual                                          |
+| TTS model                           |                 ✅ 100% | `gpt-4o-mini-tts`                                                     |
+| TTS voice                           |                 ✅ 100% | `cedar`, configurabil                                                 |
+| No autoplay                         |                 ✅ 100% | Cost doar la speaker click                                            |
+| TTS anti-abuse                      |                 ✅ 100% | Signed expiring tokens                                                |
+| Browser TTS cache                   |                 ✅ 100% | Replay în aceeași pagină fără call nou                                |
+| Audio privacy                       |                 ✅ 100% | Fără audio/transcript/sentence/IP în ledger                           |
+| AudioUsageEvent                     |                 ✅ 100% | Ledger separat                                                        |
+| **Realtime vs File STT tracking**   |                 ✅ 100% | Sunt diferențiate în analytics                                        |
+| STT duration/cost tracking          |                 ✅ 100% | Inclusiv realtime                                                     |
+| TTS token/cost tracking             |                 ✅ 100% | Provider usage                                                        |
+| Realtime price                      |                 ✅ 100% | `$0.017/min` în pricing                                               |
+| File STT price                      |                 ✅ 100% | `$0.0045/min`                                                         |
+| Admin GBP display                   |                 ✅ 100% | Ledger USD, dashboard poate afișa £                                   |
+| Admin Text AI cost                  |                 ✅ 100% | Separat                                                               |
+| Admin Voice input cost              |                 ✅ 100% | Separat                                                               |
+| Admin British TTS cost              |                 ✅ 100% | Separat                                                               |
+| Admin Total Audio                   |                 ✅ 100% | STT + TTS                                                             |
+| Admin Total AI                      |                 ✅ 100% | Text + Audio                                                          |
+| User audio cost                     |                 ✅ 100% | Per user                                                              |
+| Anonymous audio cost                |                 ✅ 100% | Per visitor                                                           |
+| **Tests backend**                   |             ✅ **100%** | **138 teste trecute**                                                 |
+| **Browser workflows**               |             ✅ **100%** | **9 workflows trecute**                                               |
+| Live text smoke test                |                 ✅ 100% | Luna                                                                  |
+| Live realtime OpenAI test           |                 ✅ 100% | WebRTC + real provider                                                |
+| Real physical mic test              |                     🟡 | Desktop/iPhone/Android încă de făcut                                  |
+| Accessibility                       |                 🟡 85% | Axe vechi OK; trebuie rerulat după UI nou                             |
+| Deployment public                   |                  🔴 0% | Următorul pas major                                                   |
+| Production monitoring               |                  🔴 0% | La deployment                                                         |
+| Beta users                          |                  🔴 0% | După deploy                                                           |

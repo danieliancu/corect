@@ -1,0 +1,10 @@
+{% load static %}<footer class="site-footer">
+  <a class="footer-logo" href="{% url 'home' %}"><img src="{% static 'img/logo.svg' %}?v=4" alt="" width="34" height="34">corect.uk</a>
+  <nav class="footer-links" aria-label="Legături subsol">
+    {% if user.is_authenticated %}<a href="{% url 'history' %}">Istoric</a>{% endif %}
+    <a href="{% url 'privacy' %}">Confidențialitate</a>
+    <a href="{% url 'terms' %}">Termeni</a>
+    {% if contact_email %}<a href="{% url 'contact' %}">Contact</a>{% endif %}
+  </nav>
+  <p class="footer-copy">© {% now "Y" %} Corect.uk. Toate drepturile rezervate.</p>
+</footer>

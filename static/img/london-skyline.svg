@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="240" viewBox="0 0 1240 240">
+  <!-- London panorama drawn for Corect.uk: St Paul's, Palace of Westminster, Elizabeth Tower, London Eye, the Shard. -->
+  <g opacity=".12">
+    <g fill="#fff">
+      <path d="M40 214v-44h28v-30h54v30h28v44Z"/>
+      <path d="M66 141a29 29 0 0 1 58 0Z"/>
+      <rect x="91" y="96" width="8" height="18" rx="2"/>
+      <rect x="93.5" y="84" width="3" height="14"/>
+      <path d="M170 214v-40h30v-22h26v22h18v-54h34v94Z"/>
+      <path d="M320 214V100h8V84h32v16h8v114Z"/>
+      <path d="M368 214v-58h8v-10h5v10h14v-14h5v14h16v-10h5v10h16v-14h5v14h16v-10h5v10h16v-14h5v14h16v-10h5v10h16v-14h5v14h16v-10h5v10h16v-14h5v14h14v58Z"/>
+      <path d="M622 214V86h-5v-9h5V58h32v19h5v9h-5v128Z"/>
+      <path d="M620 58 638 18l18 40Z"/>
+      <rect x="636.5" y="4" width="3" height="16" rx="1.5"/>
+      <path d="M690 214v-36h40v-18h30v18h24v36Z"/>
+      <path d="M1100 214v-50h36v50Z"/>
+      <path d="M1146 214 1180 30h6l38 184Z"/>
+      <path d="M0 214h1240v6H0Z"/>
+      <path d="M0 220h1240v20H0Z" opacity=".45"/>
+    </g>
+    <circle cx="638" cy="70" r="8" fill="none" stroke="#fff" stroke-width="2.5" opacity=".6"/>
+    <g fill="none" stroke="#fff" stroke-width="3">
+      <circle cx="990" cy="120" r="86"/>
+      <circle cx="990" cy="120" r="8"/>
+      <path d="M990 34v172M904 120h172M929 59l122 122M1051 59 929 181M1069.5 87.1 910.5 152.9M1069.5 152.9 910.5 87.1M1022.9 40.5 957.1 199.5M957.1 40.5l65.8 159" stroke-width="1.2"/>
+      <path d="M990 120 954 214M990 120l36 94"/>
+      <path d="M0 224q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0q31-14 62 0" stroke-width="2"/>
+    </g>
+  </g>
+</svg>

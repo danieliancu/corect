@@ -2,7 +2,7 @@
 {% block scripts %}<script src="{% static 'vendor/chart.umd.min.js' %}" defer></script><script src="{% static 'js/progress.js' %}" defer></script>{% endblock %}
 {% block content %}
 <section class="page-heading"><p class="eyebrow">CONTINUĂ SĂ REVII</p><h1>Progresul tău</h1><p>Fiecare propoziție e încă un moment de exercițiu.</p></section>
-<div class="stat-grid"><div class="card stat"><strong>{{ correction_count }}</strong><span>Corecturi făcute</span></div><div class="card stat"><strong>{{ translation_count }}</strong><span>Traduceri făcute</span></div><div class="card stat"><strong>{{ mistake_count }}</strong><span>Greșeli găsite</span></div></div>
+<div class="stat-grid"><div class="card stat"><strong>{{ correction_count }}</strong><span>Corecturi</span></div><div class="card stat"><strong>{{ translation_count }}</strong><span>Traduceri</span></div><div class="card stat"><strong>{{ mistake_count }}</strong><span>Greșeli</span></div></div>
 <div class="learning-grid">
   <section class="card trend-card">
     <div class="chart-heading">

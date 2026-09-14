@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.db import connections
 from django.test import override_settings
@@ -165,6 +165,98 @@ class BrowserChecks(StaticLiveServerTestCase):
         (self.artifacts / "layout-checks.json").write_text(json.dumps(measurements, indent=2), encoding="utf-8")
         self.assertEqual(self.errors, [])
 
+    def test_desktop_landing_sections_and_footer(self):
+        marketing, footer = self.page.locator(".desktop-marketing"), self.page.locator(".site-footer")
+        for width in (1440, 1280, 1024):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": 900})
+                self.page.goto(self.live_server_url)
+                expect(self.page.locator("#hero-title")).to_have_text("Corectează-ți engleza. Vorbește natural.")
+                expect(self.page.locator("#text")).to_be_visible()
+                expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_visible()
+                expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_visible()
+                expect(marketing).to_be_visible()
+                cards = self.page.locator(".feature-card")
+                expect(cards).to_have_count(9)
+                for index in range(9):
+                    expect(cards.nth(index)).to_be_visible()
+                expect(self.page.locator(".feature-card.is-pro .pro-ribbon")).to_have_count(5)
+                expect(self.page.get_by_role("heading", name="Versiune nativă")).to_be_visible()
+                expect(self.page.get_by_text("Pentru administratori")).to_have_count(0)
+                expect(self.page.get_by_role("heading", name="Cum funcționează")).to_be_visible()
+                expect(self.page.locator(".step-card")).to_have_count(4)
+                expect(self.page.get_by_role("heading", name="Free", exact=True)).to_be_visible()
+                expect(self.page.get_by_role("heading", name="Pro", exact=True)).to_be_visible()
+                expect(self.page.get_by_role("button", name="Alege Pro")).to_be_disabled()
+                expect(self.page.locator(".plan-strip")).to_be_visible()
+                cta = self.page.locator(".landing-cta")
+                expect(cta).to_be_visible()
+                expect(cta.locator("a, button")).to_have_count(1)
+                expect(cta.get_by_role("link", name="Creează cont", exact=True)).to_have_attribute("href", "/accounts/signup/")
+                expect(footer).to_be_visible()
+                self.assertEqual(self.page.locator("h1").count(), 1)
+                layout = self.page.evaluate("""() => ({scrollWidth: document.documentElement.scrollWidth,
+                    free: document.querySelector('.plan-free').getBoundingClientRect().toJSON(),
+                    pro: document.querySelector('.plan-pro').getBoundingClientRect().toJSON()})""")
+                self.assertLessEqual(layout["scrollWidth"], width)
+                self.assertEqual(round(layout["free"]["height"]), round(layout["pro"]["height"]))
+                self.page.screenshot(path=str(self.artifacts / f"landing-{width}.png"), full_page=True)
+                # The banner's skyline background stays fixed while the page scrolls.
+                self.assertEqual(self.page.evaluate(
+                    "getComputedStyle(document.querySelector('.landing-cta'), '::before').backgroundAttachment"), "fixed")
+                self.page.evaluate("window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'instant'})")
+                self.page.screenshot(path=str(self.artifacts / f"landing-cta-{width}.png"))
+                # "Beneficii" in the header scrolls to the plans, below the sticky header.
+                self.page.get_by_role("navigation", name="Navigare principală").get_by_role("link", name="Beneficii").click()
+                plans_title = self.page.get_by_role("heading", name="Alege planul potrivit")
+                expect(plans_title).to_be_in_viewport()
+                self.page.wait_for_function("""() => document.querySelector('#plans').getBoundingClientRect().top
+                    >= document.querySelector('.site-header').getBoundingClientRect().bottom""")
+        for width, height in ((390, 844), (375, 667), (360, 740), (360, 640), (768, 1024)):
+            with self.subTest(width=width, height=height):
+                self.page.set_viewport_size({"width": width, "height": height})
+                self.page.goto(self.live_server_url)
+                expect(self.page.locator("#text")).to_be_visible()
+                # The editor and its buttons still fit on the first screen.
+                self.assertLessEqual(self.page.locator(".action-buttons").bounding_box()["y"]
+                                     + self.page.locator(".action-buttons").bounding_box()["height"], height)
+                expect(marketing).to_be_hidden()
+                for selector in (".feature-card", ".step-card", ".plan-card", ".plan-strip", ".landing-cta"):
+                    expect(self.page.locator(selector).first).to_be_hidden()
+                # Nothing written yet: the editor, the Corectură card and the footer fit on one screen, no scrolling.
+                self.page.wait_for_function(f"document.documentElement.scrollHeight <= {height}")
+                box = footer.bounding_box()
+                self.assertLessEqual(box["y"] + box["height"], height)
+                expect(footer).to_be_visible()
+                expect(footer.get_by_role("link", name="Confidențialitate")).to_be_visible()
+                self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), width)
+                self.page.screenshot(path=str(self.artifacts / f"landing-{width}x{height}.png"), full_page=True)
+        self.assertEqual(self.errors, [])
+
+    def test_editor_link_focuses_text_box_and_pro_members_see_their_benefits(self):
+        user = self.in_database_thread(lambda: User.objects.create_user(username="pro-learner",
+                                                                        password="Browser-test-password-815"))
+        self.page.goto(self.live_server_url + "/accounts/login/")
+        self.page.locator("#id_username").fill("pro-learner")
+        self.page.locator("#id_password").fill("Browser-test-password-815")
+        self.page.locator("#id_password").press("Enter")
+        expect(self.page.locator("#text")).to_be_visible()
+        self.page.evaluate("window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'instant'})")
+        self.page.locator(".landing-cta").get_by_role("link", name="Începe o corectare").click()
+        expect(self.page.locator("#text")).to_be_focused()
+        self.page.wait_for_function("window.scrollY === 0")
+        expect(self.page.locator("#hero-title")).to_be_in_viewport()
+        expect(self.page.get_by_role("heading", name="Alege planul potrivit")).to_have_count(1)
+        # The group is created by a migration, but TransactionTestCase flushes it between tests.
+        self.in_database_thread(lambda: user.groups.add(Group.objects.get_or_create(name="Pro")[0]))
+        self.page.reload()
+        expect(self.page.get_by_role("heading", name="Ești în planul potrivit.")).to_be_visible()
+        expect(self.page.get_by_role("heading", name="Alege planul potrivit")).to_have_count(0)
+        expect(self.page.locator(".plan-card")).to_have_count(0)
+        expect(self.page.locator(".pro-benefits li")).to_have_count(10)
+        self.page.locator("#plans").screenshot(path=str(self.artifacts / "landing-pro-plans-1440.png"))
+        self.assertEqual(self.errors, [])
+
     def test_correct_scrolls_to_loading_and_keeps_result_in_view(self):
         self.page.emulate_media(reduced_motion="reduce")
         self.page.set_viewport_size({"width": 390, "height": 844})
@@ -221,7 +313,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.goto(self.live_server_url + "/history/")
         self.page.locator(".history-entry").click()
         expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
-        for path in ("mistakes", "progress", "practice", "settings", "accounts/profile"):
+        for path in ("mistakes", "progress", "practice", "confidentialitate", "termeni", "accounts/profile"):
             self.page.goto(f"{self.live_server_url}/{path}/")
             self.assertEqual(self.page.locator("h1").count(), 1)
             self.page.screenshot(path=str(self.artifacts / (path.replace("/", "-") + ".png")), full_page=True)
@@ -647,7 +739,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
         expect(self.page.get_by_role("button", name="Oprește transcrierea live")).to_be_visible()
         self.emit(type=DELTA, item_id="item_9", delta=" bye")
-        self.page.goto(self.live_server_url + "/settings/")
+        self.page.goto(self.live_server_url + "/confidentialitate/")
         # The beacon leaves with the unloading page; under a busy full run the server can take a while to record it.
         closed = self.ledger_row(timeout=20, error_code="realtime_page_closed")
         self.assertEqual(closed.metering_source, "stream_duration")

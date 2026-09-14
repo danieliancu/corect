@@ -12,6 +12,7 @@
   <link rel="icon" href="{% static 'img/logo.svg' %}?v=4" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <link rel="stylesheet" href="{% static 'css/voice.css' %}">
+  {% block styles %}{% endblock %}
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/navigation.js' %}" defer></script>
   {% block scripts %}{% endblock %}
@@ -25,9 +26,9 @@
       <span class="brand-copy"><strong>corect.uk</strong><span class="tagline" lang="ro"><span class="sr-only">Acum ești sigur.</span><span class="tagline-letters" aria-hidden="true"><span>A</span><span>c</span><span>u</span><span>m</span><span>&nbsp;</span><span>e</span><span>ș</span><span>t</span><span>i</span><span>&nbsp;</span><span>s</span><span>i</span><span>g</span><span>u</span><span>r</span><span>.</span></span></span></span>
     </a>
     <nav class="desktop-nav" aria-label="Navigare principală">
-      <a href="{% url 'history' %}">Istoric</a><a href="{% url 'mistakes' %}">Greșelile mele</a><a href="{% url 'progress' %}">Progres</a><a href="{% url 'practice' %}">Exersează</a><a href="{% url 'settings' %}">Setări</a>
+      <a href="{% url 'history' %}">Istoric</a><a href="{% url 'mistakes' %}">Greșelile mele</a><a href="{% url 'progress' %}">Progres</a><a href="{% url 'practice' %}">Exersează</a>
       {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-text-button" type="submit">Deconectare</button></form>
-      {% else %}<a href="{% url 'signup' %}">Creează cont</a><a href="{% url 'login' %}">Autentificare</a>{% endif %}
+      {% else %}<a href="{% url 'home' %}#plans">Beneficii</a>{% endif %}
     </nav>
     {% if user.is_authenticated %}<a class="user-link is-signed-in" href="{% url 'profile' %}" aria-label="Profil: {{ user.get_username }}" title="Profil"><span class="user-initial" aria-hidden="true">{{ user.get_username|first|upper }}</span></a>
     {% else %}<a class="user-link" href="{% url 'login' %}" aria-label="Autentificare" title="Autentificare"><span aria-hidden="true">{% include 'icons/user.html' %}</span></a>{% endif %}
@@ -39,7 +40,6 @@
         <a href="{% url 'mistakes' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/circle-x.html' %}</span>Greșelile mele</a>
         <a href="{% url 'progress' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>Progres</a>
         <a href="{% url 'practice' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/target.html' %}</span>Exersează</a>
-        <a href="{% url 'settings' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/gear.html' %}</span>Setări</a>
         <hr>
         {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-logout" type="submit"><span class="nav-icon" aria-hidden="true">{% include 'icons/logout.html' %}</span>Deconectare</button></form>
         {% else %}<a href="{% url 'login' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/login.html' %}</span>Autentificare</a>
@@ -48,7 +48,7 @@
     </details>
   </header>
   <main id="main">{% if messages %}<div class="messages">{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>
-  <footer class="site-footer"><span lang="ro">Vorbești corect.</span><a href="{% url 'settings' %}">Engleză britanică · explicații în română</a></footer>
+  {% include 'partials/site_footer.html' %}
 </div>
 </body>
 </html>

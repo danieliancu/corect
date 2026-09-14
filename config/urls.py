@@ -11,7 +11,9 @@ from apps.learning import views as learning
 
 urlpatterns = [
     path("", core.home, name="home"),
-    path("settings/", core.settings_page, name="settings"),
+    path("confidentialitate/", core.privacy_page, name="privacy"),
+    path("termeni/", core.terms_page, name="terms"),
+    path("contact/", core.contact_page, name="contact"),
     path("assistant/correct/", assistant.submit, {"kind": "correction"}, name="correct"),
     path("assistant/translate/", assistant.submit, {"kind": "translation"}, name="translate"),
     path("assistant/realtime-transcription/session/", voice.start_realtime_transcription, name="realtime_session"),

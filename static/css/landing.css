@@ -1,0 +1,453 @@
+/* Homepage landing sections (features, how it works, plans, CTA). Desktop only: phones and tablets keep the
+   editor-first homepage, so everything below is display:none under 1024px and never focusable there. */
+.desktop-marketing {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .desktop-marketing {
+    display: block;
+    padding-top: 76px;
+  }
+  .landing-section {
+    margin-bottom: 76px;
+  }
+  .landing-heading {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  .landing-heading h2 {
+    font-size: 32px;
+    font-weight: 750;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+  .landing-heading p {
+    color: var(--muted);
+    font-size: 17px;
+    margin: 0;
+  }
+  .plans-start-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .landing-icon {
+    width: 52px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--pale);
+    color: #0869ff;
+  }
+  .landing-icon svg {
+    width: 25px;
+    height: 25px;
+  }
+  .landing-icon.is-gold {
+    background: #fff5dc;
+    color: #eea200;
+  }
+  .landing-icon.is-green {
+    background: #e7f8ee;
+    color: #1fa45a;
+  }
+  .landing-icon.is-red {
+    background: #ffecee;
+    color: #e5343f;
+  }
+  .feature-grid,
+  .step-list,
+  .plan-features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .feature-card,
+  .step-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .feature-card h3,
+  .step-card h3 {
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -0.2px;
+    margin: 0 0 5px;
+  }
+  .feature-card p,
+  .step-card p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  /* Features: 3 × 3 grid. */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .feature-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 22px 20px;
+  }
+  .feature-card h3 {
+    margin-top: 3px;
+  }
+  /* Corner ribbon on features not included in Free. */
+  .feature-card.is-pro {
+    position: relative;
+    overflow: hidden;
+    padding-right: 40px;
+  }
+  .pro-ribbon {
+    position: absolute;
+    top: 11px;
+    right: -30px;
+    width: 104px;
+    padding: 3px 0;
+    transform: rotate(45deg);
+    background: var(--blue-dark);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    line-height: 1.3;
+    text-align: center;
+    text-transform: uppercase;
+    box-shadow: 0 2px 6px #0860e833;
+  }
+
+  /* How it works: four steps with an arrow in each gap. */
+  .step-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 40px;
+  }
+  /* Large step number on the left, title and text beside it. */
+  .step-card {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 22px 20px 24px;
+  }
+  .step-card + .step-card::before {
+    content: "→";
+    position: absolute;
+    top: 50%;
+    left: -40px;
+    width: 40px;
+    transform: translateY(-50%);
+    color: #93a8c6;
+    font-size: 18px;
+    text-align: center;
+  }
+  .step-number {
+    flex-shrink: 0;
+    margin-top: -2px;
+    color: var(--blue-dark);
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+
+  /* Plans: Free and Pro, presentation only. */
+  .landing-plans {
+    margin-bottom: 36px;
+    /* "Beneficii" in the header links here; keep the heading clear of the sticky header. */
+    scroll-margin-top: calc(var(--header-height, 124px) + 16px);
+  }
+  /* Pro members see only their benefits, in two columns. */
+  .plan-features.pro-benefits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 40px;
+    max-width: 660px;
+    margin: 0 auto;
+    padding: 28px 36px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+  .plan-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 440px));
+    justify-content: center;
+    gap: 24px;
+  }
+  .plan-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 28px 56px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px #1b65b50d;
+  }
+  .plan-card.is-recommended {
+    border-color: var(--blue);
+    box-shadow:
+      0 0 0 1px var(--blue),
+      0 14px 40px #247cff1f;
+  }
+  .plan-badge {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    margin: 0;
+    padding: 3px 12px;
+    border-radius: 999px;
+    background: var(--blue-dark);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .plan-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-right: 96px;
+  }
+  .plan-head h3 {
+    font-size: 22px;
+    margin: 0 0 2px;
+  }
+  .plan-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.35;
+  }
+  .plan-price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 22px 0 18px;
+  }
+  .plan-price strong {
+    font-size: 44px;
+    font-weight: 750;
+    letter-spacing: -1.5px;
+    line-height: 1;
+  }
+  .plan-price span {
+    color: var(--muted);
+    font-size: 18px;
+  }
+  .plan-features {
+    display: grid;
+    gap: 9px;
+    margin-bottom: 28px;
+  }
+  .plan-features li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+  }
+  .plan-mark svg {
+    width: 16px;
+    height: 16px;
+  }
+  .is-included .plan-mark {
+    color: #0869ff;
+  }
+  .plan-features .is-excluded {
+    color: var(--muted);
+  }
+  .is-excluded .plan-mark {
+    color: #9aa8bd;
+  }
+  .plan-actions {
+    position: relative;
+    margin-top: auto;
+  }
+  .plan-button {
+    width: 100%;
+    min-height: 50px;
+    font-size: 17px;
+  }
+  .button.secondary.plan-button {
+    background: #fff;
+    box-shadow: inset 0 0 0 1.5px #9cc1f5;
+  }
+  .button.secondary.plan-button:hover {
+    background: #f3f8ff;
+  }
+  .plan-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.8;
+  }
+  /* Below the Pro button without making the cards unequal. */
+  .plan-note {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin: 9px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* Small informational strip under the plans. */
+  .plan-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 28px;
+    padding: 20px 8px;
+    background: var(--pale);
+    border: 1px solid #dbe8fa;
+    border-radius: var(--radius);
+  }
+  .plan-strip > div {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 24px;
+  }
+  .plan-strip > div + div {
+    border-left: 1px solid #d3e2f6;
+  }
+  .plan-strip .landing-icon {
+    width: 44px;
+    height: 44px;
+    background: #fff;
+  }
+  .plan-strip p {
+    margin: 0;
+  }
+  .plan-strip strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 650;
+  }
+  .plan-strip p span {
+    display: block;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.4;
+  }
+
+  /* Closing call to action: one action only. */
+  .landing-cta {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    min-height: 200px;
+    padding: 44px 0;
+    color: #fff;
+  }
+  /* The navy band runs the full width of the window; the text and button stay in the page column
+     (body has overflow-x: clip, as for the header background). */
+  .landing-cta::before {
+    content: "";
+    position: absolute;
+    inset: 0 calc(50% - 50vw);
+    z-index: -1;
+    /* The skyline stays put while the page scrolls over it. Its bottom lines up with the banner's bottom
+       when the page is scrolled to the end (the footer is about 152px tall). */
+    background: #0b1f4d url("../img/london-skyline.svg") no-repeat fixed;
+    background-size: 100vw auto;
+    background-position: center bottom 152px;
+  }
+  .cta-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+  }
+  .landing-cta h2 {
+    margin: 0 0 8px;
+    color: #fff;
+    font-size: 30px;
+    letter-spacing: -0.8px;
+  }
+  .landing-cta p {
+    margin: 0;
+    color: #d5e2ff;
+    font-size: 17px;
+  }
+  .button.cta-button {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    margin-right: 8%;
+    min-height: 54px;
+    padding: 12px 42px;
+    background: #fff;
+    color: var(--navy);
+    font-size: 17px;
+  }
+  .button.cta-button:hover {
+    background: #eaf2ff;
+  }
+
+  @media (hover: hover) {
+    .feature-card:hover,
+    .step-card:hover {
+      border-color: #c5dafb;
+      box-shadow: 0 10px 28px #1b65b514;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .feature-card,
+    .step-card {
+      transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+    }
+  }
+}
+@media (min-width: 1024px) and (max-width: 1200px) {
+  .feature-grid {
+    gap: 12px;
+  }
+  .feature-card {
+    gap: 12px;
+    padding: 20px 18px;
+  }
+  .landing-icon {
+    width: 46px;
+    height: 46px;
+  }
+  .step-list {
+    gap: 24px;
+  }
+  .step-card + .step-card::before {
+    left: -24px;
+    width: 24px;
+  }
+  .step-card {
+    gap: 10px;
+    padding: 20px 14px;
+  }
+  .step-number {
+    font-size: 38px;
+  }
+  .plan-strip > div {
+    gap: 12px;
+    padding: 0 16px;
+  }
+  .landing-cta {
+    padding: 36px 0;
+  }
+  .landing-cta h2 {
+    font-size: 26px;
+  }
+  .button.cta-button {
+    margin-right: 6%;
+  }
+}

@@ -1,8 +1,10 @@
+from datetime import timedelta
 from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
+from django.utils import formats, timezone
 
 from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
 from apps.assistant.services.openai_client import AssistantError
@@ -148,6 +150,33 @@ class EndpointTests(TestCase):
         self.assertEqual(self.client.get(f"/history/{entry.pk}/").status_code, 404)
         self.assertNotContains(self.client.get("/history/"), "details-pill")
 
+    def test_history_is_grouped_by_collapsible_days(self):
+        self.client.force_login(self.user)
+        now = timezone.now()
+
+        def entry(days_ago, kind="correction"):
+            item = AssistantRequest.objects.create(user=self.user, request_type=kind, original_text=f"text {days_ago}",
+                result_text="result", model_used="test", prompt_version="test", status="success")
+            AssistantRequest.objects.filter(pk=item.pk).update(created_at=now - timedelta(days=days_ago))
+
+        entry(0)
+        entry(0, "translation")
+        entry(1)
+        entry(3)
+        html = self.client.get("/history/").content.decode()
+        self.assertEqual(html.count('<details class="history-day"'), 3)
+        self.assertEqual(html.count('<details class="history-day" open>'), 1)  # Only the most recent day starts open.
+        self.assertLess(html.index('<details class="history-day" open>'), html.index(">Azi</time>"))
+        self.assertLess(html.index(">Azi</time>"), html.index(">Ieri</time>"))
+        self.assertIn("1 corectură · 1 traducere", html)
+        self.assertIn(formats.date_format(timezone.localdate() - timedelta(days=3), "j F Y"), html)
+        for days_ago in range(4, 12):
+            entry(days_ago)
+        response = self.client.get("/history/")  # 11 days: 7 on the first page, 4 on the second, never split.
+        self.assertEqual(response.context["page_obj"].paginator.num_pages, 2)
+        self.assertEqual([len(day["entries"]) for day in response.context["days"]], [2, 1, 1, 1, 1, 1, 1])
+        self.assertEqual(len(self.client.get("/history/?page=2").context["days"]), 4)
+
     def test_output_and_original_are_escaped(self):
         malicious = "<script>alert('x')</script>"
         result = correction_result()
@@ -226,7 +255,7 @@ class EndpointTests(TestCase):
         self.assertContains(self.client.get("/mistakes/"), 'href="/mistakes/verb_form/"')
         self.assertContains(self.client.get("/progress/"), 'href="/mistakes/verb_form/"')
         for path in ("/mistakes/", "/progress/"):  # The count sits in a red badge beside the name; only the arrow is on the right.
-            self.assertContains(self.client.get(path), '<span class="category-name">Forma verbului<span class="category-badge">1</span></span>'
+            self.assertContains(self.client.get(path), '<span class="category-name"><span class="category-badge">1</span>Forma verbului</span>'
                                 '<span class="category-arrow" aria-hidden="true">→</span>', html=False)
         response = self.client.get("/mistakes/verb_form/")
         self.assertContains(response, "1 greșeală înregistrată în această categorie")
@@ -276,13 +305,15 @@ class EndpointTests(TestCase):
         self.assertNotIn('<div class="spoken-sentence"><p class="result-text"', html)
 
     def test_header_user_icon_follows_sign_in_state(self):
-        response = self.client.get("/settings/")
+        response = self.client.get("/confidentialitate/")
         self.assertContains(response, 'class="user-link" href="/accounts/login/" aria-label="Autentificare"')
-        self.assertContains(response, '<span class="nav-icon" aria-hidden="true">', count=8)
+        self.assertContains(response, '<span class="nav-icon" aria-hidden="true">', count=7)
         self.client.force_login(self.user)
-        response = self.client.get("/settings/")
+        response = self.client.get("/confidentialitate/")
         self.assertContains(response, 'class="user-link is-signed-in" href="/accounts/profile/" aria-label="Profil: ana"')
         self.assertContains(response, '<span class="user-initial" aria-hidden="true">A</span>')
 
-    def test_settings_accessible_without_account(self):
-        self.assertContains(self.client.get("/settings/"), "Nu se salvează cât nu ești autentificat")
+    def test_settings_page_is_removed(self):
+        self.assertEqual(self.client.get("/settings/").status_code, 404)
+        for path in ("/", "/confidentialitate/"):
+            self.assertNotContains(self.client.get(path), "Setări")

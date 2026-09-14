@@ -1,0 +1,29 @@
+{% extends 'base.html' %}{% block title %}Confidențialitate — Corect.uk{% endblock %}{% block content %}
+<section class="page-heading"><p class="eyebrow">CONFIDENȚIALITATE</p><h1>Datele tale, pe scurt.</h1><p>Ce păstrăm și ce nu păstrăm când folosești Corect.uk.</p></section>
+<div class="card legal-page">
+  <h2>Fără cont</h2>
+  <ul>
+    <li>Textul pe care îl scrii sau îl dictezi și rezultatele primite nu sunt salvate.</li>
+    <li>Pentru limitele de utilizare folosim o valoare criptografică (HMAC) derivată din adresa IP. Adresa IP nu este salvată, iar valoarea este păstrată cel mult 7 zile.</li>
+    <li>{% if visitor_cookie %}Prima dată când folosești Corectare, Traducere, microfonul sau pronunția, setăm cookie-ul <code>corect_visitor_id</code>: un ID aleator, valabil 12 luni, folosit doar ca să numărăm cererile. Simpla vizitare a paginilor nu setează acest cookie.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</li>
+  </ul>
+  <h2>Cu cont</h2>
+  <ul>
+    <li>Păstrăm numele de utilizator, adresa de email și parola, stocată doar criptat (hash).</li>
+    <li>Textul și rezultatul sunt salvate în istoricul tău privat doar pentru cererile reușite trimise cu Corectare sau Traducere. Istoricul și statisticile tale sunt vizibile doar pentru tine.</li>
+    <li>Dacă îți creezi cont după ce ai folosit Corect.uk fără cont, ID-ul aleator de vizitator este legat de contul tău. Nimic nu este copiat în istoric.</li>
+    <li>La ștergerea contului, istoricul salvat este șters. Statisticile de utilizare rămân, fără legătură cu contul.{% if contact_email %} Pentru ștergerea contului scrie-ne la <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endif %}</li>
+  </ul>
+  <h2>Voce</h2>
+  <ul>
+    <li>Înregistrările audio, transcrierile și vocea generată nu sunt salvate și nu apar în jurnale.</li>
+    <li>Transcrierea live trimite sunetul direct din browser către OpenAI; sunetul nu trece prin serverele Corect.uk.</li>
+    <li>Microfonul pornește doar când apeși butonul lui.</li>
+  </ul>
+  <h2>Procesare AI</h2>
+  <p>Textul și sunetul trimise sunt procesate de OpenAI pentru corectare, traducere, transcriere și pronunție. Cererile sunt trimise fără istoricul tău și cu opțiunea de a nu fi stocate, dar se aplică și politicile OpenAI privind datele.</p>
+  <h2>Statistici de utilizare</h2>
+  <p>Numărăm cererile, tipul lor, tokenurile, durata audio și costul estimat. Aceste statistici nu conțin text, audio sau adrese IP și sunt vizibile doar echipei Corect.uk.</p>
+  <p class="legal-updated">Ultima actualizare: 14 septembrie 2026.</p>
+</div>
+{% endblock %}

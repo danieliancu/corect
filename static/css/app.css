@@ -1128,49 +1128,79 @@ textarea:focus {
   color: var(--muted);
   margin: 13px 0 0;
 }
-.benefits {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  border-top: 1px solid #e7edf6;
-  margin: 48px 0 24px;
-  padding-top: 30px;
-}
-.benefits > div {
-  display: flex;
-  gap: 22px;
-  align-items: center;
-}
-.benefits .round-icon {
-  width: 67px;
-  height: 67px;
-}
-.benefits p {
-  margin: 0;
-}
-.benefits strong {
-  display: block;
-  font-weight: 550;
-  font-size: 16px;
-  letter-spacing: -0.2px;
-}
-.benefits p span {
-  display: block;
-  color: var(--muted);
-  font-size: 14px;
-  margin-top: 3px;
-}
+/* Site footer, on every page and every screen size. */
+/* One aligned row: logo, links, copyright. */
 .site-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 26px 0;
+  gap: 14px 40px;
+  margin-top: 56px;
+  padding: 28px 0 34px;
+  border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 12px;
-  margin-top: 24px;
+  font-size: 13px;
+  line-height: 1.4;
 }
-.site-footer a {
+.footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--navy);
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.8px;
+}
+.footer-logo:hover {
+  text-decoration: none;
+}
+.footer-logo img {
+  width: 34px;
+  height: 34px;
+}
+.footer-brand p,
+.footer-copy {
+  margin: 0;
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+}
+.footer-links a {
   color: var(--muted);
+  font-size: 14px;
+}
+.footer-links a:hover {
+  color: var(--blue-dark);
+}
+.footer-copy {
+  text-align: right;
+}
+.legal-page {
+  max-width: 850px;
+  margin-bottom: 24px;
+}
+.card.legal-page h2 {
+  font-size: 20px;
+  margin: 28px 0 8px;
+}
+.card.legal-page h2:first-child {
+  margin-top: 0;
+}
+.legal-page p,
+.legal-page li {
+  color: var(--muted);
+}
+.legal-page ul {
+  padding-left: 22px;
+}
+.legal-page li + li {
+  margin-top: 6px;
+}
+.legal-updated {
+  margin: 28px 0 0;
+  font-size: 14px;
 }
 .error-box {
   padding: 18px;
@@ -1313,6 +1343,53 @@ a.category-row:hover .category-arrow {
 .history-list {
   display: grid;
   gap: 16px;
+}
+/* History grouped by day: each day is a native <details> that opens and collapses (no JavaScript). */
+.history-days {
+  display: grid;
+  gap: 14px;
+}
+.history-day > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 16px 20px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.history-day > summary::-webkit-details-marker {
+  display: none;
+}
+.history-day > summary:hover {
+  border-color: #91bafa;
+}
+.history-day-title {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+}
+.history-day-count {
+  color: var(--muted);
+  font-size: 14px;
+}
+.history-day-chevron {
+  width: 10px;
+  height: 10px;
+  margin: -4px 4px 0 auto;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+.history-day[open] .history-day-chevron {
+  margin-top: 4px;
+  transform: rotate(-135deg);
+}
+.history-day .history-list {
+  margin-top: 14px;
 }
 .history-entry {
   display: block;
@@ -1492,23 +1569,6 @@ a.category-row:hover .category-arrow {
 .practice-card .explanation {
   margin: 24px 0;
 }
-.settings-list {
-  max-width: 850px;
-}
-.settings-list > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--border);
-}
-.settings-list > div:last-child {
-  border: 0;
-}
-.settings-list span {
-  color: var(--muted);
-  text-align: right;
-}
 .auth-container {
   max-width: 510px;
   margin: 0 auto 40px;
@@ -1619,13 +1679,6 @@ a.category-row:hover .category-arrow {
   .hero h1 {
     font-size: 35px;
   }
-  .benefits > div {
-    gap: 14px;
-  }
-  .benefits .round-icon {
-    width: 52px;
-    height: 52px;
-  }
   .site-header {
     gap: 16px;
   }
@@ -1661,8 +1714,7 @@ a.category-row:hover .category-arrow {
   .user-link {
     margin-left: auto;
   }
-  .hero,
-  .benefits {
+  .hero {
     display: none;
   }
   .workspace {
@@ -1729,8 +1781,15 @@ a.category-row:hover .category-arrow {
     margin: 24px 5px 5px;
   }
   .site-footer {
-    margin-top: 30px;
-    font-size: 11px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 40px;
+    padding: 24px 0 30px;
+  }
+  /* Phones and tablets: logo and links only; the copyright line is shown on desktop. */
+  .footer-copy {
+    display: none;
   }
   .empty-result {
     min-height: 185px;
@@ -1738,10 +1797,41 @@ a.category-row:hover .category-arrow {
   .result-footnote {
     font-size: 15px;
   }
-  /* The mobile homepage fits on one screen without scrolling. */
-  .home-page .result-footnote,
-  .home-page .site-footer {
+  .home-page .result-footnote {
     display: none;
+  }
+  /* Empty homepage (nothing corrected yet): the editor, a compact Corectură card and the footer fit on one screen
+     without scrolling. The card takes whatever height is left, and the footer is tighter than on other pages. */
+  .home-page main:has(.empty-result) {
+    display: flex;
+    flex-direction: column;
+  }
+  .home-page .workspace:has(.empty-result) {
+    flex: 1;
+    grid-template-rows: auto 1fr;
+  }
+  .home-page .result-card:has(> .empty-result) {
+    display: flex;
+    flex-direction: column;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .home-page .result-card:has(> .empty-result) .result-heading {
+    margin-bottom: 8px;
+  }
+  .home-page .empty-result {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 0;
+  }
+  .home-page:has(.empty-result) .site-footer {
+    gap: 6px;
+    margin-top: 16px;
+    padding: 14px 0 16px;
   }
   .detail-workspace .card {
     padding: 24px;
@@ -1907,6 +1997,9 @@ a.category-row:hover .category-arrow {
     .empty-result {
       min-height: 128px;
     }
+    .home-page .empty-spark {
+      display: none;
+    }
   }
   .empty-result h3 {
     font-size: 18px;
@@ -1923,11 +2016,20 @@ a.category-row:hover .category-arrow {
     margin-top: 8px;
   }
   .site-footer {
-    flex-direction: column;
-    gap: 5px;
-    font-size: 10px;
-    margin-top: 20px;
-    padding: 18px 0;
+    gap: 10px;
+    margin-top: 32px;
+    padding: 20px 0 26px;
+    font-size: 12px;
+  }
+  .footer-logo {
+    font-size: 19px;
+  }
+  .footer-logo img {
+    width: 28px;
+    height: 28px;
+  }
+  .footer-links {
+    gap: 6px 20px;
   }
   .page-heading h1 {
     font-size: 31px;
@@ -1963,16 +2065,6 @@ a.category-row:hover .category-arrow {
   .learning-grid .card {
     padding: 21px;
   }
-  .settings-list > div {
-    flex-direction: column;
-    gap: 6px;
-  }
-  .settings-list span {
-    text-align: left;
-  }
-  .settings-list {
-    padding: 12px 22px;
-  }
   .auth-container h1 {
     font-size: 30px;
   }
@@ -1988,6 +2080,12 @@ a.category-row:hover .category-arrow {
   .history-entry time {
     font-size: 11px;
   }
+  .history-day > summary {
+    padding: 14px 16px;
+  }
+  .history-day-title {
+    font-size: 17px;
+  }
   .history-result {
     font-size: 18px;
   }
@@ -1997,6 +2095,13 @@ a.category-row:hover .category-arrow {
   }
   .practice-card {
     padding: 22px;
+  }
+}
+/* On desktop, links to a place on the page (Beneficii, the editor) scroll there smoothly instead of jumping.
+   Phones keep instant scrolling, which the mobile result and voice flows already manage themselves. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
   }
 }
 @media (prefers-reduced-motion: no-preference) {

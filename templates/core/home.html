@@ -1,10 +1,11 @@
 {% extends 'base.html' %}{% load static %}
 {% block body_class %}home-page{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/landing.css' %}">{% endblock %}
 {% block scripts %}<script src="{% static 'js/assistant.js' %}" defer></script><script src="{% static 'js/example-prompts.js' %}" defer></script><script src="{% static 'js/transcript-state.js' %}" defer></script><script src="{% static 'js/voice.js' %}" defer></script>{% endblock %}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
-  <h1 id="hero-title">Vorbește cu încredere.</h1>
-  <p>Primești corecturi pe loc, explicații clare și sprijin ca să vorbești<br class="desktop-break"> tot mai bine engleza.</p>
+  <h1 id="hero-title">Corectează-ți engleza. Vorbește natural.</h1>
+  <p>Primești pe loc corecturi și explicații clare.<br class="desktop-break"> Vezi ce greșeli repeți și cum progresezi în timp.</p>
 </section>
 <div class="workspace">
   <section class="editor-card card" aria-labelledby="editor-label">
@@ -25,9 +26,12 @@
   {% include 'assistant/result_actions.html' %}
 </div>
 <div class="voice-overlay" id="voice-overlay" hidden aria-hidden="true"><span class="voice-overlay-spinner"></span><p>Pornim microfonul…</p></div>
-<section class="benefits" aria-label="Cum te ajută Corect.uk">
-  <div><span class="round-icon" aria-hidden="true">{% include 'icons/chat.html' %}</span><p><strong>Răspuns imediat</strong><span>Corecturi clare, ușor de înțeles</span></p></div>
-  <div><span class="round-icon" aria-hidden="true">{% include 'icons/book.html' %}</span><p><strong>Înveți din mers</strong><span>Explicații simple, care rămân</span></p></div>
-  <div><span class="round-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span><p><strong>Progres real</strong><span>Mai multă încredere în fiecare zi</span></p></div>
-</section>
+{# Landing sections for desktop only (landing.css shows them from 1024px); phones and tablets keep the editor-first homepage. #}
+<div class="desktop-marketing">
+  {% include 'core/partials/desktop_features.html' %}
+  {% include 'core/partials/desktop_how_it_works.html' %}
+  {% include 'core/partials/desktop_pricing.html' %}
+  {% include 'core/partials/desktop_plan_strip.html' %}
+  {% include 'core/partials/desktop_cta.html' %}
+</div>
 {% endblock %}

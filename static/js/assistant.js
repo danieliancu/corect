@@ -15,6 +15,15 @@
   };
   text.addEventListener("input", count);
   count();
+  // Links to the editor ("Poți începe și fără cont", "Începe o corectare", "Mergi la editor") scroll to the very top,
+  // where the title and the editor are, and put the cursor in the text box.
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest('a[href="#text"]')) return;
+    event.preventDefault();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    text.focus({ preventScroll: true });
+  });
   function measureResult() {
     result.parentElement.style.setProperty(
       "--result-height",

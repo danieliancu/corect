@@ -1,0 +1,18 @@
+{% extends 'base.html' %}{% block title %}Termeni — Corect.uk{% endblock %}{% block content %}
+<section class="page-heading"><p class="eyebrow">TERMENI</p><h1>Termeni de utilizare</h1><p>Regulile simple pentru folosirea Corect.uk în versiunea beta.</p></section>
+<div class="card legal-page">
+  <h2>Serviciul</h2>
+  <p>Corect.uk este în versiune beta și este oferit „ca atare”. Funcțiile se pot schimba și pot exista întreruperi.</p>
+  <h2>Rezultate generate automat</h2>
+  <p>Corecturile, traducerile, explicațiile și pronunția sunt generate cu ajutorul AI și pot conține greșeli. Verifică textele importante înainte să le folosești. Corect.uk nu înlocuiește un profesor sau un traducător autorizat.</p>
+  <h2>Utilizare corectă</h2>
+  <p>Există limite de utilizare pe minut și pe zi. Nu folosi serviciul pentru conținut ilegal sau abuziv ori pentru trimiterea automată de cereri în masă. Putem limita accesul în caz de abuz.</p>
+  <h2>Contul tău</h2>
+  <p>Ești responsabil pentru păstrarea parolei. Nu trimite în texte date personale sensibile.</p>
+  <h2>Planuri și plăți</h2>
+  <p>Planurile Free și Pro prezentate pe pagina principală sunt în pregătire. Pro nu poate fi cumpărat încă și nu se percep plăți.</p>
+  <h2>Modificări</h2>
+  <p>Putem actualiza acești termeni; versiunea curentă este mereu pe această pagină.{% if contact_email %} Pentru întrebări scrie-ne la <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endif %}</p>
+  <p class="legal-updated">Ultima actualizare: 14 septembrie 2026.</p>
+</div>
+{% endblock %}

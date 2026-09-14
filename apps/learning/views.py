@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import get_args
 
 from django.contrib.auth.decorators import login_required
@@ -16,6 +16,8 @@ from apps.assistant.models import AssistantRequest, GrammarCorrection
 from apps.assistant.schemas import Category
 from .practice import QUESTIONS
 
+HISTORY_DAYS_PER_PAGE = 7
+
 
 def genuine_mistakes(user):
     return GrammarCorrection.objects.filter(request__user=user, request__status="success", is_british_preference=False)
@@ -29,7 +31,20 @@ def categories(user):
 @never_cache
 def history(request):
     entries = AssistantRequest.objects.filter(user=request.user, status="success")
-    return render(request, "learning/history.html", {"page_obj": Paginator(entries, 15).get_page(request.GET.get("page"))})
+    # Grouped by local day, newest first. Pages hold whole days, so a day is never split across two pages.
+    page_obj = Paginator(entries.datetimes("created_at", "day", order="DESC"), HISTORY_DAYS_PER_PAGE).get_page(
+        request.GET.get("page"))
+    day_starts = list(page_obj.object_list)
+    days = []
+    if day_starts:
+        start = timezone.make_aware(datetime.combine(day_starts[-1].date(), datetime.min.time()))
+        end = timezone.make_aware(datetime.combine(day_starts[0].date() + timedelta(days=1), datetime.min.time()))
+        grouped = {day.date(): [] for day in day_starts}
+        for entry in entries.filter(created_at__gte=start, created_at__lt=end):
+            grouped[timezone.localdate(entry.created_at)].append(entry)
+        days = [{"date": day, "entries": items, "corrections": sum(e.request_type == "correction" for e in items),
+                 "translations": sum(e.request_type == "translation" for e in items)} for day, items in grouped.items()]
+    return render(request, "learning/history.html", {"page_obj": page_obj, "days": days})
 
 
 @login_required
