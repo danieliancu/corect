@@ -71,7 +71,7 @@ class CorrectionPresentationTests(SimpleTestCase):
     def test_errors_show_the_natural_version_only_when_it_adds_something(self):
         result = correction_result().model_dump()
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
-        self.assertIn("<h2>Engleza ta, corectată</h2>", html)
+        self.assertIn('<h2 id="corrected-title">Engleza ta, corectată</h2>', html)
         self.assertNotIn('class="native-version"', html)
         result.update(native_text="I didn't make it to work yesterday.", native_explanation="Sună mai natural.")
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})

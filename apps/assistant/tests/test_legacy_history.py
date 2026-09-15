@@ -39,7 +39,7 @@ class LegacyHistoryTests(TestCase):
 
     def test_each_legacy_result_renders_and_its_json_is_unchanged(self):
         expectations = {
-            "correction": ("<h1>Engleză</h1>", "<h2>Engleza ta, corectată</h2>", 1),
+            "correction": ("<h1>Engleză</h1>", '<h2 id="corrected-title">Engleza ta, corectată</h2>', 1),
             "into_english": ("<h1>Română → engleză</h1>", "<h2>În engleză britanică</h2>", 1),
             "into_romanian": ("<h1>Engleză → română</h1>", "<h2>În română</h2>", 0),
         }
