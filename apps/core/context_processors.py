@@ -5,7 +5,7 @@ from django.utils.functional import SimpleLazyObject
 
 from .consent import acceptance_required, analytics_chosen
 from .legal import legal_identity
-from .plans import is_pro
+from .plans import TIERS, daily_uses, is_pro
 
 
 def asset_query():
@@ -24,6 +24,8 @@ def site(request):
         "contact_email": settings.CONTACT_EMAIL,
         "asset_query": asset_query(),
         "user_is_pro": SimpleLazyObject(lambda: is_pro(request.user)),
+        # „5 naturalizări pe zi” per plan tier, from NATURALIZE_DAILY_LIMITS: copy never repeats a limit by hand.
+        "plan_limits": {tier: daily_uses(tier) for tier in TIERS},
         "legal": SimpleLazyObject(legal_identity),
         "consent": SimpleLazyObject(lambda: {"required": acceptance_required(request),
                                              "analytics": analytics_chosen(request),

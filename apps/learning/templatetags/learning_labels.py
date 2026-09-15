@@ -3,6 +3,8 @@ from datetime import timedelta
 from django import template
 from django.utils import formats, timezone
 
+from apps.core.text import romanian_count
+
 register = template.Library()
 
 CATEGORY_LABELS = {
@@ -26,15 +28,6 @@ CATEGORY_LABELS = {
 @register.filter
 def category_label(value):
     return CATEGORY_LABELS.get(str(value), str(value).replace("_", " ").capitalize())
-
-
-def romanian_count(count, one, many):
-    """Romanian count phrase: 1 greșeală, 2–19 greșeli, 20 de greșeli."""
-    count = int(count)
-    if count == 1:
-        return f"1 {one}"
-    of = "de " if count >= 20 and (count % 100 == 0 or count % 100 >= 20) else ""
-    return f"{count} {of}{many}"
 
 
 @register.filter

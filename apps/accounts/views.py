@@ -9,7 +9,10 @@ from django.views.decorators.cache import never_cache
 
 from apps.analytics.models import AnonymousVisitor
 from apps.analytics.services.visitors import cookie_visitor_id, delete_visitor_cookie, link_visitor
+from apps.assistant.services import quota
+from apps.assistant.services.limits import actor_key
 from apps.core.consent import analytics_chosen, record_acceptance, set_consent_cookie
+from apps.core.plans import tier_for
 from .forms import DeleteAccountForm, ProfileForm, SignupForm
 from .models import LegalAcceptance
 
@@ -61,4 +64,5 @@ def profile(request):
         messages.success(request, "Contul tău și istoricul au fost șterse.")
         return delete_visitor_cookie(redirect("home"))
     return render(request, "accounts/profile.html", {"profile_form": profile_form, "password_form": password_form,
-        "delete_form": delete_form, "username": username})
+        "delete_form": delete_form, "username": username,
+        "quota": quota.status(actor_key(request), tier_for(request.user))})

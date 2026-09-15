@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest.mock import patch
 from uuid import uuid4
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core import serializers
 from django.db import DatabaseError
 from django.test import TestCase, override_settings
@@ -122,13 +122,26 @@ class UsageRecordingTests(TestCase):
         token = uuid4()
         self.post(token=token)
         self.assertEqual(self.post(token=token).status_code, 409)
-        with override_settings(RATE_LIMIT_MINUTE=1):
+        with override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1):
+            self.assertEqual(self.post().status_code, 429)
+        with override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 1, "free": 1, "pro": 1}):
             self.assertEqual(self.post().status_code, 429)
         rejected = list(UsageEvent.objects.filter(status="rejected").order_by("pk"))
         self.assertEqual([(event.error_code, event.request_type) for event in rejected],
-                         [("duplicate", "unclassified"), ("rate_limit", "unclassified")])
+                         [("duplicate", "unclassified"), ("rate_limit", "unclassified"),
+                          ("quota_exhausted", "unclassified")])
         self.assertTrue(all(event.total_tokens == 0 and event.estimated_cost == 0 for event in rejected))
         self.naturalize.assert_called_once()
+
+    def test_the_plan_at_request_time_is_kept_after_an_upgrade(self):
+        self.naturalize.side_effect = replying(naturalized_english(), provider_usage())
+        self.post()
+        self.client.force_login(self.user)
+        self.post()
+        self.user.groups.add(Group.objects.get_or_create(name="Pro")[0])
+        self.post()
+        self.assertEqual(list(UsageEvent.objects.order_by("pk").values_list("audience", "plan")),
+                         [("anonymous", "anonymous"), ("registered", "free"), ("registered", "pro")])
 
     @override_settings(OPENAI_PRICING={})
     def test_unknown_pricing_keeps_tokens_and_leaves_cost_empty(self):

@@ -108,14 +108,7 @@ except InvalidOperation:
     ANALYTICS_GBP_PER_USD = Decimal(-1)
 if not ANALYTICS_GBP_PER_USD.is_finite() or ANALYTICS_GBP_PER_USD <= 0:
     raise ImproperlyConfigured("ANALYTICS_GBP_PER_USD must be a positive number.")
-def _int_setting(name, default, low, high):
-    try:
-        value = int(os.getenv(name, str(default)))
-    except ValueError:
-        value = low - 1
-    if not low <= value <= high:
-        raise ImproperlyConfigured(f"{name} must be a whole number from {low} to {high}.")
-    return value
+from config.env_settings import int_setting as _int_setting, naturalize_limits, tier_limits  # noqa: E402
 
 
 # Live transcription timing. The delay is how long the provider waits before emitting words ("" leaves it out).
@@ -132,14 +125,25 @@ VOICE_MAX_SECONDS = int(os.getenv("VOICE_MAX_SECONDS", "60"))
 VOICE_MAX_BYTES = int(os.getenv("VOICE_MAX_BYTES", "5000000"))
 VOICE_TRANSCRIBE_LANGUAGES = [code.strip() for code in os.getenv("VOICE_TRANSCRIBE_LANGUAGES", "en,ro").split(",")
                               if code.strip()]
-VOICE_TRANSCRIBE_LIMIT_MINUTE = int(os.getenv("VOICE_TRANSCRIBE_LIMIT_MINUTE", "5"))
-VOICE_TRANSCRIBE_LIMIT_DAY = int(os.getenv("VOICE_TRANSCRIBE_LIMIT_DAY", "50"))
-VOICE_TTS_LIMIT_MINUTE = int(os.getenv("VOICE_TTS_LIMIT_MINUTE", "10"))
-VOICE_TTS_LIMIT_DAY = int(os.getenv("VOICE_TTS_LIMIT_DAY", "100"))
 VOICE_SPEECH_TOKEN_MAX_AGE = int(os.getenv("VOICE_SPEECH_TOKEN_MAX_AGE", "2700"))
 ASSISTANT_MAX_CHARACTERS = int(os.getenv("ASSISTANT_MAX_CHARACTERS", "2000"))
-RATE_LIMIT_MINUTE = int(os.getenv("RATE_LIMIT_MINUTE", "10"))
-RATE_LIMIT_DAY = int(os.getenv("RATE_LIMIT_DAY", "100"))
+
+# PRODUCT QUOTA: successful „Vreau să sune natural!” uses per London calendar day, by plan tier (apps/core/plans.py).
+# Typed and spoken text count the same; the microphone and British speech never use it (apps/assistant/services/quota.py).
+NATURALIZE_DAILY_LIMITS = naturalize_limits()  # 5, 20 and 200 by default; Pro's is its Fair Use ceiling.
+
+# RATE LIMITS / ABUSE GUARDRAILS: technical protection against bursts, bots and provider-cost attacks, never the plan.
+# RATE_LIMIT_MINUTE is still read as the old name of NATURALIZE_RATE_LIMIT_MINUTE; RATE_LIMIT_DAY, VOICE_TRANSCRIBE_LIMIT_DAY
+# and VOICE_TTS_LIMIT_DAY are no longer used (system check core.W001 warns when they are set).
+NATURALIZE_RATE_LIMIT_MINUTE = _int_setting("NATURALIZE_RATE_LIMIT_MINUTE", os.getenv("RATE_LIMIT_MINUTE", "10"), 1, 1000)
+VOICE_TRANSCRIBE_LIMIT_MINUTE = _int_setting("VOICE_TRANSCRIBE_LIMIT_MINUTE", 5, 1, 1000)
+VOICE_TTS_LIMIT_MINUTE = _int_setting("VOICE_TTS_LIMIT_MINUTE", 10, 1, 1000)
+# Per London calendar day, by tier. More generous than the product quota, so voice never blocks legitimate use within a
+# plan (Pro: about two live sessions and three British speech plays per naturalisation at 200 a day).
+VOICE_DAILY_GUARDRAILS = {
+    "transcription": tier_limits("VOICE_TRANSCRIBE_DAY_LIMITS", (20, 80, 400)),
+    "speech": tier_limits("VOICE_TTS_DAY_LIMITS", (30, 120, 600)),
+}
 # Abuse guardrails. Text sent to "Vreau să sune natural!" is checked with OpenAI's free moderation endpoint, in parallel
 # with the model call so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
 CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"
@@ -153,7 +157,7 @@ PRO_ENTITLEMENTS_ENFORCED = os.getenv("PRO_ENTITLEMENTS_ENFORCED", "false").lowe
 OPENAI_MODERATION_MODEL = os.getenv("OPENAI_MODERATION_MODEL", "omni-moderation-latest")
 # Public contact address; the Contact page and footer link appear only when it is set.
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
-# Pro prices shown on the homepage plans. Display only: payments and plan limits are not implemented yet.
+# Pro prices shown on the homepage plans. Display only: payments are not implemented yet (NATURALIZE_DAILY_LIMITS is enforced).
 # With the promotion on, the normal price is shown struck through beside the promotional monthly price.
 PRO_DISPLAY_PRICE = os.getenv("PRO_DISPLAY_PRICE", "£9.99").strip()
 PRO_PROMO_ENABLED = os.getenv("PRO_PROMO_ENABLED", "true").lower() == "true"
@@ -172,8 +176,8 @@ VAT_NUMBER = os.getenv("VAT_NUMBER", "").strip()
 LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
 # Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
 # privacy.html: everyone (including signed-in users) is then asked to accept the new version.
-TERMS_VERSION = "2026-09-15"  # Single "Vreau să sune natural!" action (no English-to-Romanian translation).
-PRIVACY_VERSION = "2026-09-15"  # Also: source language and processing durations in usage statistics.
+TERMS_VERSION = "2026-09-16"  # Daily plan limits (5 without an account, 20 Free, Pro up to 200 under Fair Use).
+PRIVACY_VERSION = "2026-09-16"  # Daily plan-quota counters, and the plan tier in usage statistics.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

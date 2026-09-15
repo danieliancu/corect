@@ -3,7 +3,13 @@
 {% else %}
 {% if error or outcome %}<div class="result-heading">{% if error %}<span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><h2>Engleză britanică</h2>{% elif outcome == 'unnatural' %}{% speech_button result.native_text "native" "heading" %}<h2>Sună mai natural:</h2>{% elif outcome == 'natural' %}{% speech_button result.corrected_text "correction" "heading" %}<h2>✓ Sună deja natural.</h2>{% elif outcome == 'translated' %}{% speech_button result.translated_text "translation" "heading" %}<h2>În engleză britanică</h2>{% else %}<span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><h2>În română</h2>{% endif %}</div>{% endif %}
 {% if error %}
-  <div class="error-box" role="alert">{{ error }}</div>{% if not empty_text %}<p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>{% endif %}
+  {% if quota_exhausted %}
+  <div class="quota-box" role="alert">
+    <p>{{ error }}</p>
+    {% if tier == 'anonymous' %}<a class="button quota-cta" href="{% url 'signup' %}">Creează cont gratuit</a>
+    {% elif tier == 'free' %}<a class="button secondary quota-cta" href="{% url 'about' %}#plans">Vezi planul Pro</a>{% endif %}
+  </div>
+  {% else %}<div class="error-box" role="alert">{{ error }}</div>{% endif %}{% if not empty_text %}<p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>{% endif %}
 {% elif outcome == 'translated' %}
   <p class="result-text" lang="en-GB">{{ result.translated_text }}</p>
 {% elif outcome == 'legacy_to_romanian' %}
@@ -37,3 +43,4 @@
   </div>
 {% endif %}
 {% endif %}
+{% if quota and result and not error and quota.note %}<p class="quota-note">{{ quota.note }}</p>{% endif %}

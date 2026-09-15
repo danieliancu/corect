@@ -39,6 +39,12 @@ class UsageEvent(models.Model):
         REGISTERED = "registered", "Registered"
         ANONYMOUS = "anonymous", "Anonymous"
 
+    class Plan(models.TextChoices):
+        """The plan tier at request time (apps/core/plans.py). Blank for registered rows recorded before plans existed."""
+        ANONYMOUS = "anonymous", "Anonymous"
+        FREE = "free", "Free"
+        PRO = "pro", "Pro"
+
     class Kind(models.TextChoices):
         CORRECTION = "correction", "English correction"
         TRANSLATION = "translation", "Translation into British English"
@@ -50,6 +56,8 @@ class UsageEvent(models.Model):
         REJECTED = "rejected", "Rejected"
 
     audience = models.CharField(max_length=10, choices=Audience.choices)
+    plan = models.CharField(max_length=10, choices=Plan.choices, blank=True,
+                            help_text="Plan tier at request time; blank when unknown (before plan quotas existed).")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
                              related_name="usage_events")
     visitor = models.ForeignKey(AnonymousVisitor, null=True, blank=True, on_delete=models.SET_NULL,
@@ -93,6 +101,7 @@ class UsageEvent(models.Model):
             models.Index(fields=["visitor", "-created_at"], name="analytics_usage_visitor_idx"),
             models.Index(fields=["audience", "created_at"], name="analytics_usage_audience_idx"),
             models.Index(fields=["status", "created_at"], name="analytics_usage_status_idx"),
+            models.Index(fields=["plan", "created_at"], name="analytics_usage_plan_idx"),
             models.Index(fields=["request_type", "created_at"], name="analytics_usage_type_idx"),
             models.Index(fields=["model"], name="analytics_usage_model_idx"),
         ]
@@ -125,6 +134,8 @@ class AudioUsageEvent(models.Model):
 
     operation = models.CharField(max_length=13, choices=Operation.choices)
     audience = models.CharField(max_length=10, choices=UsageEvent.Audience.choices)
+    plan = models.CharField(max_length=10, choices=UsageEvent.Plan.choices, blank=True,
+                            help_text="Plan tier at request time; blank when unknown.")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
                              related_name="audio_usage_events")
     visitor = models.ForeignKey(AnonymousVisitor, null=True, blank=True, on_delete=models.SET_NULL,

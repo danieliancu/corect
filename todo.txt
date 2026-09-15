@@ -6,7 +6,7 @@
 | M4 — Voice + British TTS           |                   🟢 Feature complete, mai trebuie validarea manuală |
 | **M5 — Production**                |            🟡 Aproape, dar mai sunt câteva blocaje înainte de deploy |
 | M6 — Beta                          |                                                                    ⏳ |
-| **M7 — Free / Pro**                | 🟡 UI + pricing + structură Pro există; payments/enforcement încă nu |
+| **M7 — Free / Pro**                | 🟡 Limite zilnice pe plan aplicate (5 / 20 / 200 Fair Use); plățile încă nu |
 | M8 — Optimisation                  |                                                                    ⏳ |
 
 
@@ -41,7 +41,10 @@
 | Mistake categories                  |                 ✅ 100% | Pagini separate                                                       |
 | Progress                            |                 ✅ 100% | Chart.js + 30-day progress                                            |
 | Practice                            |                  ✅ 95% | Fără cost AI                                                          |
-| Rate limiting text                  |                 ✅ 100% | PostgreSQL + concurență                                               |
+| Rate limiting text                  |                 ✅ 100% | Doar pe minut (anti-abuz), PostgreSQL + concurență                    |
+| **Limite zilnice pe plan**          |                 ✅ 100% | Anonim 5, Free 20, Pro 200 (Fair Use); ora Londrei; rezervare + refund |
+| Voce vs. limita planului            |                 ✅ 100% | Microfonul, transcrierea și pronunția nu consumă; textul trimis = 1   |
+| Analytics pe plan                   |                 ✅ 100% | Plan la momentul cererii, respingeri de cotă, conversie               |
 | Rate limiting voice                 |                 ✅ 100% | STT/TTS separat                                                       |
 | Duplicate submissions               |                 ✅ 100% | Protejate                                                             |
 | Admin Analytics                     |                 ✅ 100% | `/admin/analytics/`                                                   |

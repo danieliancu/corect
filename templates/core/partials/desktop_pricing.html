@@ -1,4 +1,4 @@
-{# Marketing presentation of the planned Free and Pro plans. No payments or plan limits exist yet (apps/core/plans.py). #}
+{# The Free and Pro plans. Daily limits are enforced (apps/assistant/services/quota.py); payments do not exist yet. #}
 <section class="landing-section landing-plans{% if user_is_pro %} is-pro-member{% endif %}" id="plans" aria-labelledby="plans-title">
   {% if user_is_pro %}
   <div class="landing-heading"><h2 id="plans-title">Ești în planul potrivit.</h2></div>
@@ -10,7 +10,7 @@
   {% include 'core/partials/fair_use_note.html' %}
   {% endif %}{% endfor %}
   {% else %}
-  <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2><p><a class="plans-start-link" href="{{ editor_url|default:'#text' }}">Poți începe și fără cont</a>, într-un mod limitat.</p></div>
+  <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2><p><a class="plans-start-link" href="{{ editor_url|default:'#text' }}">Poți începe și fără cont</a>, cu {{ plan_limits.anonymous }}.</p></div>
   <div class="plan-grid">
     {% for plan in plans %}
     <article class="plan-card plan-{{ plan.key }}{% if plan.recommended %} is-recommended{% endif %}" aria-labelledby="plan-{{ plan.key }}-title">

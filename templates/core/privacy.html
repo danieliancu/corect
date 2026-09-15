@@ -27,11 +27,11 @@
     <li><strong>Pronunție britanică:</strong> când apeși butonul de ascultare, propoziția în engleză este trimisă către OpenAI, care generează sunetul. Sunetul primit nu este salvat.</li>
   </ul>
   <h3>Statistici de utilizare</h3>
-  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, limba textului (de exemplu engleză sau română), starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, duratele de procesare (în milisecunde, inclusiv pornirea și finalizarea transcrierii în timp real), costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
+  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, limba textului (de exemplu engleză sau română), planul (fără cont, Free sau Pro), starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, duratele de procesare (în milisecunde, inclusiv pornirea și finalizarea transcrierii în timp real), costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
   <h3>Identificatorul anonim de analytics</h3>
   <p>{% if visitor_cookie %}La prima folosire a butonului „Vreau să sune natural!” sau a vocii creăm un identificator aleator, păstrat în cookie-ul <code>corect_visitor_id</code>. Împreună cu el păstrăm prima și ultima dată a folosirii și, dacă îți creezi cont sau te autentifici, legătura cu contul. Identificatorul este activ implicit. Îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>: atunci ștergem cookie-ul din browser și nu îl mai folosim.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</p>
   <h3>Securitate și limite de utilizare</h3>
-  <p>Ca să prevenim abuzul, numărăm cererile pe minut și pe zi. Pentru vizitatorii fără cont folosim o valoare criptografică derivată din adresa IP cu o cheie secretă, nu adresa IP în sine; pentru conturi folosim identificatorul contului. Păstrăm și un cod pentru fiecare cerere trimisă, ca aceeași cerere să nu fie procesată de două ori.</p>
+  <p>Ca să prevenim abuzul, numărăm cererile pe minut și folosirea vocii. Pentru limita zilnică a planului numărăm câte rezultate „Vreau să sune natural!” ai primit în ziua respectivă (doar numărul, fără text). Pentru vizitatorii fără cont folosim o valoare criptografică derivată din adresa IP cu o cheie secretă, nu adresa IP în sine; pentru conturi folosim identificatorul contului. Păstrăm și un cod pentru fiecare cerere trimisă, ca aceeași cerere să nu fie procesată de două ori.</p>
   <h3>Jurnale</h3>
   <p>Aplicația înregistrează în jurnale doar coduri de eroare, fără text, sunet, chei sau adrese IP. Serverul web și furnizorul de găzduire pot înregistra, ca orice site, adresa IP și cererile făcute către site, pentru securitate și funcționare.</p>
   <h3>Acces în cadrul Corect.uk</h3>
@@ -94,7 +94,8 @@
       <tr><td>Istoricul textelor și greșelile găsite</td><td>Până ștergi contul</td></tr>
       <tr><td>Profilul de învățare: tipuri de greșeli, exerciții, sesiuni, răspunsuri</td><td>Până ștergi contul (exercițiile generate nefolosite sunt retrase după 90 de zile)</td></tr>
       <tr><td>Sesiunea de autentificare</td><td>{{ retention.login_session_days }} zile de la autentificare; sesiunile expirate sunt șterse la curățarea zilnică</td></tr>
-      <tr><td>Contoarele pentru limitele de utilizare</td><td>Un minut sau o zi, apoi sunt șterse la curățarea zilnică</td></tr>
+      <tr><td>Contoarele pentru limitele tehnice (pe minut și pentru voce)</td><td>Până la sfârșitul intervalului (un minut sau o zi), apoi sunt șterse la curățarea zilnică</td></tr>
+      <tr><td>Contoarele limitei zilnice a planului</td><td>{{ retention.naturalize_usage_days }} zile după ziua respectivă, apoi sunt șterse la curățarea zilnică</td></tr>
       <tr><td>Codurile împotriva cererilor duplicate</td><td>{{ retention.submission_claim_days }} zile</td></tr>
       <tr><td>Evidența tehnică a sesiunilor de transcriere în timp real</td><td>{{ retention.closed_session_days }} zile de la închiderea sesiunii</td></tr>
       <tr><td>Statisticile de utilizare (fără text, sunet sau IP)</td><td>{% if retention.usage_ledger_days %}{{ retention.usage_ledger_days }} zile{% else %}Perioada nu este încă stabilită; până atunci nu sunt șterse automat. După ștergerea contului nu mai sunt legate de cont.{% endif %}</td></tr>

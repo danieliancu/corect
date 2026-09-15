@@ -10,10 +10,12 @@ from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
 from apps.analytics.models import UsageEvent
 from apps.analytics.services.recording import record_usage_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
+from apps.core.plans import tier_for
 from apps.core.views import home_context
 from apps.learning.services.profile import record_correction_occurrences
 from .forms import AssistantForm
 from .languages import CORRECTION, UNCLASSIFIED, operation_for
+from .services import quota
 from .services.limits import actor_key, claim_submission
 from .services.naturalize import NaturalizeService
 from .services.openai_client import AssistantError
@@ -22,9 +24,10 @@ from .services.timing import collect_timings, server_timing_header, since, timed
 from .services.usage import collect_provider_usage
 
 logger = logging.getLogger("apps.assistant")
-# Refused by a rule rather than failed: quotas, duplicates and the abuse guardrails.
-REJECTION_CODES = {"rate_limit", "duplicate", "content_blocked", "instruction_attempt", "account_suspended"}
-STATUS_CODES = {"rate_limit": 429, "duplicate": 409, "language": 422, "content_blocked": 422,
+# Refused by a rule rather than failed: the plan quota, rate limits, duplicates and the abuse guardrails.
+REJECTION_CODES = {quota.QUOTA_EXHAUSTED, "rate_limit", "duplicate", "content_blocked", "instruction_attempt",
+                   "account_suspended"}
+STATUS_CODES = {quota.QUOTA_EXHAUSTED: 429, "rate_limit": 429, "duplicate": 409, "language": 422, "content_blocked": 422,
                 "instruction_attempt": 422, "account_suspended": 403}
 EMPTY_TEXT_MESSAGE = "Ca să continuăm, scrie ceva în casetă sau apasă microfonul și vorbește."
 
@@ -33,7 +36,11 @@ EMPTY_TEXT_MESSAGE = "Ca să continuăm, scrie ceva în casetă sau apasă micro
 @require_POST
 def naturalize(request):
     """Vreau să sune natural!: the single public action. The browser sends only the text and its submission token; the
-    service decides whether the text is corrected (English) or rewritten in British English (Romanian), in one call."""
+    service decides whether the text is corrected (English) or rewritten in British English (Romanian), in one call.
+
+    Checks in order: suspension, the per-minute rate limit and duplicate token (limits.py), then the plan's daily quota
+    (quota.py). One use is reserved before the model call and committed only when a result is produced; any failure
+    releases it. The endpoint does not know, or ask, whether the text was typed or spoken."""
     started = perf_counter()
     with collect_timings() as timings:
         form = AssistantForm(request.POST)
@@ -53,20 +60,28 @@ def naturalize(request):
         else:
             with timed("db"):
                 visitor = get_or_create_visitor(request) if anonymous else existing_visitor(request)
+                tier = tier_for(request.user)
+            actor = actor_key(request)
+            context["tier"] = tier
             usage = {"status": UsageEvent.Status.SUCCESS, "error_code": "", "assistant_request": None,
-                     "kind": UNCLASSIFIED, "source_language": ""}
+                     "kind": UNCLASSIFIED, "source_language": "", "plan": tier}
+            reservation, committed = None, False
             with collect_provider_usage() as calls:
                 try:
                     with timed("db"):
                         if is_suspended(request.user):
                             raise AssistantError("account_suspended", SUSPENDED_MESSAGE)
-                        claim_submission(actor_key(request), form.cleaned_data["submission_token"])
+                        claim_submission(actor, form.cleaned_data["submission_token"])
+                        reservation = quota.reserve(actor, tier)
                     accepted = True
                     outcome = NaturalizeService().naturalize(form.cleaned_data["text"])
                     usage.update(kind=outcome.operation, source_language=outcome.source_language)
                     with timed("db"):
                         usage["assistant_request"] = save_result(request.user, outcome)
+                        quota.commit(reservation)
+                        committed = True
                     context.update(kind=outcome.operation, result=outcome.result.model_dump())
+                    context["quota"] = quota_status(actor, tier)
                     if outcome.operation == CORRECTION and usage["assistant_request"] is not None:
                         try:
                             with timed("db"):
@@ -78,6 +93,7 @@ def naturalize(request):
                 except AssistantError as exc:
                     retry_after = exc.retry_after
                     context["error"] = exc.message
+                    context["quota_exhausted"] = exc.code == quota.QUOTA_EXHAUSTED
                     status = STATUS_CODES.get(exc.code, 503)
                     usage.update(status=UsageEvent.Status.REJECTED if exc.code in REJECTION_CODES else UsageEvent.Status.FAILED,
                                  error_code=exc.code, kind=operation_for(exc.source_language) or UNCLASSIFIED,
@@ -94,6 +110,9 @@ def naturalize(request):
                     context["error"] = "Nu am putut finaliza cererea. Încearcă din nou mai târziu."
                     status = 503
                     usage.update(status=UsageEvent.Status.FAILED, error_code="database_unavailable")
+                finally:
+                    if reservation is not None and not committed:
+                        quota.release(reservation)  # No usable result: the use is given back.
             event = record_usage_event(request=request, calls=calls, visitor=visitor, duration_ms=since(started),
                                        moderation_ms=timings.get("moderation"), **usage)
             if event is not None:
@@ -107,3 +126,12 @@ def naturalize(request):
     if anonymous:
         attach_visitor_cookie(request, response, visitor)
     return response
+
+
+def quota_status(actor, tier):
+    """Today's allowance after a result, for the small „3 din 5 utilizări rămase astăzi” note; None if unavailable."""
+    try:
+        return quota.status(actor, tier)
+    except DatabaseError:
+        logger.error("naturalize_quota_status_unavailable")
+        return None

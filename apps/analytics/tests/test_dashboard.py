@@ -86,6 +86,32 @@ class AnalyticsReportTests(TestCase):
         self.assertContains(response, "£0.0006")  # $0.00078 at £0.74 per dollar
         self.assertContains(response, self.visitor.short_id)
 
+    def test_plan_summary_counts_successes_quota_rejections_and_who_used_up_the_quota(self):
+        now = timezone.now()
+        free_user = User.objects.create_user("free-one", password="pw-free-1234")
+
+        def event(**fields):
+            return UsageEvent.objects.create(**{"model": "test-model", "request_type": "unclassified", **fields})
+        event(audience="registered", plan="free", user=free_user, status="success", request_type="correction")
+        event(audience="registered", plan="free", user=free_user, status="rejected", error_code="quota_exhausted")
+        event(audience="registered", plan="pro", user=self.learner, status="success", request_type="correction")
+        # This visitor used up its anonymous quota two days ago and signed up yesterday.
+        event(audience="anonymous", plan="anonymous", visitor=self.visitor, status="rejected", error_code="quota_exhausted",
+              created_at=now - timedelta(days=2))
+        event(audience="anonymous", plan="anonymous", visitor=self.lurker, status="rejected", error_code="rate_limit")
+        self.client.force_login(self.staff)
+        response = self.client.get(DASHBOARD, {"period": "all"})
+        rows = {row["plan"]: row for row in response.context["plan_rows"]}
+        self.assertEqual([row["plan"] for row in response.context["plan_rows"]], ["anonymous", "free", "pro"])
+        free = rows["free"]
+        self.assertEqual((free["successes"], free["quota_rejections"], free["hit"], free["active"], free["hit_rate"]),
+                         (1, 1, 1, 1, 1.0))
+        self.assertEqual((rows["pro"]["successes"], rows["pro"]["quota_rejections"], rows["pro"]["hit"]), (1, 0, 0))
+        anonymous = rows["anonymous"]
+        self.assertEqual((anonymous["quota_rejections"], anonymous["hit"], anonymous["active"]), (1, 1, 2))
+        self.assertEqual(response.context["plan_conversions"], 1)
+        self.assertContains(response, "Plans and daily quota")
+
     def test_users_report_aggregates_per_user_without_extra_queries_per_row(self):
         self.client.force_login(self.staff)
         response = self.client.get(USERS, {"period": "all"})

@@ -1,18 +1,35 @@
-"""Plans shown on the homepage.
+"""Plans: who is anonymous, Free or Pro, and how the plans are shown on the homepage.
 
-Presentation only: payments, subscriptions and plan limits are not implemented yet, and nothing here is enforced.
-Real entitlements can later be attached to each plan by its key. Prices come from settings (PRO_DISPLAY_PRICE,
-PRO_PROMO_ENABLED, PRO_PROMO_PRICE); templates never contain a price.
+The daily „Vreau să sune natural!” allowance of each tier is enforced (NATURALIZE_DAILY_LIMITS in settings, applied by
+apps/assistant/services/quota.py); payments and subscriptions are not implemented yet. Prices come from settings
+(PRO_DISPLAY_PRICE, PRO_PROMO_ENABLED, PRO_PROMO_PRICE); templates never contain a price or a limit.
 """
 from django.conf import settings
 
-# Staff add a user to this group in /admin/ to mark them as Pro (created by core.0001_pro_group). It only changes
-# what the homepage plans section shows; when subscriptions exist, is_pro() should read them instead.
+from apps.core.text import romanian_count
+
+# Staff add a user to this group in /admin/ to mark them as Pro (created by core.0001_pro_group). When subscriptions
+# exist, is_pro() should read them instead; every plan decision goes through is_pro() and tier_for().
 PRO_GROUP = "Pro"
+# Plan tiers. The same keys name the per-tier values in NATURALIZE_DAILY_LIMITS and VOICE_DAILY_GUARDRAILS.
+ANONYMOUS, FREE, PRO = "anonymous", "free", "pro"
+TIERS = (ANONYMOUS, FREE, PRO)
 
 
 def is_pro(user):
     return user.is_authenticated and user.groups.filter(name=PRO_GROUP).exists()
+
+
+def tier_for(user):
+    """The one place that decides a request's plan tier."""
+    if not user.is_authenticated:
+        return ANONYMOUS
+    return PRO if is_pro(user) else FREE
+
+
+def daily_uses(tier):
+    """„20 de naturalizări pe zi”, from the configured limit."""
+    return f"{romanian_count(settings.NATURALIZE_DAILY_LIMITS[tier], 'naturalizare', 'naturalizări')} pe zi"
 
 
 def pro_prices():
@@ -27,15 +44,15 @@ def display_plans():
     return (
         {"key": "free", "name": "Free", "subtitle": "Pentru testare și utilizare ocazională", "price": "£0",
          "original_price": "", "period": "", "icon": "icons/user.html", "recommended": False, "fair_use": False,
-         "features": (("Engleză naturală limitată", True), ("Voce în timp real limitată", True),
-                      ("British TextToSpeech limitat", True), ("Istoric limitat", True), ("Progres", False),
-                      ("Categorii de greșeli", False), ("Practice", False), ("Exerciții bazate pe greșelile tale", False),
-                      ("Statistici de evoluție", False))},
-        # "Nelimitat" means no numeric cap on normal personal use; the Fair Use section of the Terms covers abuse only.
+         "features": ((daily_uses(FREE).capitalize(), True), ("Voce în timp real", True), ("British TextToSpeech", True),
+                      ("Istoric limitat", True), ("Progres", False), ("Categorii de greșeli", False), ("Practice", False),
+                      ("Exerciții bazate pe greșelile tale", False), ("Statistici de evoluție", False))},
+        # Pro is not unlimited: its daily allowance is the Fair Use ceiling (Terms, section 13).
         {"key": "pro", "name": "Pro", "subtitle": "Pentru cei care vor să progreseze serios", "price": pro_price,
          "original_price": pro_original_price, "period": "/ lună", "icon": "icons/crown.html", "recommended": True,
          "fair_use": True,
-         "features": (("Engleză naturală nelimitată", True), ("Voce în timp real nelimitată", True), ("British TextToSpeech nelimitat", True),
-                      ("Istoric complet", True), ("Progres", True), ("Categorii de greșeli", True), ("Practice", True),
-                      ("Exerciții bazate pe greșelile tale", True), ("Statistici de evoluție", True))},
+         "features": ((f"Până la {daily_uses(PRO)} (Fair Use)", True), ("Voce în timp real", True),
+                      ("British TextToSpeech", True), ("Istoric complet", True), ("Progres", True),
+                      ("Categorii de greșeli", True), ("Practice", True), ("Exerciții bazate pe greșelile tale", True),
+                      ("Statistici de evoluție", True))},
     )

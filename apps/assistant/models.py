@@ -44,9 +44,28 @@ class GrammarCorrection(models.Model):
 
 
 class RateBucket(models.Model):
+    """Technical rate-limit and abuse-guardrail counters (never the plan quota): one row per key and time window."""
     key = models.CharField(max_length=100, unique=True)
     count = models.PositiveIntegerField(default=0)
     expires_at = models.DateTimeField(db_index=True)
+
+
+class NaturalizeUsage(models.Model):
+    """The plan quota: successful „Vreau să sune natural!” uses of one actor on one London calendar day.
+
+    `reserved` counts requests still being processed. A request reserves a use before the model call, which becomes
+    `used` only when a result is produced and is released otherwise, so concurrent requests can never pass the limit and
+    a failure never costs a use. The actor is the rate-limit identity (a user id or a keyed hash of the IP address): no
+    text, no IP address. Rows are deleted by cleanup_assistant.
+    """
+    actor = models.CharField(max_length=70)
+    day = models.DateField(db_index=True)
+    used = models.PositiveIntegerField(default=0)
+    reserved = models.PositiveIntegerField(default=0)
+    reserved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["actor", "day"], name="unique_actor_naturalize_day")]
 
 
 class RealtimeTranscriptionSession(models.Model):

@@ -3,13 +3,15 @@ from datetime import timedelta
 from unittest.mock import patch
 from uuid import uuid4
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
+from django.db import DatabaseError
 from django.test import Client, TestCase, override_settings
 from django.utils import formats, timezone
 
 from apps.analytics.models import UsageEvent
 from apps.assistant.languages import unsupported_message
-from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
+from apps.assistant.models import AssistantRequest, GrammarCorrection, NaturalizeUsage, RateBucket, SubmissionClaim
+from apps.assistant.services.localday import local_day, seconds_until_reset
 from apps.assistant.services.openai_client import AssistantError
 from .examples import (CORRECTION_CASES, ROMANIAN_CASES, correction_result, english_raw, naturalized_english,
                        naturalized_romanian, romanian_raw, translation_result)
@@ -128,21 +130,105 @@ class EndpointTests(TestCase):
         self.assertEqual(self.post(token=token).status_code, 200)
         self.assertEqual(self.post(token=token).status_code, 409)
         self.naturalize.assert_called_once()
-        self.assertEqual(list(RateBucket.objects.values_list("count", flat=True)), [1, 1])
+        self.assertEqual(list(RateBucket.objects.values_list("count", flat=True)), [1])  # The minute window only.
+        usage = NaturalizeUsage.objects.get()
+        self.assertEqual((usage.used, usage.reserved), (1, 0))  # A double click costs one use.
 
-    @override_settings(RATE_LIMIT_MINUTE=1)
-    def test_rate_limit(self):
+    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1)
+    def test_minute_rate_limit_is_a_separate_guardrail(self):
         self.assertEqual(self.post().status_code, 200)
         response = self.post()
         self.assertEqual(response.status_code, 429)
         self.assertIn("Retry-After", response)
+        self.assertEqual(UsageEvent.objects.latest("pk").error_code, "rate_limit")
         self.naturalize.assert_called_once()
+        self.assertEqual(NaturalizeUsage.objects.get().used, 1)
 
-    @override_settings(RATE_LIMIT_DAY=1)
-    def test_daily_rate_limit(self):
+    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1000)
+    def test_anonymous_visitors_get_five_a_day_then_an_invitation_to_create_a_free_account(self):
+        for number in range(1, 6):
+            response = self.post(HTTP_HX_REQUEST="true")
+            self.assertContains(response, f"{5 - number} din 5 utilizări rămase astăzi")
+        response = self.post(HTTP_HX_REQUEST="true")
+        self.assertContains(response, "Ai folosit cele 5 utilizări gratuite de azi. Creează un cont gratuit și primești 20 "
+                                      "pe zi.", status_code=429)
+        self.assertContains(response, 'href="/accounts/signup/">Creează cont gratuit</a>', status_code=429)
+        self.assertAlmostEqual(int(response["Retry-After"]), seconds_until_reset(), delta=5)
+        self.assertEqual(self.naturalize.call_count, 5)
+        usage = NaturalizeUsage.objects.get()
+        self.assertEqual((usage.used, usage.reserved, usage.day), (5, 0, local_day()))
+        event = UsageEvent.objects.latest("pk")
+        self.assertEqual((event.status, event.error_code, event.plan, event.total_tokens), ("rejected", "quota_exhausted",
+                                                                                            "anonymous", 0))
+
+    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1000)
+    def test_free_accounts_get_twenty_a_day_then_a_truthful_pro_invitation(self):
+        self.client.force_login(self.user)
+        for _ in range(20):
+            self.assertEqual(self.post().status_code, 200)
+        response = self.post(HTTP_HX_REQUEST="true")
+        self.assertContains(response, "Ai folosit cele 20 de utilizări de azi. Pro oferă până la 200 de naturalizări pe zi, "
+                                      "în regim Fair Use.", status_code=429)
+        self.assertContains(response, 'href="/despre/#plans">Vezi planul Pro</a>', status_code=429)
+        self.assertNotContains(response, "Creează cont gratuit", status_code=429)
+        self.assertEqual(NaturalizeUsage.objects.get(actor=f"user:{self.user.pk}").used, 20)
+        self.assertEqual(set(UsageEvent.objects.values_list("plan", flat=True)), {"free"})
+
+    def test_pro_accounts_reach_the_fair_use_ceiling_without_an_upgrade_offer(self):
+        self.user.groups.add(Group.objects.get_or_create(name="Pro")[0])
+        self.client.force_login(self.user)
+        NaturalizeUsage.objects.create(actor=f"user:{self.user.pk}", day=local_day(), used=199)
+        response = self.post(HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "rămase astăzi")  # Pro's allowance is not counted down.
+        response = self.post(HTTP_HX_REQUEST="true")
+        self.assertContains(response, "Ai atins limita Fair Use de 200 de utilizări pentru astăzi. Limita se resetează la "
+                                      "miezul nopții (ora Regatului Unit).", status_code=429)
+        for offer in ("Vezi planul Pro", "Creează cont gratuit"):
+            self.assertNotContains(response, offer, status_code=429)
+        self.assertEqual(NaturalizeUsage.objects.get().used, 200)
+        self.assertEqual(list(UsageEvent.objects.order_by("pk").values_list("plan", "status")),
+                         [("pro", "success"), ("pro", "rejected")])
+
+    def test_english_and_romanian_and_typed_or_spoken_text_each_use_exactly_one(self):
         self.post()
+        self.naturalize.return_value = naturalized_romanian()
+        self.post(translation_result().original_text)
+        # There is no input-method field: text from the microphone is posted exactly like typed text, and any extra
+        # field is ignored, so it cannot change what a request costs.
+        self.post(input_type="voice", source="microphone")
+        self.assertEqual(NaturalizeUsage.objects.get().used, 3)
+
+    def test_failed_requests_give_the_reserved_use_back(self):
+        unsupported = AssistantError("language", unsupported_message())
+        unsupported.source_language = "other"
+        failures = [AssistantError("content_blocked", "Blocked."), AssistantError("instruction_attempt", "Refused."),
+                    unsupported, AssistantError("timeout", "Slow."), AssistantError("provider_error"),
+                    AssistantError("connection_error"), AssistantError("invalid_or_failed_response")]
+        for error in failures:
+            with self.subTest(code=error.code):
+                self.naturalize.side_effect = error
+                self.assertNotEqual(self.post().status_code, 200)
+                usage = NaturalizeUsage.objects.get()
+                self.assertEqual((usage.used, usage.reserved), (0, 0))
+        self.naturalize.side_effect = None
+        with patch("apps.assistant.views.save_result", side_effect=DatabaseError):
+            self.assertEqual(self.post().status_code, 503)  # No usable result could be produced.
+        usage = NaturalizeUsage.objects.get()
+        self.assertEqual((usage.used, usage.reserved), (0, 0))
+        self.assertContains(self.post(HTTP_HX_REQUEST="true"), "4 din 5 utilizări rămase astăzi")
+        self.assertEqual(set(UsageEvent.objects.exclude(status="success").values_list("error_code", flat=True)) &
+                         {"quota_exhausted"}, set())
+
+    def test_a_used_up_quota_never_blocks_history_progress_or_the_profile(self):
+        self.client.force_login(self.user)
+        NaturalizeUsage.objects.create(actor=f"user:{self.user.pk}", day=local_day(), used=20)
         self.assertEqual(self.post().status_code, 429)
-        self.naturalize.assert_called_once()
+        for path in ("/history/", "/progress/", "/mistakes/", "/learn/", "/accounts/profile/", "/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+        self.assertContains(self.client.get("/accounts/profile/"), "<strong>Plan Free</strong> · 0 din 20 de utilizări "
+                                                                   "rămase astăzi", html=False)
 
     def test_failure_before_the_language_is_known_is_saved_unclassified_without_text(self):
         self.client.force_login(self.user)

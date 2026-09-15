@@ -1,8 +1,10 @@
+import os
 from unittest.mock import patch
 from uuid import uuid4
 
 from django.conf import settings
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import AnonymousUser, Group, User
+from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from django.utils.html import escape
@@ -11,9 +13,10 @@ from apps.accounts.models import LegalAcceptance
 from apps.analytics.models import AnonymousVisitor, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.assistant.tests.examples import correction_result, naturalized_english
-from apps.core.checks import legal_identity_configured
+from apps.core.checks import legal_identity_configured, replaced_limit_settings
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
-from apps.core.plans import PRO_GROUP, display_plans
+from apps.core.plans import PRO_GROUP, TIERS, display_plans, tier_for
+from config.env_settings import naturalize_limits, tier_limits
 
 FEATURES = {
     "Engleză corectă": "Repară greșelile reale fără să schimbe inutil felul în care te exprimi.",
@@ -358,3 +361,52 @@ class LegalCheckTests(TestCase):
     @override_settings(DEBUG=False)
     def test_configured_identity_passes(self):
         self.assertEqual(legal_identity_configured(None), [])
+
+
+class PlanTierAndLimitSettingsTests(TestCase):
+    def test_one_resolver_decides_anonymous_free_and_pro(self):
+        learner = User.objects.create_user("free-learner", password="Plan-test-pass-1")
+        self.assertEqual(tier_for(AnonymousUser()), "anonymous")
+        self.assertEqual(tier_for(learner), "free")
+        learner.groups.add(Group.objects.get_or_create(name=PRO_GROUP)[0])
+        self.assertEqual(tier_for(User.objects.get(pk=learner.pk)), "pro")
+        self.assertEqual(set(settings.NATURALIZE_DAILY_LIMITS), set(TIERS))
+        for guardrail in settings.VOICE_DAILY_GUARDRAILS.values():
+            self.assertEqual(set(guardrail), set(TIERS))
+            self.assertGreaterEqual(guardrail["pro"], settings.NATURALIZE_DAILY_LIMITS["pro"])  # Voice never caps Pro first.
+
+    def test_impossible_limits_stop_the_app_at_startup(self):
+        self.assertEqual(naturalize_limits({}), {"anonymous": 5, "free": 20, "pro": 200})
+        self.assertEqual(naturalize_limits({"NATURALIZE_PRO_LIMIT_DAY": "500"})["pro"], 500)
+        for env in ({"NATURALIZE_ANONYMOUS_LIMIT_DAY": "0"}, {"NATURALIZE_FREE_LIMIT_DAY": "-1"},
+                    {"NATURALIZE_PRO_LIMIT_DAY": "lots"}, {"NATURALIZE_ANONYMOUS_LIMIT_DAY": "30"},
+                    {"NATURALIZE_PRO_LIMIT_DAY": "10"}):
+            with self.subTest(env=env), self.assertRaises(ImproperlyConfigured):
+                naturalize_limits(env)
+        self.assertEqual(tier_limits("X", (20, 80, 400), {}), {"anonymous": 20, "free": 80, "pro": 400})
+        for raw in ("1,2", "0,1,2", "5,4,6", "a,b,c"):
+            with self.subTest(raw=raw), self.assertRaises(ImproperlyConfigured):
+                tier_limits("X", (1, 2, 3), {"X": raw})
+
+    def test_replaced_limit_settings_are_reported_without_stopping_the_app(self):
+        with patch.dict(os.environ, {"RATE_LIMIT_DAY": "100", "VOICE_TTS_LIMIT_DAY": "100"}, clear=True):
+            warnings = replaced_limit_settings(None)
+        self.assertEqual([(warning.id, warning.msg) for warning in warnings],
+                         [("core.W001", "RATE_LIMIT_DAY is no longer used."),
+                          ("core.W001", "VOICE_TTS_LIMIT_DAY is no longer used.")])
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(replaced_limit_settings(None), [])
+
+    def test_plan_copy_states_the_real_daily_limits_and_never_unlimited(self):
+        free, pro = display_plans()
+        self.assertIn(("20 de naturalizări pe zi", True), free["features"])
+        self.assertIn(("Până la 200 de naturalizări pe zi (Fair Use)", True), pro["features"])
+        home = self.client.get("/").content.decode()
+        for page in (home, self.client.get("/despre/").content.decode()):
+            self.assertNotIn("nelimitat", page)
+            self.assertIn("Poți începe și fără cont</a>, cu 5 naturalizări pe zi.", page)
+        terms = self.client.get("/termeni/")
+        self.assertContains(terms, "5 naturalizări pe zi fără cont și 20 de naturalizări pe zi cu un cont gratuit")
+        self.assertContains(terms, "utilizare extinsă, nu nelimitată: până la 200 de naturalizări pe zi")
+        with self.settings(NATURALIZE_DAILY_LIMITS={"anonymous": 3, "free": 30, "pro": 150}):
+            self.assertContains(self.client.get("/termeni/"), "până la 150 de naturalizări pe zi")

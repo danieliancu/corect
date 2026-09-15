@@ -17,6 +17,7 @@ from apps.analytics.models import AudioUsageEvent
 from apps.analytics.services.recording import record_audio_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
 from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
+from apps.core.plans import tier_for
 from .services.limits import actor_key, claim_voice
 from .services.openai_client import AssistantError
 from .services.realtime import (OUTCOMES, finish_session, parse_seconds, parse_timings, read_session_token,
@@ -77,11 +78,13 @@ def claim_or_reject(request, operation, visitor, **event):
     suspended."""
     if is_suspended(request.user):
         return error_response(VoiceError("account_suspended", SUSPENDED_MESSAGE, 403))
+    tier = tier_for(request.user)
     try:
-        claim_voice(actor_key(request), operation)
+        # A technical guardrail only: voice never reserves or uses the plan's naturalisation quota.
+        claim_voice(actor_key(request), operation, tier)
     except AssistantError as exc:
         record_audio_event(request=request, operation=operation, status=Status.REJECTED, error_code=exc.code,
-                           visitor=visitor, **event)
+                           visitor=visitor, plan=tier, **event)
         logger.warning("voice_failed code=%s operation=%s", exc.code, operation)
         error = VoiceError(exc.code, exc.message, 429)
         error.retry_after = exc.retry_after

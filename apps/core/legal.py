@@ -6,7 +6,7 @@ and number change every legal page at once.
 """
 from django.conf import settings
 
-from apps.assistant.retention import CLOSED_SESSION_DAYS, SUBMISSION_CLAIM_DAYS
+from apps.assistant.retention import CLOSED_SESSION_DAYS, NATURALIZE_USAGE_DAYS, SUBMISSION_CLAIM_DAYS
 
 PLACE_NAMES_RO = {"England and Wales": "Anglia și Țara Galilor", "Scotland": "Scoția",
                   "Northern Ireland": "Irlanda de Nord", "United Kingdom": "Regatul Unit"}
@@ -41,5 +41,6 @@ def legal_identity():
 def retention_facts():
     """Real retention periods from code and settings; anything not decided yet is None and is shown as such."""
     return {"submission_claim_days": SUBMISSION_CLAIM_DAYS, "closed_session_days": CLOSED_SESSION_DAYS,
+            "naturalize_usage_days": NATURALIZE_USAGE_DAYS,
             "login_session_days": settings.SESSION_COOKIE_AGE // (24 * 60 * 60),
             "usage_ledger_days": None, "visitor_record_days": None, "server_log_days": None}

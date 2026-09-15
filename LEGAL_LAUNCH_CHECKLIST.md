@@ -78,7 +78,8 @@ professional actions that code cannot complete. None is done just because a conf
 - [ ] Choose a payment provider and add its disclosures to the Privacy notice (recipient, data shared, transfers).
 - [ ] Publish pricing, billing, renewal, cancellation and refund terms, including the UK 14-day cancellation right for
       digital services and how it is waived or applied.
-- [ ] Make Pro rate limits match the public "nelimitat" promise (only Fair Use abuse controls); today every account,
-      including the admin-assigned "Pro" group, shares the same per-minute and per-day limits.
+- [ ] Review the daily plan limits with the legal review: 5 naturalisations a day without an account, 20 with a free
+      account and up to 200 for Pro under Fair Use (stated as "extinsă, nu nelimitată"), reset at midnight UK time and
+      not charged for failed requests. `TERMS_VERSION` and `PRIVACY_VERSION` were raised to `2026-09-16` for this.
 - [ ] Review the promotional price presentation (£9.99 struck through, £4.99/lună) against pricing rules: the normal
       price must be genuine.

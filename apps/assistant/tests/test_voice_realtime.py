@@ -4,9 +4,10 @@ from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import uuid4
 
 import httpx
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core import serializers, signing
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
@@ -17,9 +18,10 @@ from openai import APIConnectionError, APITimeoutError
 from apps.analytics.models import AnonymousVisitor, AudioUsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
-from apps.assistant.models import AssistantRequest, RateBucket, RealtimeTranscriptionSession
+from apps.assistant.models import AssistantRequest, NaturalizeUsage, RateBucket, RealtimeTranscriptionSession
 from apps.assistant.services.pricing import parse_audio_pricing
 from apps.assistant.services.voice import REALTIME_CALLS_URL, TRANSCRIPTION_PROMPT
+from .examples import naturalized_english
 from .provider import ProviderMock
 
 SESSION_URL, FINISH_URL = "/assistant/realtime-transcription/session/", "/assistant/realtime-transcription/finish/"
@@ -151,6 +153,42 @@ class RealtimeSessionEndpointTests(RealtimeCase):
         self.assertNotIn(VISITOR_COOKIE, response.cookies)
         self.assertEqual(Session.objects.filter(visitor__isnull=True).count(), 1)
         self.assertEqual(AnonymousVisitor.objects.count(), 1)
+
+
+class VoiceAndThePlanQuotaTests(RealtimeCase):
+    """Only „Vreau să sune natural!” uses the plan quota: the microphone, live transcription and the recording fallback
+    never do, and text that came from the microphone costs exactly one use when it is submitted."""
+
+    def test_live_failure_then_recording_fallback_then_submit_uses_exactly_one(self):
+        token = self.start().json()["session"]
+        self.finish(token, outcome="connect_failed")  # Live transcription could not connect before any audio.
+        self.api.audio.transcriptions.create.return_value = SimpleNamespace(
+            text=SPOKEN, usage=SimpleNamespace(type="duration", seconds=3))
+        upload = self.client.post("/assistant/transcribe/", {"audio": SimpleUploadedFile(
+            "a.webm", b"\x1a\x45\xdf\xa3" + b"\x00" * 64, content_type="audio/webm")}, REMOTE_ADDR=CLIENT_IP)
+        self.assertEqual(upload.json(), {"text": SPOKEN})
+        self.assertFalse(NaturalizeUsage.objects.exists())  # Microphone, live session and fallback: no use.
+        with patch("apps.assistant.views.NaturalizeService.naturalize", return_value=naturalized_english()):
+            submitted = self.client.post("/naturalize/", {"text": SPOKEN, "submission_token": uuid4()},
+                                         REMOTE_ADDR=CLIENT_IP)
+        self.assertEqual(submitted.status_code, 200)
+        self.assertEqual(NaturalizeUsage.objects.get().used, 1)
+        # The speech-to-text guardrail still accounts for both voice calls, separately from the plan quota.
+        self.assertEqual(AudioUsageEvent.objects.filter(operation="transcription").count(), 2)
+        self.assertEqual(set(AudioUsageEvent.objects.values_list("plan", flat=True)), {"anonymous"})
+
+    @override_settings(VOICE_DAILY_GUARDRAILS={"transcription": {"anonymous": 1, "free": 2, "pro": 4},
+                                               "speech": {"anonymous": 1, "free": 2, "pro": 4}})
+    def test_the_daily_speech_to_text_guardrail_follows_the_plan(self):
+        self.assertEqual(self.start().status_code, 200)
+        self.assertEqual(self.start().status_code, 429)  # Anonymous: one session a day in this configuration.
+        member = User.objects.create_user("pro-voice", password="Voice-test-pass-1")
+        member.groups.add(Group.objects.get_or_create(name="Pro")[0])
+        self.client.force_login(member)
+        self.assertEqual([self.start().status_code for _ in range(4)], [200] * 4)
+        self.assertEqual(self.start().status_code, 429)
+        self.assertEqual(AudioUsageEvent.objects.filter(status="rejected").latest("pk").plan, "pro")
+        self.assertFalse(NaturalizeUsage.objects.exists())
 
 
 class RealtimeFinishTests(RealtimeCase):

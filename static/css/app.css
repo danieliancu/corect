@@ -233,7 +233,8 @@
   line-height: 1.35;
 }
 /* With a natural version, "Engleza ta, corectată" and "Sună mai natural:" are two separate boxes, each with its speaker
-   left of the title and a discreet collapse arrow on the right (static/js/navigation.js). */
+   left of the title. The correction's box has a discreet arrow on the right that hides the explanations under its
+   sentence (static/js/navigation.js); the natural version is always open. */
 .result-box {
   padding: 18px;
   border: 1px solid #dbe6f5;
@@ -243,7 +244,7 @@
 .result-box .result-heading {
   margin-bottom: 14px;
 }
-.result-box .result-heading:has(+ .result-box-body[hidden]) {
+.result-box .corrected-sentence:has(+ .result-box-body[hidden]) {
   margin-bottom: 0;
 }
 .result-box-body[hidden] {
@@ -1461,6 +1462,40 @@ a.pattern-link:hover .category-arrow {
     gap: 14px;
     padding: 16px 18px;
   }
+}
+/* Plan quota: the day's allowance is used up (an alert with a signup or Pro link), the small remaining-uses note under
+   a result, and the plan line on the profile. */
+.quota-box {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  border: 1px solid #f0d9a6;
+  border-radius: 14px;
+  background: #fff8e8;
+  color: #553b00;
+}
+.quota-box p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.55;
+}
+.quota-note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.plan-status {
+  display: inline-block;
+  margin: 10px 0 0;
+  padding: 7px 14px;
+  border-radius: 30px;
+  background: var(--pale);
+  color: var(--navy);
+  font-size: 15px;
 }
 .pill {
   display: inline-block;

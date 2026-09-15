@@ -59,10 +59,10 @@ class LearningUsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
 
 @admin.register(UsageEvent)
 class UsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
-    list_display = ["created_at", "identity", "request_type", "source_language", "status", "error_code", "duration_ms", "model",
-                    "input_tokens", "output_tokens", "total_tokens", "cost"]
-    list_filter = ["audience", "request_type", "source_language", "status", "model", "auto_translated", "is_backfilled",
-                   "created_at"]
+    list_display = ["created_at", "identity", "plan", "request_type", "source_language", "status", "error_code",
+                    "duration_ms", "model", "input_tokens", "output_tokens", "total_tokens", "cost"]
+    list_filter = ["audience", "plan", "request_type", "source_language", "status", "error_code", "model",
+                   "auto_translated", "is_backfilled", "created_at"]
 
     @admin.display(description="Text AI cost (£)", ordering="estimated_cost")
     def cost(self, obj):
@@ -71,10 +71,11 @@ class UsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
 
 @admin.register(AudioUsageEvent)
 class AudioUsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
-    list_display = ["id", "created_at", "operation", "stt_mode", "audience", "identity", "speech_target", "model", "voice",
-                    "status", "error_code", "audio_seconds", "metering_source", "input_tokens", "output_tokens", "cost"]
-    list_filter = ["operation", "stt_mode", "audience", "model", "voice", "status", "speech_target", "metering_source",
-                   "created_at"]
+    list_display = ["id", "created_at", "operation", "stt_mode", "audience", "plan", "identity", "speech_target", "model",
+                    "voice", "status", "error_code", "audio_seconds", "metering_source", "input_tokens", "output_tokens",
+                    "cost"]
+    list_filter = ["operation", "stt_mode", "audience", "plan", "model", "voice", "status", "speech_target",
+                   "metering_source", "created_at"]
 
     @admin.display(description="Audio AI cost (£)", ordering="estimated_cost")
     def cost(self, obj):

@@ -78,7 +78,8 @@ class CorrectionPresentationTests(SimpleTestCase):
         self.assertIn('class="native-version result-box"', html)  # Its own box, beside the correction's box.
         self.assertIn('<h2 id="natural-title">Sună mai natural:</h2>', html)
         self.assertIn('class="correction-block result-box"', html)
-        self.assertEqual(html.count("data-collapse-toggle"), 2)
+        self.assertEqual(html.count("data-collapse-toggle"), 1)  # Only the correction's box collapses.
+        self.assertLess(html.index('class="result-text corrected-sentence"'), html.index('id="corrected-body"'))
         self.assertNotIn("<span>Engleză britanică</span>", html)
 
     def test_correct_but_unnatural_english_emphasises_the_natural_version_without_errors(self):

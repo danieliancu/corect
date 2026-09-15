@@ -15,6 +15,7 @@ from django.db.models.functions import Coalesce, TruncDate, TruncMonth
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
+from apps.assistant.services.quota import QUOTA_EXHAUSTED
 from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
 from .identifiers import visitor_lookup
@@ -221,6 +222,32 @@ def breakdowns(events):
     }
 
 
+PLAN_LABELS = {"anonymous": "Anonymous", "free": "Free", "pro": "Pro"}
+
+
+def plan_summary(events):
+    """Text usage per plan tier at request time: successful naturalisations, quota rejections, and how many identities used
+    up their daily quota. Free and Pro count accounts; anonymous use counts visitors with analytics on (the anonymous
+    quota itself is kept per network address, so visitors without the analytics cookie are not included)."""
+    hit = Q(status=UsageEvent.Status.REJECTED, error_code=QUOTA_EXHAUSTED)
+    rows = {row["plan"]: row for row in events.exclude(plan="").values("plan").annotate(
+        successes=Count("id", filter=Q(status=UsageEvent.Status.SUCCESS)), quota_rejections=Count("id", filter=hit),
+        users_active=Count("user", distinct=True), users_hit=Count("user", filter=hit, distinct=True),
+        visitors_active=Count("visitor", distinct=True), visitors_hit=Count("visitor", filter=hit, distinct=True))}
+    summary = []
+    for plan, label in PLAN_LABELS.items():
+        row = rows.get(plan, {})
+        identity = "visitors" if plan == "anonymous" else "users"
+        active, hitting = row.get(f"{identity}_active", 0), row.get(f"{identity}_hit", 0)
+        summary.append({"plan": plan, "label": label, "successes": row.get("successes", 0),
+                        "quota_rejections": row.get("quota_rejections", 0), "active": active, "hit": hitting,
+                        "hit_rate": rate(hitting, active)})
+    # Anonymous visitors who used up their quota and signed up or signed in afterwards.
+    converted = (events.filter(hit, plan="anonymous", visitor__converted_at__gte=F("created_at"))
+                 .values("visitor").distinct().count())
+    return {"plan_rows": summary, "plan_conversions": converted}
+
+
 def audio_breakdowns(audio):
     totals = audio.aggregate(**audio_aggregates())
     return {
@@ -287,7 +314,8 @@ def dashboard(request):
             **audio_columns("visitor", anonymous.audio_q()),
             **learning_columns("visitor", anonymous.audio_q()))).filter(requests__gt=0), "requests")[:10]
     return render_report(request, "analytics/dashboard.html", "Usage analytics", "dashboard", {
-        **filter_context(filters, models), **breakdowns(events), **audio, **learning, "totals": totals,
+        **filter_context(filters, models), **breakdowns(events), **plan_summary(events), **audio, **learning,
+        "totals": totals,
         "costs": costs_with_audio(totals["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"]),
         "windows": recent.aggregate(**windows()), "users": users, "visitors": visitors,
         "top_users": top_users, "top_visitors": top_visitors,

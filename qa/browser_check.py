@@ -14,10 +14,12 @@ from django.contrib.auth.models import Group, User
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.db import connections
 from django.test import override_settings
+from django.utils.crypto import salted_hmac
 from playwright.sync_api import sync_playwright, expect
 
 from apps.analytics.models import AudioUsageEvent
-from apps.assistant.models import RealtimeTranscriptionSession
+from apps.assistant.models import NaturalizeUsage, RealtimeTranscriptionSession
+from apps.assistant.services.localday import local_day
 from apps.assistant.schemas import TranslationResult
 from apps.assistant.services.naturalize import Naturalized
 from apps.assistant.tests.examples import CORRECTION_CASES, correction_result
@@ -133,7 +135,7 @@ MEDIA_MOCKS = """(() => {
 })();"""
 
 
-@override_settings(RATE_LIMIT_MINUTE=100, RATE_LIMIT_DAY=1000)
+@override_settings(NATURALIZE_RATE_LIMIT_MINUTE=100, NATURALIZE_DAILY_LIMITS={"anonymous": 1000, "free": 1000, "pro": 1000})
 class BrowserChecks(StaticLiveServerTestCase):
     @classmethod
     def setUpClass(cls):
@@ -852,11 +854,14 @@ class BrowserChecks(StaticLiveServerTestCase):
                     heading = box.locator(".result-heading")
                     title = heading.get_by_role("heading", level=2).bounding_box()
                     button = heading.get_by_role("button", name=speaker).bounding_box()
-                    toggle = heading.locator("[data-collapse-toggle]").bounding_box()
                     self.assertLess(button["x"] + button["width"], title["x"] + 1)  # Speaker left of the title.
-                    self.assertGreaterEqual(toggle["x"], title["x"] + title["width"])  # Arrow on the right.
                     self.assertLess(title["height"], 32)  # The title stays on one line.
-                    self.assertLessEqual(toggle["x"] + toggle["width"], box.bounding_box()["x"] + box.bounding_box()["width"])
+                title = corrected.locator(".result-heading h2").bounding_box()
+                arrow = corrected.locator("[data-collapse-toggle]").bounding_box()
+                self.assertGreaterEqual(arrow["x"], title["x"] + title["width"])  # Arrow on the right of the title.
+                edge = corrected.bounding_box()
+                self.assertLessEqual(arrow["x"] + arrow["width"], edge["x"] + edge["width"])
+                expect(natural.locator("[data-collapse-toggle]")).to_have_count(0)  # The natural version never closes.
                 first = corrected.bounding_box()
                 self.assertGreater(natural.bounding_box()["y"], first["y"] + first["height"])  # Separate boxes.
                 self.assert_no_overflow(self.page, width)
@@ -865,11 +870,95 @@ class BrowserChecks(StaticLiveServerTestCase):
                 expect(toggle).to_have_attribute("aria-expanded", "true")
                 toggle.click()
                 expect(toggle).to_have_attribute("aria-expanded", "false")
-                expect(corrected.locator(".corrected-sentence")).to_be_hidden()
+                expect(corrected.locator(".corrected-sentence")).to_be_visible()  # The sentence stays.
+                for hidden in (".correction-caption", ".correction-comparison", ".sentence-comparison"):
+                    expect(corrected.locator(hidden)).to_be_hidden()  # Everything under it is collapsed.
                 expect(natural.locator(".native-sentence")).to_be_visible()
                 self.page.screenshot(path=str(self.artifacts / f"natural-boxes-collapsed-{width}.png"), full_page=True)
                 toggle.click()
-                expect(corrected.locator(".corrected-sentence")).to_be_visible()
+                expect(corrected.locator(".correction-comparison")).to_be_visible()
+        self.assertEqual(self.errors, [])
+
+    # ----- Daily plan quota -----
+    ANONYMOUS_ACTOR = "anon:" + salted_hmac("assistant-rate", "127.0.0.1").hexdigest()  # The live server's REMOTE_ADDR.
+
+    def set_usage(self, actor, used):
+        self.in_database_thread(lambda: NaturalizeUsage.objects.update_or_create(
+            actor=actor, day=local_day(), defaults={"used": used, "reserved": 0}))
+
+    def usage(self, actor):
+        return self.in_database_thread(lambda: NaturalizeUsage.objects.filter(actor=actor).values_list("used", flat=True)
+                                       .first())
+
+    def naturalize_text(self, text=None):
+        self.page.locator("#text").fill(text or correction_result().original_text)
+        self.submit()
+        expect(self.page.locator(".result-loading")).to_have_count(0)
+
+    @override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200}, VOICE_REALTIME_ENABLED=False)
+    def test_anonymous_quota_invites_to_create_an_account_and_loaded_speech_still_plays(self):
+        speak = patch("apps.assistant.voice_views.synthesize_speech", return_value=(
+            b"ID3fake-mp3", AudioUsage(model="gpt-4o-mini-tts", voice="cedar", input_tokens=8, output_tokens=90,
+                                       total_tokens=98))).start()
+        self.page.add_init_script(MEDIA_MOCKS)
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.goto(self.live_server_url)
+        self.set_usage(self.ANONYMOUS_ACTOR, 3)
+        self.naturalize_text()
+        expect(self.page.locator(".quota-note")).to_have_text("1 din 5 utilizări rămase astăzi")
+        self.naturalize_text()
+        expect(self.page.locator(".quota-note")).to_have_text("0 din 5 utilizări rămase astăzi")
+        speaker = self.page.get_by_role("button", name="Ascultă varianta corectă în engleză britanică")
+        speaker.click()
+        expect(speaker).to_have_attribute("aria-pressed", "true")
+        self.assertEqual(self.usage(self.ANONYMOUS_ACTOR), 5)  # Listening used nothing.
+        self.naturalize_text()
+        alert = self.page.locator(".quota-box[role=alert]")
+        expect(alert).to_contain_text("Ai folosit cele 5 utilizări gratuite de azi. Creează un cont gratuit și primești 20 pe zi.")
+        expect(alert.get_by_role("link", name="Creează cont gratuit")).to_have_attribute("href", "/accounts/signup/")
+        expect(self.page.locator("#text")).to_have_value(correction_result().original_text)  # The text is kept.
+        expect(self.page.locator(".quota-note")).to_have_count(0)
+        self.assertNotIn("voce", alert.inner_text().lower())  # There is no separate voice allowance.
+        self.assertEqual(self.usage(self.ANONYMOUS_ACTOR), 5)
+        self.assert_no_overflow(self.page, 390)
+        self.page.screenshot(path=str(self.artifacts / "quota-anonymous-390.png"), full_page=True)
+        self.assertEqual(speak.call_count, 1)
+        self.assertEqual(self.errors, [])
+
+    @override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
+    def test_free_quota_points_to_pro_and_pro_gets_the_fair_use_message(self):
+        self.sign_in_learner("quota-learner")
+        user = self.in_database_thread(lambda: User.objects.get(username="quota-learner"))
+        actor = f"user:{user.pk}"
+        self.page.set_viewport_size({"width": 1440, "height": 1000})
+        self.set_usage(actor, 19)
+        self.naturalize_text()
+        expect(self.page.locator(".quota-note")).to_have_text("0 din 20 de utilizări rămase astăzi")
+        self.naturalize_text()
+        alert = self.page.locator(".quota-box[role=alert]")
+        expect(alert).to_contain_text("Ai folosit cele 20 de utilizări de azi. Pro oferă până la 200 de naturalizări pe zi, "
+                                      "în regim Fair Use.")
+        expect(alert.get_by_role("link", name="Vezi planul Pro")).to_have_attribute("href", "/despre/#plans")
+        self.page.screenshot(path=str(self.artifacts / "quota-free-1440.png"))
+        self.page.goto(self.live_server_url + "/accounts/profile/")
+        expect(self.page.locator(".plan-status")).to_have_text("Plan Free · 0 din 20 de utilizări rămase astăzi")
+        for path in ("/history/", "/progress/", "/mistakes/"):  # Nothing else is blocked.
+            self.page.goto(self.live_server_url + path)
+            expect(self.page.locator("h1")).to_be_visible()
+        self.in_database_thread(lambda: user.groups.add(Group.objects.get_or_create(name="Pro")[0]))
+        self.set_usage(actor, 199)
+        self.page.goto(self.live_server_url)
+        self.naturalize_text()
+        expect(self.page.locator(".result-text").first).to_be_visible()
+        expect(self.page.locator(".quota-note")).to_have_count(0)  # Pro is not counted down.
+        self.naturalize_text()
+        alert = self.page.locator(".quota-box[role=alert]")
+        expect(alert).to_contain_text("Ai atins limita Fair Use de 200 de utilizări pentru astăzi. Limita se resetează la "
+                                      "miezul nopții (ora Regatului Unit).")
+        expect(alert.get_by_role("link")).to_have_count(0)  # No plan to upgrade to.
+        self.page.goto(self.live_server_url + "/accounts/profile/")
+        expect(self.page.locator(".plan-status")).to_have_text("Plan Pro · Fair Use, până la 200 de naturalizări pe zi")
+        self.assertEqual(self.usage(actor), 200)
         self.assertEqual(self.errors, [])
 
     def test_clear_button_empties_the_text_box(self):
@@ -1234,10 +1323,12 @@ class BrowserChecks(StaticLiveServerTestCase):
                          ("success", "gpt-live-transcribe", "provider", Decimal("1.00")))
         self.assertEqual(self.in_database_thread(AudioUsageEvent.objects.filter(operation="transcription").count), 1)
         self.file_transcribe.assert_not_called()  # One transcription service per recording: never both.
+        self.assertIsNone(self.usage(self.ANONYMOUS_ACTOR))  # Speaking into the box used no naturalisation.
 
         text.fill(correction_result().original_text)
         self.submit()
         expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
+        self.assertEqual(self.usage(self.ANONYMOUS_ACTOR), 1)  # Submitting the text is the one use.
         self.assertEqual(self.errors, [])
 
     @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100, VOICE_TRAILING_AUDIO_MS=300, VOICE_FINAL_TRANSCRIPT_MS=1000)
@@ -1487,4 +1578,12 @@ class BrowserChecks(StaticLiveServerTestCase):
             audit(f"result-{name}")
         self.page.goto(self.live_server_url + "/despre/")
         audit("despre")
+        with self.settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200}):
+            self.set_usage(self.ANONYMOUS_ACTOR, 5)
+            self.page.goto(self.live_server_url)
+            self.page.locator("#text").fill(correction_result().original_text)
+            self.submit()
+            expect(self.page.locator(".quota-box")).to_be_visible()
+            self.page.wait_for_timeout(400)
+            audit("quota-anonymous")
         self.assertEqual([(name, found) for name, found in checked if found], [])

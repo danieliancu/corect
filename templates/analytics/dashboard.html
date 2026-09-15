@@ -13,7 +13,7 @@
   <div class="analytics-card"><span>Last 7 days</span><strong>{{ windows.last_7|number }}</strong><small>Text requests</small></div>
   <div class="analytics-card"><span>Last 30 days</span><strong>{{ windows.last_30|number }}</strong><small>Text requests</small></div>
   <div class="analytics-card"><span>Successful</span><strong>{{ totals.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
-  <div class="analytics-card"><span>Failed</span><strong>{{ totals.failures|number }}</strong><small>{{ totals.rejections|number }} rejected (rate limit or duplicate)</small></div>
+  <div class="analytics-card"><span>Failed</span><strong>{{ totals.failures|number }}</strong><small>{{ totals.rejections|number }} rejected (daily quota, rate limit, duplicate or refused)</small></div>
   <div class="analytics-card"><span>English corrections</span><strong>{{ totals.corrections|number }}</strong><small>Written or spoken in English</small></div>
   <div class="analytics-card"><span>Into British English</span><strong>{{ totals.translations|number }}</strong><small>Written or spoken in Romanian</small></div>
   <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio</small></div>
@@ -23,6 +23,12 @@
   <div class="analytics-card"><span>Text total tokens</span><strong>{{ totals.tokens_total|number }}</strong><small>{{ totals.without_tokens|number }} requests without token data · {{ totals.without_cost|number }} without text pricing</small></div>
 </div>
 <div class="analytics-columns">
+  <section class="module">
+    <h2>Plans and daily quota</h2>
+    <table><thead><tr><th scope="col">Plan at request time</th><th scope="col" class="num">Successful</th><th scope="col" class="num">Quota rejections</th><th scope="col" class="num">Used up the daily quota</th><th scope="col" class="num">Active</th><th scope="col" class="num">Share who used it up</th></tr></thead>
+      <tbody>{% for row in plan_rows %}<tr><td>{{ row.label }}</td><td class="num">{{ row.successes|number }}</td><td class="num">{{ row.quota_rejections|number }}</td><td class="num">{{ row.hit|number }}</td><td class="num">{{ row.active|number }}</td><td class="num">{{ row.hit_rate|percent }}</td></tr>{% endfor %}</tbody></table>
+    <p class="analytics-note">Free and Pro count accounts; anonymous counts visitors with analytics on (the anonymous quota is kept per network address). {{ plan_conversions|number }} anonymous visitor{{ plan_conversions|pluralize }} who used up the daily quota signed up or signed in afterwards. Rows recorded before plan quotas existed have no plan and are not shown here.</p>
+  </section>
   {% include "analytics/breakdowns.html" %}
   {% include "analytics/audio_breakdown.html" %}
   {% include "analytics/learning_breakdown.html" %}

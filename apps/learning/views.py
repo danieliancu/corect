@@ -88,7 +88,7 @@ def practice_start(request):
 
 def session_title(session):
     if session.kind == Kind.PATTERN:
-        return f"Exersează · {pattern_label(session.pattern_key)}"
+        return pattern_label(session.pattern_key)
     return "Pentru tine azi"
 
 

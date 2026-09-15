@@ -12,6 +12,7 @@ from django.test import TestCase, override_settings
 from openai import APIConnectionError, APITimeoutError
 
 from apps.analytics.models import AnonymousVisitor, AudioUsageEvent, UsageEvent
+from apps.assistant.models import NaturalizeUsage
 from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.services.voice import (BRITISH_TTS_INSTRUCTIONS, SPEECH_TOKEN_SALT, VoiceError, make_speech_token,
@@ -130,6 +131,12 @@ class SpeechEndpointTests(ProviderMock, TestCase):
         self.assertNotIn(SENTENCE, stored)
         self.assertEqual(list(AudioUsageEvent.objects.order_by("pk").values_list("status", "error_code")),
                          [("failed", "tts_timeout"), ("failed", "tts_failed"), ("failed", "tts_failed")])
+
+    def test_listening_ten_times_uses_no_naturalisation(self):
+        for _ in range(10):
+            self.assertEqual(self.post(token=make_speech_token(SENTENCE, "correction")).status_code, 200)
+        self.assertFalse(NaturalizeUsage.objects.exists())  # British speech has its own guardrail, never the plan quota.
+        self.assertEqual(set(AudioUsageEvent.objects.values_list("plan", flat=True)), {"anonymous"})
 
     @override_settings(VOICE_TTS_LIMIT_MINUTE=1)
     def test_speech_rate_limit(self):

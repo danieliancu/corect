@@ -111,7 +111,7 @@ class LearningPageTests(TestCase):
         self.assertContains(response, "<h1", count=1)
 
 
-@override_settings(RATE_LIMIT_MINUTE=100, RATE_LIMIT_DAY=1000)
+@override_settings(NATURALIZE_RATE_LIMIT_MINUTE=100)
 class CorrectionLoopTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("ana", password="pass")
