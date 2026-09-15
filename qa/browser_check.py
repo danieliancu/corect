@@ -164,7 +164,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         super().tearDown()
 
     @staticmethod
-    def mock_naturalize(text):
+    def mock_naturalize(text, polite=False):
         """English with errors by default; Romanian, natural and correct-but-unnatural English by their first words."""
         time.sleep(.25)  # Make loading-state assertions deterministic.
         if text == "Simulate failure":
@@ -274,7 +274,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         for width in (1440, 900):
             with self.subTest(width=width, device="desktop"):
                 self.page.set_viewport_size({"width": width, "height": 900})
-                self.page.goto(self.live_server_url + "/despre/")
+                self.page.goto(self.live_server_url + "/about/")
                 expect(self.page.get_by_role("heading", name="Cum funcționează")).to_be_visible()
                 if width < 1024:
                     expect(self.page.locator(".help-link")).to_be_visible()
@@ -300,8 +300,8 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(header["user"]["right"], header["menu"]["left"])
         self.assertLessEqual(header["scrollWidth"], width)
         help_link.click()
-        expect(page).to_have_url(self.live_server_url + "/despre/")
-        expect(page.get_by_role("heading", name="Tot ce primești în Corect.uk")).to_be_visible()
+        expect(page).to_have_url(self.live_server_url + "/about/")
+        expect(page.get_by_role("heading", name="De ce să alegi Corect.uk")).to_be_visible()
         expect(page.locator(".feature-card")).to_have_count(12)
         expect(page.locator(".landing-cta")).to_be_visible()
         self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
@@ -312,21 +312,36 @@ class BrowserChecks(StaticLiveServerTestCase):
         links = menu.get_by_role("link").all_inner_texts()
         self.assertEqual([link.strip() for link in links[:5]], ["Acasă", "Panou", "Progres", "Greșeli", "Istoric"])
         menu.get_by_role("link", name="Despre", exact=True).click()
-        expect(page).to_have_url(self.live_server_url + "/despre/")
+        expect(page).to_have_url(self.live_server_url + "/about/")
 
     def test_desktop_landing_sections_and_footer(self):
-        marketing, footer = self.page.locator(".desktop-marketing"), self.page.locator(".site-footer")
+        marketing, footer = self.page.locator(".landing-wide-only"), self.page.locator(".site-footer")
         for width in (1440, 1280, 1024):
             with self.subTest(width=width):
                 self.page.set_viewport_size({"width": width, "height": 900})
                 self.page.goto(self.live_server_url)
-                expect(self.page.locator("#hero-title")).to_have_text("Vorbește natural engleză")
+                expect(self.page.locator("#hero-title")).to_have_text("Vorbește natural limba engleză")
+                self.assertLess(self.page.locator("#hero-title").bounding_box()["height"], 70)  # One line.
                 expect(self.page.locator("#text")).to_be_visible()
                 expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_visible()
                 desktop_links = self.page.get_by_role("navigation", name="Navigare principală").get_by_role("link")
                 self.assertEqual([link.strip() for link in desktop_links.all_inner_texts()[:4]],
                                  ["Panou", "Progres", "Greșeli", "Istoric"])
-                expect(marketing).to_be_visible()
+                expect(self.page.locator(".site-header").get_by_role("link", name="Începe acum")).to_have_attribute(
+                    "href", "/accounts/signup/")
+                # Hero: the picture, the three value points on one row, the editor beside the benefit panel.
+                expect(self.page.locator(".hero-art img")).to_be_visible()
+                points = self.page.locator(".hero-points.is-wide li")
+                expect(points).to_have_count(3)
+                self.assertEqual(len({round(points.nth(index).bounding_box()["y"]) for index in range(3)}), 1)
+                expect(self.page.locator(".hero-points.is-compact")).to_be_hidden()
+                expect(self.page.locator(".features-teaser")).to_be_hidden()
+                editor, panel = self.page.locator(".editor-panel").bounding_box(), self.page.locator("#result").bounding_box()
+                self.assertGreater(panel["x"], editor["x"] + editor["width"])
+                self.assertLess(abs(panel["y"] - editor["y"]), 2)
+                self.assertLess(abs(panel["height"] - editor["height"]), 2)  # The two boxes are the same height.
+                expect(self.page.locator(".empty-benefits li")).to_have_count(4)
+                expect(marketing.first).to_be_visible()
                 cards = self.page.locator(".feature-card")
                 expect(cards).to_have_count(12)
                 for index in range(12):
@@ -375,28 +390,43 @@ class BrowserChecks(StaticLiveServerTestCase):
                 expect(plans_title).to_be_in_viewport()
                 self.page.wait_for_function("""() => document.querySelector('#plans').getBoundingClientRect().top
                     >= document.querySelector('.site-header').getBoundingClientRect().bottom""")
-        for width, height in ((390, 844), (375, 667), (360, 740), (360, 640), (768, 1024)):
+        for width, height in ((430, 932), (390, 844), (375, 667), (360, 740), (320, 640), (768, 1024)):
             with self.subTest(width=width, height=height):
                 self.page.set_viewport_size({"width": width, "height": height})
                 self.page.goto(self.live_server_url)
-                expect(self.page.locator("#text")).to_be_visible()
-                # The editor and its button still fit on the first screen.
-                self.assertLessEqual(self.page.locator(".action-buttons").bounding_box()["y"]
-                                     + self.page.locator(".action-buttons").bounding_box()["height"], height)
-                expect(marketing).to_be_hidden()
+                # Phones and tablets open straight on the editor: no picture, title text or value points on screen,
+                # while the page keeps its one heading for screen readers.
+                for selector in (".hero-art", ".hero-lead", ".hero-points.is-wide", ".hero-points.is-compact", ".hero-hand"):
+                    expect(self.page.locator(selector)).to_be_hidden()
+                self.assertEqual(self.page.locator("h1").count(), 1)
+                self.assertLessEqual(self.page.locator(".hero").bounding_box()["width"], 1)  # Clipped to 1px.
+                expect(self.page.locator("#hero-title")).to_have_text("Vorbește natural limba engleză")
+                header = self.page.locator(".site-header").bounding_box()
+                editor = self.page.locator(".editor-panel").bounding_box()
+                self.assertLess(editor["y"], header["y"] + header["height"] + 24)
+                self.assertLess(self.page.locator(".naturalize-button").bounding_box()["height"], 70)  # One line.
+                expect(marketing.first).to_be_hidden()
                 for selector in (".feature-card", ".step-card", ".plan-card", ".plan-strip", ".landing-cta"):
                     expect(self.page.locator(selector).first).to_be_hidden()
-                # Nothing written yet: the editor, the result card and the footer fit on one screen, no scrolling.
-                self.page.wait_for_function(f"document.documentElement.scrollHeight <= {height}")
-                box = footer.bounding_box()
-                self.assertLessEqual(box["y"] + box["height"], height)
-                expect(footer).to_be_visible()
-                expect(footer.get_by_role("link", name="Confidențialitate")).to_be_visible()
-                # Only the line of links remains on the mobile homepage: no logo, every link on one row.
+                # The benefits as compact 2 × 2 cards, then the one-line way into everything, then only the footer links.
+                cards = [self.page.locator(".empty-benefits li").nth(index).bounding_box() for index in range(4)]
+                self.assertLess(abs(cards[0]["y"] - cards[1]["y"]), 2)
+                self.assertGreater(cards[2]["y"], cards[0]["y"] + cards[0]["height"] - 1)
+                self.assertGreater(cards[0]["y"], editor["y"] + editor["height"])
+                teaser = self.page.locator(".features-teaser")
+                expect(teaser).to_be_visible()
+                expect(teaser).to_have_attribute("href", "/about/")
+                self.assertGreater(teaser.bounding_box()["y"], cards[3]["y"] + cards[3]["height"] - 1)
+                self.assertLess(teaser.locator(".teaser-title").bounding_box()["height"], 30)  # One line.
                 expect(footer.locator(".footer-logo")).to_be_hidden()
-                rows = footer.evaluate("f => [...f.querySelectorAll('.footer-links a')].map(a => Math.round(a.getBoundingClientRect().top))")
-                self.assertGreaterEqual(len(rows), 3)
-                self.assertLessEqual(max(rows) - min(rows), 2)
+                expect(footer.get_by_role("link", name="Confidențialitate")).to_be_visible()
+                # Everything on one screen: nothing to scroll, the footer links on the first screen.
+                self.assertLessEqual(self.page.evaluate("document.documentElement.scrollHeight"), height)
+                links = footer.locator(".footer-links").bounding_box()
+                self.assertLessEqual(links["y"] + links["height"], height)
+                if width >= 360:  # The footer links on one row.
+                    tops = {round(link.bounding_box()["y"]) for link in footer.locator(".footer-links a").all()}
+                    self.assertEqual(len(tops), 1)
                 self.assert_no_overflow(self.page, width)
                 self.page.screenshot(path=str(self.artifacts / f"landing-{width}x{height}.png"), full_page=True)
         self.assertEqual(self.errors, [])
@@ -537,7 +567,8 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertGreaterEqual(password["x"], details["x"] + details["width"])
         self.assertLess(abs(password["y"] - details["y"]), 2)
         self.assertGreater(delete["y"], details["y"] + details["height"])
-        self.assertGreater(password["x"] + password["width"] - details["x"], 1100)  # Uses the page width, not a narrow column.
+        content = self.page.locator("main").bounding_box()["width"]  # 1090px: every page has the homepage's width.
+        self.assertGreaterEqual(password["x"] + password["width"] - details["x"], content - 1)  # The page width, not a narrow column.
         self.page.screenshot(path=str(self.artifacts / "accounts-profile-1440.png"), full_page=True)
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.reload()
@@ -865,6 +896,19 @@ class BrowserChecks(StaticLiveServerTestCase):
                 first = corrected.bounding_box()
                 self.assertGreater(natural.bounding_box()["y"], first["y"] + first["height"])  # Separate boxes.
                 self.assert_no_overflow(self.page, width)
+                # A discreet copy icon at the bottom right of each English sentence copies just that sentence.
+                self.page.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=self.live_server_url)
+                for sentence in (corrected.locator(".corrected-sentence"), natural.locator(".native-sentence")):
+                    box, copy = sentence.bounding_box(), sentence.get_by_role("button", name="Copiază textul")
+                    icon = copy.bounding_box()
+                    self.assertGreater(icon["x"], box["x"] + box["width"] * 0.7)
+                    self.assertGreater(icon["y"] + icon["height"], box["y"] + box["height"] - 12)
+                    self.assertLessEqual(icon["x"] + icon["width"], box["x"] + box["width"] + 1)
+                copy = natural.locator(".native-sentence").get_by_role("button", name="Copiază textul")
+                copy.click()
+                expect(natural.get_by_role("button", name="Copiat")).to_be_visible()
+                self.assertEqual(self.page.evaluate("navigator.clipboard.readText()"),
+                                 natural.locator(".native-sentence").text_content().strip())
                 self.page.screenshot(path=str(self.artifacts / f"natural-boxes-{width}.png"), full_page=True)
                 toggle = corrected.locator("[data-collapse-toggle]")
                 expect(toggle).to_have_attribute("aria-expanded", "true")
@@ -938,7 +982,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         alert = self.page.locator(".quota-box[role=alert]")
         expect(alert).to_contain_text("Ai folosit cele 20 de utilizări de azi. Pro oferă până la 200 de naturalizări pe zi, "
                                       "în regim Fair Use.")
-        expect(alert.get_by_role("link", name="Vezi planul Pro")).to_have_attribute("href", "/despre/#plans")
+        expect(alert.get_by_role("link", name="Vezi planul Pro")).to_have_attribute("href", "/about/#plans")
         self.page.screenshot(path=str(self.artifacts / "quota-free-1440.png"))
         self.page.goto(self.live_server_url + "/accounts/profile/")
         expect(self.page.locator(".plan-status")).to_have_text("Plan Free · 0 din 20 de utilizări rămase astăzi")
@@ -959,6 +1003,40 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.goto(self.live_server_url + "/accounts/profile/")
         expect(self.page.locator(".plan-status")).to_have_text("Plan Pro · Fair Use, până la 200 de naturalizări pe zi")
         self.assertEqual(self.usage(actor), 200)
+        self.assertEqual(self.errors, [])
+
+    def test_polite_mode_switch_is_accessible_posted_and_remembered(self):
+        for width in (1440, 390):
+            with self.subTest(width=width):
+                context = self.browser.new_context(viewport={"width": width, "height": 900})
+                context.add_cookies([self.consent_cookie()])
+                page = context.new_page()
+                page.on("pageerror", lambda error: self.errors.append(str(error)))
+                page.goto(self.live_server_url)
+                switch = page.get_by_role("switch", name="Mod Politicos")
+                expect(switch).not_to_be_checked()
+                # Upper right of the writing panel, above the text box.
+                top, text = page.locator(".editor-top").bounding_box(), page.locator("#text").bounding_box()
+                label, panel = page.locator(".polite-switch").bounding_box(), page.locator(".editor-panel").bounding_box()
+                self.assertLessEqual(top["y"] + top["height"], text["y"] + 2)
+                self.assertGreater(label["x"] + label["width"], panel["x"] + panel["width"] * 0.75)  # Right-aligned.
+                self.assertLess(page.locator(".polite-info summary").bounding_box()["x"], panel["x"] + panel["width"])
+                self.assertLess(label["height"], 40)  # A compact switch, not a large button.
+                switch.focus()
+                page.keyboard.press("Space")
+                expect(switch).to_be_checked()
+                page.locator(".polite-info summary").click()
+                expect(page.locator("#polite-info-text")).to_be_visible()
+                page.locator("#text").fill("Give me the report by Friday.")
+                with page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/naturalize/")) as sent:
+                    page.get_by_role("button", name=ACTION, exact=True).click()
+                self.assertEqual(parse_qs(sent.value.post_data).get("polite"), ["on"])
+                expect(page.locator(".result-text").first).to_be_visible()
+                self.assertTrue(self.naturalize.call_args.kwargs["polite"])
+                page.screenshot(path=str(self.artifacts / f"polite-mode-{width}.png"))
+                page.reload()
+                expect(page.get_by_role("switch", name="Mod Politicos")).to_be_checked()  # Remembered in this browser.
+                context.close()
         self.assertEqual(self.errors, [])
 
     def test_clear_button_empties_the_text_box(self):
@@ -1179,7 +1257,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(box["x"] + box["width"], 390)
         self.assertLessEqual(box["y"] + box["height"], 844)
         self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
-        expect(page.locator(".desktop-marketing")).to_be_hidden()
+        expect(page.locator(".landing-wide-only").first).to_be_hidden()
         expect(page.get_by_role("button", name=ACTION, exact=True)).to_be_visible()
         page.screenshot(path=str(self.artifacts / "consent-bar-390.png"))
         bar.get_by_role("link", name="Termenii").click()
@@ -1576,7 +1654,7 @@ class BrowserChecks(StaticLiveServerTestCase):
             expect(self.page.locator("#result-actions")).to_be_visible()
             self.page.wait_for_timeout(400)  # Let the buttons' 0.15 s colour transition finish before measuring contrast.
             audit(f"result-{name}")
-        self.page.goto(self.live_server_url + "/despre/")
+        self.page.goto(self.live_server_url + "/about/")
         audit("despre")
         with self.settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200}):
             self.set_usage(self.ANONYMOUS_ACTOR, 5)

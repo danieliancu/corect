@@ -16,6 +16,7 @@
   <div class="analytics-card"><span>Failed</span><strong>{{ totals.failures|number }}</strong><small>{{ totals.rejections|number }} rejected (daily quota, rate limit, duplicate or refused)</small></div>
   <div class="analytics-card"><span>English corrections</span><strong>{{ totals.corrections|number }}</strong><small>Written or spoken in English</small></div>
   <div class="analytics-card"><span>Into British English</span><strong>{{ totals.translations|number }}</strong><small>Written or spoken in Romanian</small></div>
+  <div class="analytics-card"><span>Mod Politicos</span><strong>{{ totals.polite_requests|number }}</strong><small>Requests sent with the polite switch on</small></div>
   <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio</small></div>
   <div class="analytics-card"><span>British TTS plays</span><strong>{{ audio_totals.speech_plays|number }}</strong><small>{{ audio_totals.speech_correction|number }} correction · {{ audio_totals.speech_native|number }} native · {{ audio_totals.speech_translation|number }} translation</small></div>
   <div class="analytics-card"><span>Text input tokens</span><strong>{{ totals.tokens_in|number }}</strong><small>{{ totals.tokens_cached|number }} served from cache</small></div>

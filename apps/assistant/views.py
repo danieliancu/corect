@@ -44,7 +44,8 @@ def naturalize(request):
     started = perf_counter()
     with collect_timings() as timings:
         form = AssistantForm(request.POST)
-        context = home_context(input_text=request.POST.get("text", ""))
+        # The switch keeps its position when the page is re-rendered without JavaScript.
+        context = home_context(input_text=request.POST.get("text", ""), polite=bool(request.POST.get("polite")))
         status = 200
         accepted = False
         retry_after = None
@@ -62,9 +63,10 @@ def naturalize(request):
                 visitor = get_or_create_visitor(request) if anonymous else existing_visitor(request)
                 tier = tier_for(request.user)
             actor = actor_key(request)
+            polite = form.cleaned_data["polite"]
             context["tier"] = tier
             usage = {"status": UsageEvent.Status.SUCCESS, "error_code": "", "assistant_request": None,
-                     "kind": UNCLASSIFIED, "source_language": "", "plan": tier}
+                     "kind": UNCLASSIFIED, "source_language": "", "plan": tier, "polite": polite}
             reservation, committed = None, False
             with collect_provider_usage() as calls:
                 try:
@@ -74,7 +76,7 @@ def naturalize(request):
                         claim_submission(actor, form.cleaned_data["submission_token"])
                         reservation = quota.reserve(actor, tier)
                     accepted = True
-                    outcome = NaturalizeService().naturalize(form.cleaned_data["text"])
+                    outcome = NaturalizeService().naturalize(form.cleaned_data["text"], polite=polite)
                     usage.update(kind=outcome.operation, source_language=outcome.source_language)
                     with timed("db"):
                         usage["assistant_request"] = save_result(request.user, outcome)
@@ -102,7 +104,7 @@ def naturalize(request):
                     if accepted:
                         try:
                             usage["assistant_request"] = save_failure(request.user, usage["kind"], exc.code,
-                                                                      exc.source_language)
+                                                                      exc.source_language, polite)
                         except DatabaseError:
                             logger.error("assistant_failure_record_unavailable")
                 except DatabaseError:

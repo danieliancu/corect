@@ -21,6 +21,22 @@
   });
   // The microphone changes the box to read-only and back; check once its state change has been applied.
   form.addEventListener("voice-state", () => requestAnimationFrame(showClear));
+  // "Mod Politicos" is remembered in this browser only (a per-viewer convenience; the server reads the posted form).
+  const polite = form.querySelector("[data-polite-mode]");
+  if (polite) {
+    try {
+      if (!polite.checked && localStorage.getItem("corectPoliteMode") === "1") polite.checked = true;
+    } catch (error) {
+      /* Storage unavailable: the switch simply starts off. */
+    }
+    polite.addEventListener("change", () => {
+      try {
+        localStorage.setItem("corectPoliteMode", polite.checked ? "1" : "0");
+      } catch (error) {
+        /* Nothing to remember without storage. */
+      }
+    });
+  }
   const count = () => {
     showClear();
     const length = Array.from(text.value).length;
@@ -30,7 +46,7 @@
   };
   text.addEventListener("input", count);
   count();
-  // Links to the editor ("Poți începe și fără cont", "Scrie primul text", "Mergi la editor") scroll to the very top,
+  // Links to the editor ("Scrie primul text", "Mergi la editor") scroll to the very top,
   // where the title and the editor are, and put the cursor in the text box.
   document.addEventListener("click", (event) => {
     if (!event.target.closest('a[href="#text"]')) return;

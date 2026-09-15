@@ -47,7 +47,7 @@ class Command(BaseCommand):
             with collect_provider_usage() as calls:
                 started = perf_counter()
                 try:
-                    outcome = service.naturalize(case.input)
+                    outcome = service.naturalize(case.input, polite=case.polite)
                 except AssistantError as exc:
                     error = exc
                 duration = round((perf_counter() - started) * 1000)

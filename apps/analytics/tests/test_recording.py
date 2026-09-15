@@ -27,7 +27,7 @@ def provider_usage(input_tokens=1200, cached=1000, output=300, reasoning=50, dur
 
 def replying(outcome, *usages):
     """A NaturalizeService stand-in that reports provider usage the way parse_response does, then returns the outcome."""
-    def reply(text):
+    def reply(text, polite=False):
         for usage in usages:
             report_usage(usage)
         return outcome
@@ -94,7 +94,7 @@ class UsageRecordingTests(TestCase):
             self.assertNotIn(text, stored)
 
     def test_failed_request_keeps_billed_tokens_its_operation_and_sanitised_code(self):
-        def fail(text):
+        def fail(text, polite=False):
             report_usage(provider_usage())
             error = AssistantError("invalid_snippet")
             error.source_language = "en"

@@ -13,6 +13,7 @@ from apps.assistant.languages import unsupported_message
 from apps.assistant.models import AssistantRequest, GrammarCorrection, NaturalizeUsage, RateBucket, SubmissionClaim
 from apps.assistant.services.localday import local_day, seconds_until_reset
 from apps.assistant.services.openai_client import AssistantError
+from apps.assistant.services.prompts import POLITE_PROMPT_VERSION
 from .examples import (CORRECTION_CASES, ROMANIAN_CASES, correction_result, english_raw, naturalized_english,
                        naturalized_romanian, romanian_raw, translation_result)
 from .provider import USAGE, ProviderMock, moderation
@@ -28,9 +29,9 @@ class EndpointTests(TestCase):
                                 return_value=naturalized_english()).start()
         self.addCleanup(patch.stopall)
 
-    def post(self, text=None, token=None, path="/naturalize/", **kwargs):
+    def post(self, text=None, token=None, path="/naturalize/", data=None, **kwargs):
         return self.client.post(path, {"text": text if text is not None else correction_result().original_text,
-                                       "submission_token": token or uuid4()}, **kwargs)
+                                       "submission_token": token or uuid4(), **(data or {})}, **kwargs)
 
     def test_homepage_has_one_natural_english_action_and_no_fake_results(self):
         response = self.client.get("/")
@@ -40,11 +41,15 @@ class EndpointTests(TestCase):
         self.assertEqual(form.count('type="submit"'), 1)
         self.assertIn('<span class="button-label">Vreau să sune natural!</span>', form)
         self.assertIn('placeholder="Scrie în română sau engleză…"', form)
-        self.assertIn("Scrie sau vorbește. Corect.uk îl transformă în engleză britanică naturală.", form)
+        self.assertNotIn("editor-help", html)  # No help sentence under the editor.
         self.assertIn('data-action-label="Vreau să sune natural!"', form)
         self.assertIn('data-trailing-ms="', form)
         self.assertContains(response, 'maxlength="2000"')
-        self.assertContains(response, "greșelile reparate și explicate")
+        self.assertContains(response, "greșelile reparate<br> și explicate")
+        self.assertIn('name="polite" role="switch" aria-describedby="polite-info-text"', form)  # Mod Politicos, off.
+        self.assertIn('<span class="switch-label">Mod Politicos</span>', form)
+        for removed in (">Scrie text<", "Vorbește</button>", "RO → EN"):
+            self.assertNotIn(removed, html)
         for stale in ("Corectare", "Traducere", "correct-button", "translate-icon", "assistant/correct",
                       "assistant/translate", "formaction"):
             self.assertNotIn(stale, html)
@@ -105,11 +110,11 @@ class EndpointTests(TestCase):
 
     def test_browser_line_breaks_are_normalised_before_services(self):
         self.post(text="First line.\r\nSecond line.\rThird line.\r\n")
-        self.naturalize.assert_called_once_with("First line.\nSecond line.\nThird line.")
+        self.naturalize.assert_called_once_with("First line.\nSecond line.\nThird line.", polite=False)
 
     def test_only_text_and_token_are_read_and_no_operation_can_be_chosen(self):
         self.post(kind="translation", operation="translation", language="ro")
-        self.naturalize.assert_called_once_with(correction_result().original_text)
+        self.naturalize.assert_called_once_with(correction_result().original_text, polite=False)
 
     def test_invalid_or_missing_token(self):
         self.assertEqual(self.post(token="invalid").status_code, 400)
@@ -169,7 +174,7 @@ class EndpointTests(TestCase):
         response = self.post(HTTP_HX_REQUEST="true")
         self.assertContains(response, "Ai folosit cele 20 de utilizări de azi. Pro oferă până la 200 de naturalizări pe zi, "
                                       "în regim Fair Use.", status_code=429)
-        self.assertContains(response, 'href="/despre/#plans">Vezi planul Pro</a>', status_code=429)
+        self.assertContains(response, 'href="/about/#plans">Vezi planul Pro</a>', status_code=429)
         self.assertNotContains(response, "Creează cont gratuit", status_code=429)
         self.assertEqual(NaturalizeUsage.objects.get(actor=f"user:{self.user.pk}").used, 20)
         self.assertEqual(set(UsageEvent.objects.values_list("plan", flat=True)), {"free"})
@@ -196,8 +201,21 @@ class EndpointTests(TestCase):
         self.post(translation_result().original_text)
         # There is no input-method field: text from the microphone is posted exactly like typed text, and any extra
         # field is ignored, so it cannot change what a request costs.
-        self.post(input_type="voice", source="microphone")
+        self.post(data={"input_type": "voice", "source": "microphone"})
         self.assertEqual(NaturalizeUsage.objects.get().used, 3)
+
+    def test_polite_mode_is_passed_to_the_service_recorded_and_counted_once(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.post(data={"polite": "on"}, HTTP_HX_REQUEST="true").status_code, 200)
+        self.naturalize.assert_called_once_with(correction_result().original_text, polite=True)
+        event = UsageEvent.objects.get()
+        self.assertEqual((event.polite, event.prompt_version), (True, POLITE_PROMPT_VERSION))
+        self.assertEqual(NaturalizeUsage.objects.get().used, 1)  # The switch never changes what a request costs.
+        self.post()
+        self.assertEqual(self.naturalize.call_args.kwargs, {"polite": False})
+        self.assertFalse(UsageEvent.objects.latest("pk").polite)
+        page = self.post(text="", data={"polite": "on"})  # Re-rendered without JavaScript, the switch stays on.
+        self.assertContains(page, 'name="polite" role="switch" checked', status_code=400)
 
     def test_failed_requests_give_the_reserved_use_back(self):
         unsupported = AssistantError("language", unsupported_message())

@@ -70,6 +70,7 @@ class UsageEvent(models.Model):
                                        help_text="Language the input was classified as (en, ro, other...); empty if unknown.")
     auto_translated = models.BooleanField(default=False, help_text="Legacy, before the single action: Romanian sent to "
                                                                    "Correct and translated instead.")
+    polite = models.BooleanField(default=False, help_text="Sent with „Mod Politicos” switched on.")
     model = models.CharField(max_length=100, blank=True, help_text="Configured OPENAI_MODEL.")
     response_model = models.CharField(max_length=100, blank=True, help_text="Model name reported by the provider.")
     prompt_version = models.CharField(max_length=30, blank=True)

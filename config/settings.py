@@ -177,7 +177,7 @@ LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
 # Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
 # privacy.html: everyone (including signed-in users) is then asked to accept the new version.
 TERMS_VERSION = "2026-09-16"  # Daily plan limits (5 without an account, 20 Free, Pro up to 200 under Fair Use).
-PRIVACY_VERSION = "2026-09-16"  # Daily plan-quota counters, and the plan tier in usage statistics.
+PRIVACY_VERSION = "2026-09-17"  # Google Fonts on the homepage; Mod Politicos in usage statistics.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

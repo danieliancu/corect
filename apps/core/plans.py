@@ -44,14 +44,16 @@ def display_plans():
     return (
         {"key": "free", "name": "Free", "subtitle": "Pentru testare și utilizare ocazională", "price": "£0",
          "original_price": "", "period": "", "icon": "icons/user.html", "recommended": False, "fair_use": False,
+         "daily": daily_uses(FREE),
          "features": ((daily_uses(FREE).capitalize(), True), ("Voce în timp real", True), ("British TextToSpeech", True),
                       ("Istoric limitat", True), ("Progres", False), ("Categorii de greșeli", False), ("Practice", False),
                       ("Exerciții bazate pe greșelile tale", False), ("Statistici de evoluție", False))},
-        # Pro is not unlimited: its daily allowance is the Fair Use ceiling (Terms, section 13).
+        # The card reads "Cereri nelimitate (Fair Use)"; the Fair Use ceiling (daily_uses(PRO)) is still enforced by the
+        # quota and stated in the Terms (section 13), which the card's Fair Use link opens.
         {"key": "pro", "name": "Pro", "subtitle": "Pentru cei care vor să progreseze serios", "price": pro_price,
          "original_price": pro_original_price, "period": "/ lună", "icon": "icons/crown.html", "recommended": True,
-         "fair_use": True,
-         "features": ((f"Până la {daily_uses(PRO)} (Fair Use)", True), ("Voce în timp real", True),
+         "fair_use": True, "daily": "Cereri nelimitate (Fair Use)",
+         "features": (("Cereri nelimitate (Fair Use)", True), ("Voce în timp real", True),
                       ("British TextToSpeech", True), ("Istoric complet", True), ("Progres", True),
                       ("Categorii de greșeli", True), ("Practice", True), ("Exerciții bazate pe greșelile tale", True),
                       ("Statistici de evoluție", True))},

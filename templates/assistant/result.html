@@ -11,18 +11,18 @@
   </div>
   {% else %}<div class="error-box" role="alert">{{ error }}</div>{% endif %}{% if not empty_text %}<p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>{% endif %}
 {% elif outcome == 'translated' %}
-  <p class="result-text" lang="en-GB">{{ result.translated_text }}</p>
+  <p class="result-text has-copy" lang="en-GB">{{ result.translated_text }}{% include 'assistant/copy_button.html' %}</p>
 {% elif outcome == 'legacy_to_romanian' %}
   <p class="eyebrow">Engleză → română</p>
   <p class="result-text" lang="ro">{{ result.translated_text }}</p>
 {% elif outcome == 'unnatural' or outcome == 'natural' %}
   {% if outcome == 'unnatural' %}
-    <p class="result-text" lang="en-GB">{{ result.native_text }}</p>
+    <p class="result-text has-copy" lang="en-GB">{{ result.native_text }}{% include 'assistant/copy_button.html' %}</p>
     {% if result.native_explanation %}<p class="native-explanation" lang="ro">{{ result.native_explanation }}</p>{% endif %}
     <p class="success-note" lang="ro">✓ Engleza ta e corectă.</p>
     <p class="written-text"><span lang="ro">Ai scris:</span> <span lang="en-GB">{{ result.corrected_text }}</span></p>
   {% else %}
-    <p class="result-text" lang="en-GB">{{ result.corrected_text }}</p>
+    <p class="result-text has-copy" lang="en-GB">{{ result.corrected_text }}{% include 'assistant/copy_button.html' %}</p>
   {% endif %}
   {% for correction in result.corrections %}
     <div class="correction-item">
@@ -35,10 +35,10 @@
 {% else %}
   <div class="empty-result">
     <ul class="empty-benefits" role="list">
-      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/check.html' %}</span>greșelile reparate și explicate</li>
-      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/chat.html' %}</span>alternativa naturală în limba engleză</li>
-      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/volume.html' %}</span>pronunție britanică cu un click</li>
-      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>progres, istoric<br> și exerciții</li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/check.html' %}</span><span class="benefit-text">greșelile reparate<br> și explicate</span></li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><span class="benefit-text">alternativa naturală<br> în limba engleză</span></li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/volume.html' %}</span><span class="benefit-text">pronunție britanică<br> cu un click</span></li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span><span class="benefit-text">progres, istoric<br> și exerciții</span></li>
     </ul>
   </div>
 {% endif %}

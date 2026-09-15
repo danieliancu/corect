@@ -3,7 +3,11 @@ from django.db import transaction
 
 from apps.assistant.models import AssistantRequest, GrammarCorrection
 from apps.assistant.schemas import CorrectionResult
-from .prompts import PROMPT_VERSION
+from .prompts import POLITE_PROMPT_VERSION, PROMPT_VERSION
+
+
+def prompt_version(polite):
+    return POLITE_PROMPT_VERSION if polite else PROMPT_VERSION
 
 
 @transaction.atomic
@@ -16,7 +20,8 @@ def save_result(user, outcome):
     correction = isinstance(result, CorrectionResult)
     entry = AssistantRequest.objects.create(user=user, request_type=outcome.operation, original_text=result.original_text,
         result_text=result.corrected_text if correction else result.translated_text,
-        detected_language=outcome.source_language, model_used=settings.OPENAI_MODEL, prompt_version=PROMPT_VERSION,
+        detected_language=outcome.source_language, model_used=settings.OPENAI_MODEL,
+        prompt_version=prompt_version(getattr(outcome, "polite", False)),
         status="success", result_data=result.model_dump())
     if correction:
         GrammarCorrection.objects.bulk_create([GrammarCorrection(request=entry, original=item.original,
@@ -26,7 +31,7 @@ def save_result(user, outcome):
     return entry
 
 
-def save_failure(user, kind, code, source_language=""):
+def save_failure(user, kind, code, source_language="", polite=False):
     if user.is_authenticated:
         return AssistantRequest.objects.create(user=user, request_type=kind, status="failed", error_code=code,
-            detected_language=source_language[:20], model_used=settings.OPENAI_MODEL, prompt_version=PROMPT_VERSION)
+            detected_language=source_language[:20], model_used=settings.OPENAI_MODEL, prompt_version=prompt_version(polite))

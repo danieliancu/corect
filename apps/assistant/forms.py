@@ -9,6 +9,8 @@ EXPIRED = "Formularul a expirat. Reîncarcă pagina și încearcă din nou."
 class AssistantForm(forms.Form):
     text = forms.CharField(strip=False, error_messages={"required": EMPTY_TEXT})
     submission_token = forms.UUIDField()
+    # "Mod Politicos": always return a complete, polite natural British version (services/prompts.py, POLITE_RULES).
+    polite = forms.BooleanField(required=False)
     # Honeypot: hidden from people (templates/core/home.html); automated submissions tend to fill every field.
     leave_empty = forms.CharField(required=False)
 

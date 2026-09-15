@@ -18,10 +18,6 @@
   --learn-radius: 20px;
   background: var(--learn-bg);
 }
-.learning-page .site-header::before {
-  background: var(--learn-bg);
-  box-shadow: none;
-}
 .learning-page .site-footer {
   border-top-color: #dfe5f1;
 }

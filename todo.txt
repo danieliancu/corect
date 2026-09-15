@@ -44,6 +44,9 @@
 | Rate limiting text                  |                 ✅ 100% | Doar pe minut (anti-abuz), PostgreSQL + concurență                    |
 | **Limite zilnice pe plan**          |                 ✅ 100% | Anonim 5, Free 20, Pro 200 (Fair Use); ora Londrei; rezervare + refund |
 | Voce vs. limita planului            |                 ✅ 100% | Microfonul, transcrierea și pronunția nu consumă; textul trimis = 1   |
+| **Mod Politicos**                   |                 ✅ 100% | Variantă britanică politicoasă mereu; prompt separat, un singur apel  |
+| Redesign homepage                   |                 ✅ 95% | Desktop după referință; mobil pe un ecran (editor, beneficii, /about/) |
+| Copiere rezultat                    |                 ✅ 100% | Icon discret dreapta-jos la fiecare text în engleză                   |
 | Analytics pe plan                   |                 ✅ 100% | Plan la momentul cererii, respingeri de cotă, conversie               |
 | Rate limiting voice                 |                 ✅ 100% | STT/TTS separat                                                       |
 | Duplicate submissions               |                 ✅ 100% | Protejate                                                             |

@@ -10,15 +10,16 @@
   {% include 'core/partials/fair_use_note.html' %}
   {% endif %}{% endfor %}
   {% else %}
-  <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2><p><a class="plans-start-link" href="{{ editor_url|default:'#text' }}">Poți începe și fără cont</a>, cu {{ plan_limits.anonymous }}.</p></div>
+  <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2></div>
   <div class="plan-grid">
     {% for plan in plans %}
     <article class="plan-card plan-{{ plan.key }}{% if plan.recommended %} is-recommended{% endif %}" aria-labelledby="plan-{{ plan.key }}-title">
       {% if plan.recommended %}<p class="plan-badge">Recomandat</p>{% endif %}
       <div class="plan-head"><span class="landing-icon{% if plan.recommended %} is-gold{% endif %}" aria-hidden="true">{% include plan.icon %}</span><div><h3 id="plan-{{ plan.key }}-title">{{ plan.name }}</h3><p>{{ plan.subtitle }}</p></div></div>
-      <p class="plan-price">{% if plan.original_price %}<s class="plan-price-original"><span class="sr-only">Preț normal: </span>{{ plan.original_price }}</s>{% endif %}<strong>{% if plan.original_price %}<span class="sr-only">Preț actual: </span>{% endif %}{{ plan.price }}</strong>{% if plan.period %}<span class="plan-period">{{ plan.period }}</span>{% endif %}</p>
+      <p class="plan-price">{% if plan.original_price %}<s class="plan-price-original"><span class="sr-only">Preț normal: </span>{{ plan.original_price }}</s>{% endif %}<strong>{% if plan.original_price %}<span class="sr-only">Preț actual: </span>{% endif %}{{ plan.price }}</strong>{% if plan.period %}<span class="plan-period">{{ plan.period }}</span>{% endif %}<span class="plan-daily">{{ plan.daily }}</span></p>
       <ul class="plan-features" role="list">
-        {% for label, included in plan.features %}<li class="{% if included %}is-included{% else %}is-excluded{% endif %}"><span class="plan-mark" aria-hidden="true">{% if included %}{% include 'icons/check.html' %}{% else %}{% include 'icons/cross.html' %}{% endif %}</span><span class="sr-only">{% if included %}Inclus:{% else %}Nu este inclus:{% endif %} </span>{{ label }}</li>
+        {# The first feature is the daily allowance, already shown beside the price. #}
+        {% for label, included in plan.features %}{% if not forloop.first %}<li class="{% if included %}is-included{% else %}is-excluded{% endif %}"><span class="plan-mark" aria-hidden="true">{% if included %}{% include 'icons/check.html' %}{% else %}{% include 'icons/cross.html' %}{% endif %}</span><span class="sr-only">{% if included %}Inclus:{% else %}Nu este inclus:{% endif %} </span>{{ label }}</li>{% endif %}
         {% endfor %}
       </ul>
       {% if plan.fair_use %}{% include 'core/partials/fair_use_note.html' %}{% endif %}

@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from apps.accounts import views as accounts
 from apps.accounts.forms import LoginForm
@@ -11,7 +12,9 @@ from apps.learning import views as learning
 
 urlpatterns = [
     path("", core.home, name="home"),
-    path("despre/", core.about_page, name="about"),
+    path("about/", core.about_page, name="about"),
+    # The page's earlier address, still linked from outside: a permanent redirect, keeping any query string.
+    path("despre/", RedirectView.as_view(pattern_name="about", permanent=True, query_string=True)),
     path("confidentialitate/", core.privacy_page, name="privacy"),
     path("termeni/", core.terms_page, name="terms"),
     path("contact/", core.contact_page, name="contact"),

@@ -1,33 +1,58 @@
 {% extends 'base.html' %}{% load static %}
 {% block body_class %}home-page{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}">{% endblock %}
+{% block styles %}{% include 'core/partials/hand_font.html' %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}"><link rel="stylesheet" href="{% static 'css/home.css' %}{{ asset_query }}">{% endblock %}
 {% block scripts %}<script src="{% static 'js/assistant.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/example-prompts.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/transcript-state.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/voice.js' %}{{ asset_query }}" defer></script>{% endblock %}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
-  <h1 id="hero-title">Vorbește natural engleză</h1>
-  <p>Scrie sau spune ce vrei să exprimi, în română sau engleză.<br class="desktop-break"> Corect.uk îl transformă în engleză britanică naturală.</p>
+  {% include 'core/partials/hero_art.html' %}
+  <div class="hero-copy">
+    <h1 id="hero-title">Vorbește natural <span class="hero-accent">limba engleză</span></h1>
+    <p class="hero-lead">Scrie sau spune ce vrei să exprimi, în română sau engleză.<br class="desktop-break"> Corect.uk îți transformă ideile în engleză britanică naturală.</p>
+    {# Desktop wording, and the shorter wording of the phone design (only one list is displayed). #}
+    <ul class="hero-points is-wide" role="list">
+      <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/bolt.html' %}</span><span><strong>Rapid</strong><small>Rezultate instant</small></span></li>
+      <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/users.html' %}</span><span><strong>Engleză britanică</strong><small>Naturală și autentică</small></span></li>
+      <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/shield.html' %}</span><span><strong>Creat pentru tine</strong><small>Simplu. Eficient. Real.</small></span></li>
+    </ul>
+    <ul class="hero-points is-compact" role="list">
+      <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/bolt.html' %}</span><span><strong>Rapid</strong><small>Rezultate instant</small></span></li>
+      <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/shield.html' %}</span><span><strong>Corect</strong><small>Simplu, eficient, real</small></span></li>
+      <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/users.html' %}</span><span><strong>Pentru tine</strong><small>Natural și autentic</small></span></li>
+    </ul>
+  </div>
+  <p class="hand-note hero-hand" lang="en" aria-hidden="true">Better<br> English<br> A brighter you</p>
 </section>
 <div class="workspace">
-  <section class="editor-card card" aria-labelledby="editor-label">
+  <section class="editor-card" aria-labelledby="editor-label">
     <form id="assistant-form" method="post" action="{% url 'naturalize' %}#result" hx-sync="this:drop">
       {% csrf_token %}<input type="hidden" name="submission_token" id="submission-token" value="{{ submission_token }}">
       <div class="form-trap" aria-hidden="true"><label for="leave-empty">Lasă acest câmp gol</label><input type="text" id="leave-empty" name="leave_empty" tabindex="-1" autocomplete="off"></div>
       <div class="editor-heading"><label id="editor-label" for="text">Scrie textul tău aici</label></div>
-      <div class="textarea-wrap"><textarea id="text" name="text" maxlength="{{ max_characters }}" required placeholder="Scrie în română sau engleză…" aria-describedby="editor-help character-count" spellcheck="false">{{ input_text }}</textarea><button type="button" class="clear-button" data-clear-text tabindex="-1" aria-label="Șterge tot textul" title="Șterge tot textul"{% if not input_text %} hidden{% endif %}>{% include 'icons/cross.html' %}</button><span class="example-prompt" data-example-prompt aria-hidden="true" hidden></span><span class="mobile-count character-count{% if not input_text %} is-empty{% endif %}" id="character-count" data-counter><span class="count-hint">Scrie în acest ecran sau vorbește aici</span><span class="count-value"><span data-count>{{ input_text|length }}</span>/{{ max_characters }}</span></span><button type="button" class="mic-button" data-voice-record{% if voice_realtime_enabled %} data-realtime-url="{% url 'realtime_session' %}" data-preconnect="{{ voice_realtime_origin }}"{% endif %} data-finish-url="{% url 'realtime_finish' %}" data-transcribe-url="{% url 'transcribe' %}" data-max-seconds="{{ voice_max_seconds }}" data-trailing-ms="{{ voice_trailing_ms }}" data-final-ms="{{ voice_final_ms }}" data-action-label="Vreau să sune natural!" aria-label="Înregistrează-ți vocea" aria-pressed="false" hidden><span class="mic-icon" aria-hidden="true">{% include 'icons/microphone.html' %}</span><span class="stop-icon" aria-hidden="true"></span><span class="voice-spinner" aria-hidden="true"></span></button></div>
-      <p id="voice-status" class="voice-status" role="status" aria-live="polite"></p>
-      <div class="action-buttons">
-        <button type="submit" class="button naturalize-button" hx-post="{% url 'naturalize' %}" hx-target="#result" hx-swap="innerHTML" data-loading="Lucrăm…"><span class="action-icon" aria-hidden="true">{% include 'icons/flag-gb.html' %}</span><span class="button-label">Vreau să sune natural!</span></button>
+      <div class="editor-panel">
+        <div class="editor-top">
+          {# Mod Politicos: always a complete, polite natural British version (apps/assistant/services/prompts.py). #}
+          <label class="polite-switch"><input type="checkbox" name="polite" role="switch" {% if polite %}checked {% endif %}aria-describedby="polite-info-text" data-polite-mode><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span><span class="switch-label">Mod Politicos</span></label>
+          <details class="polite-info"><summary aria-label="Ce face Mod Politicos"><span aria-hidden="true">{% include 'icons/info.html' %}</span></summary><p id="polite-info-text">Primești mereu o variantă britanică naturală și politicoasă, chiar dacă textul tău e deja corect.</p></details>
+        </div>
+        <div class="textarea-wrap"><textarea id="text" name="text" maxlength="{{ max_characters }}" required placeholder="Scrie în română sau engleză…" aria-describedby="character-count" spellcheck="false">{{ input_text }}</textarea><button type="button" class="clear-button" data-clear-text tabindex="-1" aria-label="Șterge tot textul" title="Șterge tot textul"{% if not input_text %} hidden{% endif %}>{% include 'icons/cross.html' %}</button><span class="example-prompt" data-example-prompt aria-hidden="true" hidden></span><span class="mobile-count character-count{% if not input_text %} is-empty{% endif %}" id="character-count" data-counter><span class="count-hint">Scrie în acest ecran sau vorbește aici</span><span class="count-value"><span data-count>{{ input_text|length }}</span>/{{ max_characters }}</span></span><button type="button" class="mic-button" data-voice-record{% if voice_realtime_enabled %} data-realtime-url="{% url 'realtime_session' %}" data-preconnect="{{ voice_realtime_origin }}"{% endif %} data-finish-url="{% url 'realtime_finish' %}" data-transcribe-url="{% url 'transcribe' %}" data-max-seconds="{{ voice_max_seconds }}" data-trailing-ms="{{ voice_trailing_ms }}" data-final-ms="{{ voice_final_ms }}" data-action-label="Vreau să sune natural!" aria-label="Înregistrează-ți vocea" aria-pressed="false" hidden><span class="mic-icon" aria-hidden="true">{% include 'icons/microphone.html' %}</span><span class="stop-icon" aria-hidden="true"></span><span class="voice-spinner" aria-hidden="true"></span></button></div>
+        <p id="voice-status" class="voice-status" role="status" aria-live="polite"></p>
+        <div class="action-buttons">
+          <button type="submit" class="button naturalize-button" hx-post="{% url 'naturalize' %}" hx-target="#result" hx-swap="innerHTML" data-loading="Lucrăm…"><span class="action-icon" aria-hidden="true">{% include 'icons/flag-gb.html' %}</span><span class="button-label">Vreau să sune natural!</span><span class="action-arrow" aria-hidden="true">{% include 'icons/arrow-right.html' %}</span></button>
+        </div>
       </div>
-      <p class="editor-help" id="editor-help"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span>Scrie sau vorbește. Corect.uk îl transformă în engleză britanică naturală.</p>
       <p id="request-status" class="request-status" role="status" aria-live="polite"></p>
     </form>
   </section>
   <section class="result-card card{% if result %} is-result-active{% endif %}" id="result" tabindex="-1" aria-live="polite" aria-atomic="true" aria-label="Rezultatul tău">{% include 'assistant/result.html' %}</section>
   {% include 'assistant/result_actions.html' %}
 </div>
+{# Phones and tablets: the page ends with this one-line way into everything Corect.uk offers (/about/). #}
+<div class="home-more">
+  <a class="features-teaser" href="{% url 'about' %}"><span class="teaser-icon" aria-hidden="true">{% include 'icons/crown.html' %}</span><strong class="teaser-title">De ce să alegi Corect.uk</strong><span class="teaser-arrow" aria-hidden="true">{% include 'icons/chevron-right.html' %}</span></a>
+</div>
 <div class="voice-overlay" id="voice-overlay" hidden aria-hidden="true"><span class="voice-overlay-spinner"></span><p>Pornim microfonul…</p></div>
-{# Landing sections for desktop only (landing.css shows them from 1024px); phones and tablets keep the editor-first homepage. #}
-<div class="desktop-marketing">
+{# Features, how it works, plans and the closing banner from 1024px only (home.css); /about/ shows them at every width. #}
+<div class="landing-sections landing-wide-only">
   {% include 'core/partials/desktop_features.html' %}
   {% include 'core/partials/desktop_how_it_works.html' %}
   {% include 'core/partials/desktop_pricing.html' %}

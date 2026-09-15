@@ -9,9 +9,10 @@ from pydantic import ValidationError
 
 from apps.assistant.languages import unsupported_message
 from apps.assistant.schemas import CorrectionResult, NaturalizeResult, TranslationResult
-from apps.assistant.services.naturalize import PROMPT_CACHE_KEY, NaturalizeService, output_token_budget
+from apps.assistant.services.naturalize import (POLITE_PROMPT_CACHE_KEY, PROMPT_CACHE_KEY, NaturalizeService,
+                                                output_token_budget)
 from apps.assistant.services.openai_client import AssistantError
-from apps.assistant.services.prompts import NATURALIZE_PROMPT
+from apps.assistant.services.prompts import NATURALIZE_POLITE_PROMPT, NATURALIZE_PROMPT, POLITE_PROMPT_VERSION
 from apps.learning.taxonomy import derive_pattern
 from .examples import CORRECTION_CASES, ROMANIAN_CASES, english_raw, romanian_raw
 from .provider import ProviderMock, moderation
@@ -64,6 +65,25 @@ class NaturalizeEnglishTests(ProviderMock, SimpleTestCase):
                 self.assertNotIn("reasoning", kwargs)
         self.assertEqual(self.sdk.call_args.kwargs["max_retries"], 0)
         self.sdk.assert_called_once()  # One shared client for every request.
+
+    def test_polite_mode_uses_the_polite_prompt_and_its_own_cache_key_in_the_same_single_call(self):
+        text = "Give me the report by Friday."
+        self.respond(raw(corrected_text=text, natural_text="Could you send me the report by Friday, please?",
+                         natural_explanation="Sună mai politicos."))
+        outcome = NaturalizeService().naturalize(text, polite=True)
+        self.api.responses.parse.assert_called_once()
+        kwargs = self.api.responses.parse.call_args.kwargs
+        self.assertEqual(kwargs["input"], [{"role": "system", "content": NATURALIZE_POLITE_PROMPT},
+                                           {"role": "user", "content": text}])  # The switch never enters the text.
+        self.assertEqual(kwargs["prompt_cache_key"], POLITE_PROMPT_CACHE_KEY)
+        self.assertNotEqual(POLITE_PROMPT_CACHE_KEY, PROMPT_CACHE_KEY)
+        self.assertTrue(outcome.polite)
+        self.assertEqual((outcome.result.corrected_text, outcome.result.has_errors), (text, False))
+        self.assertEqual(outcome.result.native_text, "Could you send me the report by Friday, please?")
+        self.assertTrue(NATURALIZE_POLITE_PROMPT.startswith(NATURALIZE_PROMPT))
+        self.assertIn("natural_text is REQUIRED and is never empty", NATURALIZE_POLITE_PROMPT)
+        self.assertNotIn("Mod Politicos", NATURALIZE_PROMPT)
+        self.assertLessEqual(len(POLITE_PROMPT_VERSION), 30)  # Fits the prompt_version columns.
 
     def test_correct_english_is_never_rewritten(self):
         text = "I've lived here for five years."

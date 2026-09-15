@@ -16,6 +16,7 @@
   <script src="{% static 'vendor/htmx.min.js' %}{{ asset_query }}" defer></script>
   <script src="{% static 'js/navigation.js' %}{{ asset_query }}" defer></script>
   <script src="{% static 'js/consent.js' %}{{ asset_query }}" defer></script>
+  <script src="{% static 'js/copy.js' %}{{ asset_query }}" defer></script>
   {% block scripts %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -33,7 +34,8 @@
     </nav>
     <a class="user-link help-link" href="{% url 'about' %}" aria-label="Despre Corect.uk" title="Despre"><span aria-hidden="true">{% include 'icons/help.html' %}</span></a>
     {% if user.is_authenticated %}<a class="user-link is-signed-in" href="{% url 'profile' %}" aria-label="Profil: {{ user.get_username }}" title="Profil"><span class="user-initial" aria-hidden="true">{{ user.get_username|first|upper }}</span></a>
-    {% else %}<a class="user-link" href="{% url 'login' %}" aria-label="Autentificare" title="Autentificare"><span aria-hidden="true">{% include 'icons/user.html' %}</span></a>{% endif %}
+    {% else %}<a class="user-link" href="{% url 'login' %}" aria-label="Autentificare" title="Autentificare"><span aria-hidden="true">{% include 'icons/user.html' %}</span></a>
+    <a class="button header-cta" href="{% url 'signup' %}">Începe acum</a>{% endif %}
     <details class="nav-menu" id="navigation-menu">
       <summary aria-label="Deschide meniul"><span class="menu-lines" aria-hidden="true"></span></summary>
       <nav aria-label="Toate paginile">

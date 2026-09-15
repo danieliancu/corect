@@ -27,7 +27,7 @@
     <li><strong>Pronunție britanică:</strong> când apeși butonul de ascultare, propoziția în engleză este trimisă către OpenAI, care generează sunetul. Sunetul primit nu este salvat.</li>
   </ul>
   <h3>Statistici de utilizare</h3>
-  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, limba textului (de exemplu engleză sau română), planul (fără cont, Free sau Pro), starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, duratele de procesare (în milisecunde, inclusiv pornirea și finalizarea transcrierii în timp real), costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
+  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, limba textului (de exemplu engleză sau română), planul (fără cont, Free sau Pro), dacă ai folosit Mod Politicos, starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, duratele de procesare (în milisecunde, inclusiv pornirea și finalizarea transcrierii în timp real), costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
   <h3>Identificatorul anonim de analytics</h3>
   <p>{% if visitor_cookie %}La prima folosire a butonului „Vreau să sune natural!” sau a vocii creăm un identificator aleator, păstrat în cookie-ul <code>corect_visitor_id</code>. Împreună cu el păstrăm prima și ultima dată a folosirii și, dacă îți creezi cont sau te autentifici, legătura cu contul. Identificatorul este activ implicit. Îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>: atunci ștergem cookie-ul din browser și nu îl mai folosim.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</p>
   <h3>Securitate și limite de utilizare</h3>
@@ -79,6 +79,7 @@
   <ul>
     <li>OpenAI, pentru funcțiile AI descrise mai sus.</li>
     <li>{% if legal.hosting_provider %}{{ legal.hosting_provider }}{% else %}Furnizorul de găzduire și bază de date{% endif %}, care păstrează aplicația și datele în numele nostru.</li>
+    <li>Google Fonts (Google), care livrează fontul scris de mână al textelor decorative de pe pagina principală: browserul tău îl descarcă direct de la Google, care primește astfel adresa IP și informații tehnice despre browser.</li>
     <li>Autorități publice, doar când legea ne obligă.</li>
   </ul>
   <p>Nu vindem datele tale și nu le folosim pentru publicitate.</p>

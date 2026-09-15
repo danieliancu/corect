@@ -1,0 +1,5 @@
+{% load static %}{# The hero picture of Westminster, desktop only. Replaceable without touching the layout: point HERO_ART in apps/core/views.py at a licensed photo (ideally WebP). Phones and tablets open on the editor without it, so they get a 1 × 1 transparent image instead of downloading the photo. #}
+<picture class="hero-art" aria-hidden="true">
+  <source media="(max-width: 1023px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+  <img src="{% static hero_art.desktop %}" alt="" width="{{ hero_art.width }}" height="{{ hero_art.height }}" decoding="async" fetchpriority="high">
+</picture>

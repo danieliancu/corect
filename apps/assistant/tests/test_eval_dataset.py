@@ -9,7 +9,7 @@ from apps.assistant.services.openai_client import INSTRUCTION_PATTERN
 
 MINIMUMS = {"en_romanian_transfer": 50, "en_contexts": 30, "en_tense_time": 8, "en_punctuation_only": 8,
             "en_already_natural": 25, "en_correct_unnatural": 20, "en_american": 10, "en_mixed_ro_words": 6,
-            "ro_to_en": 40, "unsupported": 4, "long": 3}
+            "ro_to_en": 40, "unsupported": 4, "long": 3, "polite": 12}
 
 
 class EvalDatasetTests(SimpleTestCase):
@@ -54,3 +54,6 @@ class EvalDatasetTests(SimpleTestCase):
                     self.assertTrue(expect.corrected_includes_any)
                 if case.group == "ro_to_en":
                     self.assertTrue(expect.output_includes_any)
+                self.assertEqual(case.polite, case.group == "polite")
+                if case.polite and expect.operation == "correction":
+                    self.assertEqual(expect.natural, "required")  # Mod Politicos always gives a natural version.

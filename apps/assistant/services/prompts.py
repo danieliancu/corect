@@ -96,3 +96,36 @@ Write every explanation in {EXPLANATION_LANGUAGE_NAME}: brief, friendly and with
 
 
 NATURALIZE_PROMPT = _naturalize_prompt()
+
+# "Mod Politicos": a separate static prompt (and prompt cache key), so the switch never travels inside the learner's text.
+POLITE_PROMPT_VERSION = f"{PROMPT_VERSION}+polite"
+POLITE_RULES = """
+## Mod Politicos is ON
+The learner switched on Mod Politicos: they always want a complete British English version of what they want to say,
+with the considerate, polite attitude a British person would naturally use in that situation. This section overrides
+the rule above that natural_text is empty when the English already sounds natural.
+- natural_text is REQUIRED and is never empty, even when the English is already correct and natural. It must use
+  different words from corrected_text: for a plain statement that needs no softening, give the warmer, more natural way
+  a British speaker would say it (for example "now", "really", a contraction or a more idiomatic phrase), never a copy.
+- For en: corrected_text, has_errors and corrections follow exactly the rules above (only genuine errors, nothing
+  polished). natural_text is the whole text as a polite, natural British speaker would say it.
+- For ro: natural_text is the British English version, with this polite attitude.
+- Polite means considerate, not formal. Soften direct requests, orders and refusals the British way ("Could you ...,
+  please?", "Would you mind ...?", "I was wondering if ...", "I'm afraid ...", "Sorry, but ...", "Thanks so much"), add
+  "please" and "thank you" where a British person would, and keep any warmth or friendliness of the original.
+- Keep the meaning, the facts, the relationship (a friend stays a friend, a manager stays a manager) and roughly the
+  same length. Never pompous, flowery, grovelling, old-fashioned or corporate: no "I humbly", "Dear Sir or Madam",
+  "kindly be informed" or "at your earliest convenience" unless the original is that formal. Add no greetings, sign-offs,
+  apologies for things that did not happen, or new information.
+- natural_explanation: one or two short Romanian sentences on what makes it sound polite and natural in the UK.
+Examples (input => natural_text):
+Give me the report by Friday. => Could you send me the report by Friday, please?
+I want a coffee. => Could I have a coffee, please?
+I can't come tomorrow. => I'm afraid I can't make it tomorrow.
+Thanks for your help. => Thanks so much for your help.
+I've worked at this company for three years. => I've been working at this company for three years now.
+Move your car, it's blocking my garage. => Sorry, would you mind moving your car? It's blocking my garage.
+Nu pot veni mâine. => I'm afraid I can't make it tomorrow.
+Trimite-mi adresa. => Could you send me the address, please?
+"""
+NATURALIZE_POLITE_PROMPT = NATURALIZE_PROMPT + POLITE_RULES

@@ -17,10 +17,11 @@ from apps.assistant.languages import CORRECTION, TARGET, TRANSLATION, operation_
 from apps.assistant.schemas import Correction, CorrectionResult, NaturalizeResult, TranslationResult
 from apps.learning.taxonomy import valid_pattern
 from .openai_client import AssistantError, guarded_parse
-from .prompts import NATURALIZE_PROMPT, PROMPT_VERSION
+from .prompts import NATURALIZE_POLITE_PROMPT, NATURALIZE_PROMPT, PROMPT_VERSION
 
-# One static key for everyone (never per user): the prompt prefix is identical for every request.
+# One static key per prompt for everyone (never per user): the prompt prefix is identical for every request.
 PROMPT_CACHE_KEY = f"corect:naturalize:{PROMPT_VERSION}"
+POLITE_PROMPT_CACHE_KEY = f"corect:naturalize-polite:{PROMPT_VERSION}"
 # max_output_tokens also has to cover the model's reasoning tokens. Measured with the language-quality eval
 # (apps/assistant/evals, 2026-09-15): short texts used at most 24 % of the floor, but long English full of mistakes
 # used up to 3806 tokens (reasoning, the corrected text, the natural version and one explanation per mistake), so
@@ -103,13 +104,18 @@ class Naturalized:
     operation: str  # correction | translation
     source_language: str
     result: CorrectionResult | TranslationResult
+    polite: bool = False
 
 
 class NaturalizeService:
-    def naturalize(self, text: str) -> Naturalized:
+    def naturalize(self, text: str, polite: bool = False) -> Naturalized:
+        """`polite` is "Mod Politicos": the same single call with the polite prompt, which always asks for a complete,
+        polite natural British version."""
         validate_text(text)
-        raw = guarded_parse(NATURALIZE_PROMPT, text, NaturalizeResult, max_output_tokens=output_token_budget(text),
-                            prompt_cache_key=PROMPT_CACHE_KEY, **reasoning_option()).output
+        prompt, cache_key = (NATURALIZE_POLITE_PROMPT, POLITE_PROMPT_CACHE_KEY) if polite else (NATURALIZE_PROMPT,
+                                                                                               PROMPT_CACHE_KEY)
+        raw = guarded_parse(prompt, text, NaturalizeResult, max_output_tokens=output_token_budget(text),
+                            prompt_cache_key=cache_key, **reasoning_option()).output
         operation = operation_for(raw.source_language)
         if operation is None:
             error = AssistantError("language", unsupported_message())
@@ -120,4 +126,4 @@ class NaturalizeService:
         except AssistantError as exc:
             exc.source_language = raw.source_language  # The failure is still counted under its operation.
             raise
-        return Naturalized(operation, raw.source_language, result)
+        return Naturalized(operation, raw.source_language, result, polite)

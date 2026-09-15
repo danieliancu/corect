@@ -44,9 +44,9 @@ def section(html, marker, end="</section>"):
 
 class AboutPageTests(TestCase):
     def test_about_page_has_the_landing_sections_from_features_down(self):
-        html = self.client.get("/despre/").content.decode()
+        html = self.client.get("/about/").content.decode()
         self.assertEqual(html.count("<h1"), 1)
-        headings = ("Tot ce primești în Corect.uk", "Cum funcționează", "Alege planul potrivit")
+        headings = ("De ce să alegi Corect.uk", "Cum funcționează", "Alege planul potrivit")
         for heading in headings:
             self.assertIn(f">{heading}</h2>", html)
         self.assertLess(html.index(headings[0]), html.index(headings[1]))
@@ -54,40 +54,52 @@ class AboutPageTests(TestCase):
         self.assertEqual(html.count('class="step-card"'), 4)
         self.assertIn('class="plan-strip"', html)
         self.assertIn('href="/accounts/signup/">Creează cont</a>', section(html, 'class="landing-cta"'))
-        # Shown at every width (not wrapped like the homepage's desktop-only sections), without the editor.
-        self.assertNotIn('class="desktop-marketing"', html)
+        # Shown at every width (not wrapped like the homepage's wide-screen sections), without the editor.
+        self.assertNotIn('class="landing-wide-only"', html)
         self.assertNotIn('id="hero-title"', html)
         self.assertNotIn('id="text"', html)
         # Links to the editor lead back to the homepage.
         self.assertNotIn('href="#text"', html)
-        self.assertIn('<a class="plans-start-link" href="/#text">', html)
+        self.assertIn('href="/accounts/signup/">Creează cont</a>', html)
         self.assertNotIn("{#", html)
+
+    def test_old_about_address_redirects_permanently(self):
+        self.assertRedirects(self.client.get("/despre/?from=link"), "/about/?from=link", status_code=301)
 
     def test_signed_in_editor_links_lead_home(self):
         User.objects.create_user(username="ana", password="test-password")
         self.client.login(username="ana", password="test-password")
-        html = self.client.get("/despre/").content.decode()
+        html = self.client.get("/about/").content.decode()
         self.assertIn('<a class="button cta-button" href="/#text">Scrie primul text</a>', html)
         self.assertIn('<a class="button secondary plan-button" href="/#text">Mergi la editor</a>', html)
 
     def test_header_help_icon_and_menu_link_lead_to_the_about_page(self):
-        for path in ("/", "/despre/", "/termeni/"):
+        for path in ("/", "/about/", "/termeni/"):
             with self.subTest(path=path):
                 html = self.client.get(path).content.decode()
                 header = section(html, 'class="site-header"', "</header>")
-                self.assertIn('<a class="user-link help-link" href="/despre/" aria-label="Despre Corect.uk" title="Despre">',
+                self.assertIn('<a class="user-link help-link" href="/about/" aria-label="Despre Corect.uk" title="Despre">',
                               header)
                 self.assertLess(header.index("help-link"), header.index('class="user-link"'))  # Left of the user icon.
-                self.assertIn('href="/despre/"><span class="nav-icon" aria-hidden="true">',
+                self.assertIn('href="/about/"><span class="nav-icon" aria-hidden="true">',
                               section(html, 'aria-label="Toate paginile"', "</nav>"))
-                self.assertNotIn("/despre/", section(html, 'class="desktop-nav"', "</nav>"))
+                self.assertNotIn("/about/", section(html, 'class="desktop-nav"', "</nav>"))
 
 
 class LandingPageTests(TestCase):
     def test_homepage_marketing_sections_for_anonymous_visitors(self):
         html = self.client.get("/").content.decode()
         self.assertEqual(html.count("<h1"), 1)
-        self.assertIn('<h1 id="hero-title">Vorbește natural engleză</h1>', html)
+        self.assertIn('<h1 id="hero-title">Vorbește natural <span class="hero-accent">limba engleză</span></h1>', html)
+        for point in ("<strong>Rapid</strong><small>Rezultate instant</small>",
+                      "<strong>Engleză britanică</strong><small>Naturală și autentică</small>",
+                      "<strong>Creat pentru tine</strong><small>Simplu. Eficient. Real.</small>"):
+            self.assertIn(point, html)
+        self.assertIn('<img src="/static/img/hero.webp" alt="" width="1774" height="887"', html)
+        self.assertIn('href="https://fonts.googleapis.com/css2?family=Caveat', html)
+        self.assertIn('<a class="features-teaser" href="/about/">', html)  # The phone way into every section.
+        self.assertIn('<a class="button header-cta" href="/accounts/signup/">Începe acum</a>',
+                      section(html, 'class="site-header"', "</header>"))
         self.assertEqual(html.count('class="feature-card'), 12)
         for title, description in FEATURES.items():
             self.assertIn(f"<h3>{title}</h3><p>{description}</p>", html)
@@ -98,14 +110,21 @@ class LandingPageTests(TestCase):
             self.assertEqual('class="feature-card is-pro"' in card, title in PRO_FEATURES, title)
         self.assertNotIn("Pentru administratori", html)
         self.assertNotIn('href="/admin/', html)
-        for heading in ("Tot ce primești în Corect.uk", "Cum funcționează", "Alege planul potrivit"):
+        for heading in ("De ce să alegi Corect.uk", "Cum funcționează", "Alege planul potrivit"):
             self.assertIn(f">{heading}</h2>", html)
         self.assertEqual(html.count('class="step-card"'), 4)
         desktop_nav = section(html, 'class="desktop-nav"', "</nav>")
         self.assertIn('<a href="/#plans">Beneficii</a>', desktop_nav)
         self.assertNotIn("Creează cont", desktop_nav)
-        # The marketing sections are wrapped so CSS can hide them below 1024px.
-        self.assertLess(html.index('class="desktop-marketing"'), html.index("features-title"))
+        # Every section below the editor is wrapped so CSS can hide it below 1024px: phones end with the teaser.
+        self.assertEqual(html.count("landing-wide-only"), 1)
+        wide = html[html.index('class="landing-sections landing-wide-only"'):]
+        for section_id in ("features-title", "steps-title", "plans-title", "cta-title"):
+            self.assertIn(section_id, wide)
+        self.assertIn('<strong class="teaser-title">De ce să alegi Corect.uk</strong>', html)
+        self.assertNotIn("home-hand", html)
+        for removed in ("Mai mult decât o corectare", "Simplu. Flexibil.", "eyebrow"):
+            self.assertNotIn(removed, html)
         self.assertNotIn("{#", html)  # No template comment leaks into the page.
 
     def test_pro_promotional_price_and_fair_use(self):
@@ -400,11 +419,14 @@ class PlanTierAndLimitSettingsTests(TestCase):
     def test_plan_copy_states_the_real_daily_limits_and_never_unlimited(self):
         free, pro = display_plans()
         self.assertIn(("20 de naturalizări pe zi", True), free["features"])
-        self.assertIn(("Până la 200 de naturalizări pe zi (Fair Use)", True), pro["features"])
+        self.assertIn(("Cereri nelimitate (Fair Use)", True), pro["features"])
+        self.assertEqual(pro["daily"], "Cereri nelimitate (Fair Use)")
         home = self.client.get("/").content.decode()
-        for page in (home, self.client.get("/despre/").content.decode()):
-            self.assertNotIn("nelimitat", page)
-            self.assertIn("Poți începe și fără cont</a>, cu 5 naturalizări pe zi.", page)
+        for page in (home, self.client.get("/about/").content.decode()):
+            self.assertIn("Cereri nelimitate (Fair Use)", page)  # The Pro card; Fair Use links to the Terms' limit.
+            self.assertNotIn("Poți începe și fără cont", page)
+            self.assertNotIn("Testează fără cont", page)
+            self.assertIn("<strong>Începere rapidă</strong>", page)
         terms = self.client.get("/termeni/")
         self.assertContains(terms, "5 naturalizări pe zi fără cont și 20 de naturalizări pe zi cu un cont gratuit")
         self.assertContains(terms, "utilizare extinsă, nu nelimitată: până la 200 de naturalizări pe zi")

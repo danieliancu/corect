@@ -19,11 +19,16 @@ from .plans import display_plans
 REALTIME_ORIGIN = "{0.scheme}://{0.netloc}".format(urlsplit(REALTIME_CALLS_URL))
 
 
+# The hero picture of Westminster (templates/core/partials/hero_art.html), shown from 1024px. To replace it, put the new
+# file in static/img and change its path and pixel size here; the layout does not change.
+HERO_ART = {"desktop": "img/hero.webp", "width": 1774, "height": 887}
+
+
 def home_context(**kwargs):
     return {"max_characters": settings.ASSISTANT_MAX_CHARACTERS, "voice_max_seconds": settings.VOICE_MAX_SECONDS,
             "voice_realtime_enabled": settings.VOICE_REALTIME_ENABLED, "voice_realtime_origin": REALTIME_ORIGIN,
             "voice_trailing_ms": settings.VOICE_TRAILING_AUDIO_MS, "voice_final_ms": settings.VOICE_FINAL_TRANSCRIPT_MS,
-            "submission_token": str(uuid4()), "plans": display_plans(), **kwargs}
+            "submission_token": str(uuid4()), "plans": display_plans(), "hero_art": HERO_ART, **kwargs}
 
 
 @never_cache
@@ -32,7 +37,7 @@ def home(request):
 
 
 def about_page(request):
-    """The homepage's landing sections, from "Tot ce primești în Corect.uk" down, as a page of their own: phones and
+    """The homepage's landing sections, from "De ce să alegi Corect.uk" down, as a page of their own: phones and
     tablets reach it from the "?" in the header and "Despre" in the menu. Links to the editor lead back home."""
     return render(request, "core/about.html", {"plans": display_plans(), "editor_url": f"{reverse('home')}#text"})
 

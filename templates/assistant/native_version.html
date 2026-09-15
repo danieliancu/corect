@@ -5,7 +5,7 @@
     {% speech_button result.native_text "native" "heading" %}
     <h2 id="natural-title">Sună mai natural:</h2>
   </div>
-  <p class="native-sentence" lang="en-GB">{{ result.native_text }}</p>
+  <p class="native-sentence has-copy" lang="en-GB">{{ result.native_text }}{% include 'assistant/copy_button.html' %}</p>
   {% if result.native_explanation %}<p class="native-explanation" lang="ro">{{ result.native_explanation }}</p>{% endif %}
 </div>
 {% endif %}

@@ -79,7 +79,7 @@ class CorrectionPresentationTests(SimpleTestCase):
         self.assertIn('<h2 id="natural-title">Sună mai natural:</h2>', html)
         self.assertIn('class="correction-block result-box"', html)
         self.assertEqual(html.count("data-collapse-toggle"), 1)  # Only the correction's box collapses.
-        self.assertLess(html.index('class="result-text corrected-sentence"'), html.index('id="corrected-body"'))
+        self.assertLess(html.index('class="result-text corrected-sentence has-copy"'), html.index('id="corrected-body"'))
         self.assertNotIn("<span>Engleză britanică</span>", html)
 
     def test_correct_but_unnatural_english_emphasises_the_natural_version_without_errors(self):
@@ -91,6 +91,24 @@ class CorrectionPresentationTests(SimpleTestCase):
         self.assertLess(html.index("make it to work"), html.index("✓ Engleza ta e corectă."))
         self.assertNotIn("Greșit", html)
         self.assertNotIn('class="correction-comparison"', html)
+
+    def test_every_english_result_has_a_copy_button_inside_its_sentence(self):
+        errors = correction_result().model_dump()
+        natural_errors = {**errors, "native_text": "I didn't make it to work yesterday."}
+        correct = {**errors, "has_errors": False, "corrections": [], "corrected_text": errors["original_text"]}
+        unnatural = {**correct, "native_text": "I didn't make it to work yesterday."}
+        cases = [(errors, "correction", 1), (natural_errors, "correction", 2), (correct, "correction", 1),
+                 (unnatural, "correction", 1), (translation_result().model_dump(), "translation", 1)]
+        for result, kind, copies in cases:
+            html = render_to_string("assistant/result.html", {"result": result, "kind": kind})
+            self.assertEqual(html.count("data-copy-text"), copies)
+            self.assertEqual(html.count('class="copy-button"'), html.count("has-copy"))
+            self.assertIn('aria-label="Copiază textul"', html)
+            self.assertIn("</button></p>", html)  # Inside the sentence's paragraph, at its end.
+        legacy = {**translation_result().model_dump(), "source_language": "en", "target_language": "ro"}
+        html = render_to_string("assistant/result.html", {"result": legacy, "kind": "translation"})
+        self.assertIn("Engleză → română", html)
+        self.assertNotIn("data-copy-text", html)  # Only English results are copied.
 
     def test_already_natural_english_and_british_english_from_romanian(self):
         result = correction_result().model_dump()

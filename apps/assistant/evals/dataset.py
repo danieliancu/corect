@@ -9,7 +9,7 @@ from apps.assistant.languages import CORRECTION, TRANSLATION, UNSUPPORTED, sourc
 
 DEFAULT_CASES = Path(__file__).with_name("naturalize_cases.jsonl")
 GROUPS = ("en_romanian_transfer", "en_contexts", "en_tense_time", "en_punctuation_only", "en_already_natural",
-          "en_correct_unnatural", "en_american", "en_mixed_ro_words", "ro_to_en", "unsupported", "long")
+          "en_correct_unnatural", "en_american", "en_mixed_ro_words", "ro_to_en", "unsupported", "long", "polite")
 
 
 class Strict(BaseModel):
@@ -38,6 +38,7 @@ class EvalCase(Strict):
     group: Literal[GROUPS]
     context: str = "general"
     input: str = Field(min_length=1)
+    polite: bool = False  # Sent with "Mod Politicos" switched on.
     expect: Expectation
     notes: str = ""
 
