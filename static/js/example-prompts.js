@@ -1,15 +1,16 @@
 "use strict";
-// Example sentences in the empty homepage text box. Each is typed with a typical learner mistake, then the mistake is
-// struck through in red and the correction typed beside it in green. Everything happens in a decorative layer drawn
-// over the textarea, never in its value, so examples can't be submitted, counted or mixed into a voice transcript.
+// Example sentences in the empty homepage text box. Each is typed as a Romanian sentence translated word for word, then
+// the literal phrase is struck through in red and its natural British English typed beside it in green. Everything
+// happens in a decorative layer drawn over the textarea, never in its value, so examples can't be submitted, counted or
+// mixed into a voice transcript.
 (() => {
-  // Text before the mistake, the mistake, its correction, text after.
+  // Text before the literal phrase, the literal phrase, its natural British English, text after.
   const EXAMPLES = [
-    ["I'm running a bit late, but I should be ", "their", "there", " in ten minutes."],
-    ["Do you fancy ", "grab", "grabbing", " a coffee after work?"],
-    ["Could you give me a ", "hands", "hand", " with this?"],
-    ["What ", "is", "are", " you up to this weekend?"],
-    ["I'll give you a call when I ", "got", "get", " home."],
+    ["", "I hurt my head","I've got a headache", ", so I'm staying in tonight."], // Mă doare capul
+    ["Sorry, ", "I have delayed with ten minutes", "I'm ten minutes late", "."], // Am întârziat cu zece minute
+    ["Can you ", "make us a photo", "take a photo of us", "?"], // Ne faci o poză?
+    ["", "It depends of you what we make", "It's up to you what we do", " this weekend."], // Depinde de tine ce facem
+    ["", "I finally took the driving exam", "I finally passed my driving test", "!"], // Am luat examenul de conducere
   ];
   const START_MS = 850;
   const MARK_MS = 650; // Pause with the sentence typed before the mistake is struck through.

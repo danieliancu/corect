@@ -1,0 +1,15 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Despre — Corect.uk{% endblock %}
+{% block body_class %}about-page{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}">{% endblock %}
+{% block content %}
+<h1 class="sr-only">Despre Corect.uk</h1>
+{# The homepage's landing sections at every width (on the homepage they show from 1024px only). #}
+<div class="landing-page">
+  {% include 'core/partials/desktop_features.html' %}
+  {% include 'core/partials/desktop_how_it_works.html' %}
+  {% include 'core/partials/desktop_pricing.html' %}
+  {% include 'core/partials/desktop_plan_strip.html' %}
+  {% include 'core/partials/desktop_cta.html' %}
+</div>
+{% endblock %}

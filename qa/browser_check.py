@@ -67,12 +67,13 @@ REALTIME_MOCKS = """(() => {
   window.MediaRecorder = FakeRecorder;
 })();"""
 DELTA, COMPLETED = "conversation.item.input_audio_transcription.delta", "conversation.item.input_audio_transcription.completed"
-# Homepage examples: text before the mistake, the mistake, its correction, text after (as in static/js/example-prompts.js).
-EXAMPLES = [("I'm running a bit late, but I should be ", "their", "there", " in ten minutes."),
-            ("Do you fancy ", "grab", "grabbing", " a coffee after work?"),
-            ("Could you give me a ", "hands", "hand", " with this?"),
-            ("What ", "is", "are", " you up to this weekend?"),
-            ("I'll give you a call when I ", "got", "get", " home.")]
+# Homepage examples: text before the literal phrase, the literal phrase, its natural British English, text after
+# (as in static/js/example-prompts.js).
+EXAMPLES = [("", "I hurt my head","I've got a headache", ", so I'm staying in tonight."),
+            ("Sorry, ", "I have delayed with ten minutes", "I'm ten minutes late", "."),
+            ("Can you ", "make us a photo", "take a photo of us", "?"),
+            ("", "It depends of you what we make", "It's up to you what we do", " this weekend."),
+            ("", "I finally took the driving exam", "I finally passed my driving test", "!")]
 TYPED = [before + wrong + after for before, wrong, _, after in EXAMPLES]
 CORRECTED = [f"{before}{wrong} {right}{after}" for before, wrong, right, after in EXAMPLES]
 
@@ -175,13 +176,69 @@ class BrowserChecks(StaticLiveServerTestCase):
         (self.artifacts / "layout-checks.json").write_text(json.dumps(measurements, indent=2), encoding="utf-8")
         self.assertEqual(self.errors, [])
 
+    def test_about_page_from_the_mobile_header_and_menu(self):
+        # Phones and tablets: a touch screen, where the "?" shows. One context per size, as a real device.
+        for width, height in ((390, 844), (360, 740), (768, 1024)):
+            with self.subTest(width=width):
+                phone = self.browser.new_context(has_touch=True, is_mobile=True, viewport={"width": width, "height": height})
+                phone.add_cookies([self.consent_cookie()])
+                try:
+                    page = phone.new_page()
+                    page.on("pageerror", lambda error: self.errors.append(str(error)))
+                    self.check_about_page_on_touch_screen(page, width)
+                finally:
+                    phone.close()
+        # Desktop never shows the "?": not on a wide screen, and not in a narrow window with a mouse, where the
+        # hamburger menu keeps "Despre" and the user icon moves back to the right.
+        for width in (1440, 900):
+            with self.subTest(width=width, device="desktop"):
+                self.page.set_viewport_size({"width": width, "height": 900})
+                self.page.goto(self.live_server_url + "/despre/")
+                expect(self.page.locator(".help-link")).to_be_hidden()
+                expect(self.page.get_by_role("heading", name="Cum funcționează")).to_be_visible()
+                if width < 1024:
+                    expect(self.page.locator(".nav-menu")).to_be_visible()
+                    header = self.page.evaluate("""() => ({user: document.querySelector('.user-link:not(.help-link)').getBoundingClientRect().toJSON(),
+                        menu: document.querySelector('.nav-menu summary').getBoundingClientRect().toJSON()})""")
+                    self.assertLess(header["menu"]["left"] - header["user"]["right"], 30)  # Beside the menu.
+                else:
+                    expect(self.page.locator(".nav-menu")).to_be_hidden()
+                self.page.screenshot(path=str(self.artifacts / f"about-desktop-{width}.png"))
+        self.assertEqual(self.errors, [])
+
+    def check_about_page_on_touch_screen(self, page, width):
+        """The "?" sits left of the user icon and opens "Despre"; "Despre" in the hamburger menu opens it too."""
+        page.goto(self.live_server_url)
+        help_link = page.get_by_role("link", name="Despre Corect.uk")
+        expect(help_link).to_be_visible()
+        header = page.evaluate("""() => {
+            const r = s => document.querySelector(s).getBoundingClientRect().toJSON();
+            return {help: r('.help-link'), user: r('.user-link:not(.help-link)'), menu: r('.nav-menu summary'),
+                    scrollWidth: document.documentElement.scrollWidth};
+        }""")
+        self.assertLessEqual(header["help"]["right"], header["user"]["left"])  # Left of the user icon.
+        self.assertAlmostEqual(header["help"]["top"], header["user"]["top"], delta=1)
+        self.assertLessEqual(header["user"]["right"], header["menu"]["left"])
+        self.assertLessEqual(header["scrollWidth"], width)
+        help_link.click()
+        expect(page).to_have_url(self.live_server_url + "/despre/")
+        expect(page.get_by_role("heading", name="Tot ce primești în Corect.uk")).to_be_visible()
+        expect(page.locator(".feature-card")).to_have_count(12)
+        expect(page.locator(".landing-cta")).to_be_visible()
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+        page.screenshot(path=str(self.artifacts / f"about-{width}.png"), full_page=True)
+        page.goto(self.live_server_url + "/termeni/")
+        page.locator(".nav-menu summary").click()
+        page.get_by_role("navigation", name="Toate paginile").get_by_role("link", name="Despre", exact=True).click()
+        expect(page).to_have_url(self.live_server_url + "/despre/")
+
     def test_desktop_landing_sections_and_footer(self):
         marketing, footer = self.page.locator(".desktop-marketing"), self.page.locator(".site-footer")
         for width in (1440, 1280, 1024):
             with self.subTest(width=width):
                 self.page.set_viewport_size({"width": width, "height": 900})
                 self.page.goto(self.live_server_url)
-                expect(self.page.locator("#hero-title")).to_have_text("Corectează-ți engleza. Vorbește natural.")
+                expect(self.page.locator("#hero-title")).to_have_text("Vorbește natural engleză")
                 expect(self.page.locator("#text")).to_be_visible()
                 expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_visible()
                 expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_visible()
@@ -412,9 +469,13 @@ class BrowserChecks(StaticLiveServerTestCase):
                 expect(self.page.get_by_role("navigation", name="Învățare")).to_be_visible()
                 expect(self.page.locator(".learn-hero")).to_contain_text("5 exerciții alese din greșelile tale recente")
                 expect(self.page.locator(".learn-stat")).to_have_count(4)
-                expect(self.page.get_by_role("heading", name="Ce exersezi acum")).to_be_visible()
-                expect(self.page.locator(".learn-card").filter(has_text="Ce exersezi acum")).to_contain_text("Since / for")
-                expect(self.page.locator(".learn-welcome")).to_contain_text("Free · 1 tipar urmărit")
+                expect(self.page.get_by_role("heading", name="Ce trebuie exersat")).to_be_visible()
+                expect(self.page.locator(".learn-card").filter(has_text="Ce trebuie exersat")).to_contain_text("Since / for")
+                expect(self.page.get_by_role("link", name="Ce trebuie exersat")).to_have_attribute("href", "/mistakes/")
+                expect(self.page.get_by_role("link", name="Exersează")).to_have_count(0)
+                expect(self.page.locator(".learn-hero").get_by_role("button")).to_have_count(0)
+                expect(self.page.locator(".learn-welcome .learn-plan-pill")).to_have_text("Free")
+                expect(self.page.locator(".learn-welcome")).to_contain_text("1 tip urmărit")
                 expect(self.page.locator(".learn-rail")).to_have_count(0)
                 expect(self.page.get_by_role("heading", name="Următoarele")).to_have_count(0)
                 activity = self.page.locator(".learn-hero .learn-hero-activity")
@@ -466,10 +527,10 @@ class BrowserChecks(StaticLiveServerTestCase):
                 self.assertGreaterEqual(row["form"]["left"], row["progress"]["right"])
                 self.page.screenshot(path=str(self.artifacts / f"practice-{width}.png"), full_page=True)
 
-        # Today's five exercises, answered on a phone, graded on the server without AI.
+        # Five stored exercises for a pattern, answered on a phone, graded on the server without AI.
         self.page.set_viewport_size({"width": 390, "height": 844})
-        self.page.goto(self.live_server_url + "/learn/")
-        self.page.locator(".learn-hero").get_by_role("button", name="Începe").click()
+        self.page.goto(self.live_server_url + "/practice/")
+        self.page.get_by_role("button", name="Exersează: Since / for").click()
         for number in range(1, 6):
             expect(self.page.get_by_role("heading", level=1)).to_have_text(f"Exercițiul {number} din 5")
             if number == 1:
@@ -598,7 +659,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(layout["count"]["right"], layout["mic"]["left"])
         self.assertLessEqual(layout["scrollWidth"], 390)
         # An empty box invites the learner to speak or type instead of showing "0/2000".
-        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Vorbește aici sau scrie")
+        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Scrie în acest ecran sau vorbește aici")
         expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
         expect(self.page.locator(".mobile-count .count-value")).to_be_hidden()
         self.page.locator("#text").fill("Hello")
@@ -655,7 +716,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertEqual({value for value, _ in samples}, {""})  # Typed into the layer, never into the textarea.
         self.assertTrue(any(shown for _, shown in samples))
         self.assertTrue(all(TYPED[0].startswith(shown) for _, shown in samples))
-        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Vorbește aici sau scrie")
+        expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Scrie în acest ecran sau vorbește aici")
         expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
         expect(self.page.locator(".mobile-count .count-value")).to_be_hidden()
         # Typed with the mistake, then the mistake is struck through in red and the correction typed beside it in green.
@@ -666,10 +727,10 @@ class BrowserChecks(StaticLiveServerTestCase):
             return {wrong: document.querySelector('.example-wrong').textContent, right: document.querySelector('.example-right').textContent,
                     strike: style('.example-wrong').textDecorationLine, red: style('.example-wrong').color, green: style('.example-right').color};
         }""")
-        self.assertEqual(marks, {"wrong": "their", "right": " there", "strike": "line-through",
+        self.assertEqual(marks, {"wrong": EXAMPLES[0][1], "right": f" {EXAMPLES[0][2]}", "strike": "line-through",
                                  "red": "rgb(200, 32, 49)", "green": "rgb(15, 122, 66)"})
         self.assertEqual(text.input_value(), "")
-        self.page.wait_for_function("document.querySelector('.example-prompt').textContent.startsWith('Do you fancy')")
+        self.page.wait_for_function("document.querySelector('.example-prompt').textContent.startsWith('Sorry, I have')")
         self.assertEqual(text.input_value(), "")
         for width, height in ((390, 844), (375, 667), (360, 740)):
             with self.subTest(width=width):
@@ -730,8 +791,8 @@ class BrowserChecks(StaticLiveServerTestCase):
             page.wait_for_function("s => document.querySelector('.example-prompt').textContent === s", arg=CORRECTED[0])
             page.wait_for_timeout(3000)  # Still the same, already corrected sentence: nothing is typed or erased.
             self.assertEqual(example.text_content(), CORRECTED[0])
-            expect(example.locator(".example-wrong")).to_have_text("their")
-            expect(example.locator(".example-right")).to_have_text("there")
+            expect(example.locator(".example-wrong")).to_have_text(EXAMPLES[0][1])
+            expect(example.locator(".example-right")).to_have_text(EXAMPLES[0][2])
             expect(example).to_be_visible()
             self.assertEqual(page.locator("#text").input_value(), "")
         finally:

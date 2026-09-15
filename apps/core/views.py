@@ -25,6 +25,12 @@ def home(request):
     return render(request, "core/home.html", home_context())
 
 
+def about_page(request):
+    """The homepage's landing sections, from "Tot ce primești în Corect.uk" down, as a page of their own: phones and
+    tablets reach it from the "?" in the header and "Despre" in the menu. Links to the editor lead back home."""
+    return render(request, "core/about.html", {"plans": display_plans(), "editor_url": f"{reverse('home')}#text"})
+
+
 def privacy_page(request):
     return render(request, "core/privacy.html", {"visitor_cookie": settings.ANALYTICS_VISITOR_COOKIE,
                                                  "retention": retention_facts()})

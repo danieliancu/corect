@@ -1,11 +1,11 @@
 {% extends 'base.html' %}{% load static %}
-{% block styles %}<link rel="stylesheet" href="{% static 'css/learning.css' %}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/learning.css' %}{{ asset_query }}">{% endblock %}
 {% block body_class %}learning-page{% endblock %}
 {% block content %}
 <div class="learn-shell">
   <nav class="learn-sidebar" aria-label="Învățare">
     <a href="{% url 'learn_dashboard' %}"{% if learning_section == 'dashboard' %} aria-current="page"{% endif %}><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/home.html' %}</span>Panou</a>
-    <a href="{% url 'practice' %}"{% if learning_section == 'practice' %} aria-current="page"{% endif %}><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/target.html' %}</span>Exersează</a>    <a href="{% url 'progress' %}"{% if learning_section == 'progress' %} aria-current="page"{% endif %}><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>Progres</a>
+    <a href="{% url 'progress' %}"{% if learning_section == 'progress' %} aria-current="page"{% endif %}><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>Progres</a>
     <a href="{% url 'mistakes' %}"{% if learning_section == 'mistakes' %} aria-current="page"{% endif %}><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/circle-x.html' %}</span>Greșelile mele</a>
     <a href="{% url 'history' %}"{% if learning_section == 'history' %} aria-current="page"{% endif %}><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/clock.html' %}</span>Istoric</a>
     <a class="learn-sidebar-editor" href="{% url 'home' %}"><span class="learn-nav-icon" aria-hidden="true">{% include 'icons/pencil.html' %}</span>Corectează un text</a>

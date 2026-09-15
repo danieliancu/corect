@@ -11,6 +11,7 @@ from apps.learning import views as learning
 
 urlpatterns = [
     path("", core.home, name="home"),
+    path("despre/", core.about_page, name="about"),
     path("confidentialitate/", core.privacy_page, name="privacy"),
     path("termeni/", core.terms_page, name="terms"),
     path("contact/", core.contact_page, name="contact"),

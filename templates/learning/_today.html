@@ -5,15 +5,13 @@
     <h2 id="today-title">{{ plan.total }} exerciții alese din greșelile tale recente</h2>
     <ul class="learn-hero-topics" role="list">{% for item in plan.items %}<li>{{ item.label }}</li>{% endfor %}</ul>
     <p class="learn-hero-reason">{{ plan.reason }} Durează cam {{ plan.minutes }} minute.</p>
-    {% if open_session %}<a class="button learn-hero-button" href="{% url 'learn_session' open_session.pk %}">Continuă</a>
-    {% else %}<form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="today"><button class="button learn-hero-button" type="submit">Începe</button></form>{% endif %}
     {% if plan.done_today %}<p class="learn-hero-reason">Ai terminat deja exercițiile de azi. Le poți relua oricând.</p>{% endif %}
     {% elif overview.stage == 'empty' %}
     <h2 id="today-title">Hai să începem.</h2>
     <p class="learn-hero-reason">Începe să scrii sau să vorbești în engleză. Pe măsură ce folosești Corect, vom identifica ce merită să exersezi.</p>
     <a class="button learn-hero-button" href="{% url 'home' %}">Scrie primul text</a>
     {% else %}
-    <h2 id="today-title">Începem să vedem câteva tipare.</h2>
+    <h2 id="today-title">Începem să vedem câteva tipuri.</h2>
     <p class="learn-hero-reason">Nu ai greșeli de exersat acum. Mai corectează câteva texte și îți pregătim exerciții.</p>
     <a class="button learn-hero-button" href="{% url 'home' %}">Corectează un text</a>
     {% endif %}

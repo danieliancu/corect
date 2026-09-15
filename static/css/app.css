@@ -691,6 +691,18 @@ hr {
   color: #fff;
   box-shadow: 0 0 0 3px #cfe2ff;
 }
+/* "?" beside the user icon opens "Despre" on phones and tablets only. Desktop never shows it: not on a wide screen,
+   and not on a computer with a mouse in a narrow window either, where "Despre" stays in the hamburger menu. */
+@media (min-width: 1024px), (hover: hover) and (pointer: fine) {
+  .help-link {
+    display: none;
+  }
+}
+@media (max-width: 1023px) and (hover: none), (max-width: 1023px) and (pointer: coarse) {
+  .help-link + .user-link {
+    margin-left: 0;
+  }
+}
 .menu-lines:before,
 .menu-lines:after {
   content: "";

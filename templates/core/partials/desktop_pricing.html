@@ -10,7 +10,7 @@
   {% include 'core/partials/fair_use_note.html' %}
   {% endif %}{% endfor %}
   {% else %}
-  <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2><p><a class="plans-start-link" href="#text">Poți începe și fără cont</a>, într-un mod limitat.</p></div>
+  <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2><p><a class="plans-start-link" href="{{ editor_url|default:'#text' }}">Poți începe și fără cont</a>, într-un mod limitat.</p></div>
   <div class="plan-grid">
     {% for plan in plans %}
     <article class="plan-card plan-{{ plan.key }}{% if plan.recommended %} is-recommended{% endif %}" aria-labelledby="plan-{{ plan.key }}-title">
@@ -24,7 +24,7 @@
       {% if plan.fair_use %}{% include 'core/partials/fair_use_note.html' %}{% endif %}
       <div class="plan-actions">
         {% if plan.key == 'pro' %}<button type="button" class="button plan-button" disabled aria-describedby="pro-coming-soon">Alege Pro</button><p class="plan-note" id="pro-coming-soon">Pro va fi disponibil în curând. Plățile nu sunt încă active.</p>
-        {% elif user.is_authenticated %}<a class="button secondary plan-button" href="#text">Mergi la editor</a>
+        {% elif user.is_authenticated %}<a class="button secondary plan-button" href="{{ editor_url|default:'#text' }}">Mergi la editor</a>
         {% else %}<a class="button secondary plan-button" href="{% url 'signup' %}">Începe gratis</a>{% endif %}
       </div>
     </article>

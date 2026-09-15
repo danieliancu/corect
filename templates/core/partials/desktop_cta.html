@@ -1,6 +1,6 @@
 {# The London skyline is a fixed background in landing.css (static/img/london-skyline.svg). #}
 <section class="landing-cta" aria-labelledby="cta-title">
   <div class="cta-copy"><h2 id="cta-title">Începe să vorbești și să scrii mai natural în engleză.</h2><p>Corectare. Pronunție. Progres. Totul într-un singur loc.</p></div>
-  {% if user.is_authenticated %}<a class="button cta-button" href="#text">Începe o corectare</a>
+  {% if user.is_authenticated %}<a class="button cta-button" href="{{ editor_url|default:'#text' }}">Începe o corectare</a>
   {% else %}<a class="button cta-button" href="{% url 'signup' %}">Creează cont</a>{% endif %}
 </section>

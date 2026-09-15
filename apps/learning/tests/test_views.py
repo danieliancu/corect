@@ -30,13 +30,13 @@ class LearningPageTests(TestCase):
         with patch("apps.learning.services.ai.parse_response") as ai:
             response = self.client.get("/learn/")
         ai.assert_not_called()
-        for text in ("Pentru tine azi", "5 exerciții alese din greșelile tale recente", "Since / for", "Începe",
-                     "Ce exersezi acum", "Se repetă", "Zone de exersat", "Progresul tău", "Free · 1 tipar urmărit"):
+        for text in ("Pentru tine azi", "5 exerciții alese din greșelile tale recente", "Since / for",
+                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", "Progresul tău", '<span class="learn-plan-pill">Free</span>', "1 tip urmărit"):
             self.assertContains(response, text)
         for text in ("Situați", "Obiectivele tale", "Următoarele", "Continuăm de unde ai rămas", "learn-rail",
-                     'aria-label="Exersează: Since / for"'):
-            self.assertNotContains(response, text)  # The dashboard list has no per-row buttons; "Vezi tot" leads on.
-        self.assertContains(response, "Vezi tot")
+                     'aria-label="Exersează: Since / for"', "Vezi tot", 'value="today"', 'href="/practice/"'):
+            self.assertNotContains(response, text)  # No start button, no per-row buttons, no practice tab.
+        self.assertContains(response, '<a class="learn-heading-link" href="/mistakes/">Ce trebuie exersat')
         self.assertContains(self.client.get("/practice/"), 'aria-label="Exersează: Since / for"')
 
     def test_personalised_practice_flow_grades_in_python_and_schedules_review(self):
@@ -91,7 +91,7 @@ class LearningPageTests(TestCase):
         record_correction_occurrences(self.user, make_correction(self.user))
         response = self.client.get("/progress/")
         self.assertContains(response, "În ultimele 30 de zile")
-        self.assertContains(response, "Începem să vedem câteva tipare.")
+        self.assertContains(response, "Începem să vedem câteva tipuri.")
         self.assertContains(response, 'id="trend-data"')
         self.assertNotContains(response, "Pe scurt")
         self.assertLess(response.content.decode().index("În ultimele 30 de zile"), response.content.decode().index("trend-chart"))

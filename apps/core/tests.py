@@ -38,11 +38,52 @@ def section(html, marker, end="</section>"):
     return html[start:html.index(end, start)]
 
 
+class AboutPageTests(TestCase):
+    def test_about_page_has_the_landing_sections_from_features_down(self):
+        html = self.client.get("/despre/").content.decode()
+        self.assertEqual(html.count("<h1"), 1)
+        headings = ("Tot ce primești în Corect.uk", "Cum funcționează", "Alege planul potrivit")
+        for heading in headings:
+            self.assertIn(f">{heading}</h2>", html)
+        self.assertLess(html.index(headings[0]), html.index(headings[1]))
+        self.assertEqual(html.count('class="feature-card'), 12)
+        self.assertEqual(html.count('class="step-card"'), 4)
+        self.assertIn('class="plan-strip"', html)
+        self.assertIn('href="/accounts/signup/">Creează cont</a>', section(html, 'class="landing-cta"'))
+        # Shown at every width (not wrapped like the homepage's desktop-only sections), without the editor.
+        self.assertNotIn('class="desktop-marketing"', html)
+        self.assertNotIn('id="hero-title"', html)
+        self.assertNotIn('id="text"', html)
+        # Links to the editor lead back to the homepage.
+        self.assertNotIn('href="#text"', html)
+        self.assertIn('<a class="plans-start-link" href="/#text">', html)
+        self.assertNotIn("{#", html)
+
+    def test_signed_in_editor_links_lead_home(self):
+        User.objects.create_user(username="ana", password="test-password")
+        self.client.login(username="ana", password="test-password")
+        html = self.client.get("/despre/").content.decode()
+        self.assertIn('<a class="button cta-button" href="/#text">Începe o corectare</a>', html)
+        self.assertIn('<a class="button secondary plan-button" href="/#text">Mergi la editor</a>', html)
+
+    def test_header_help_icon_and_menu_link_lead_to_the_about_page(self):
+        for path in ("/", "/despre/", "/termeni/"):
+            with self.subTest(path=path):
+                html = self.client.get(path).content.decode()
+                header = section(html, 'class="site-header"', "</header>")
+                self.assertIn('<a class="user-link help-link" href="/despre/" aria-label="Despre Corect.uk" title="Despre">',
+                              header)
+                self.assertLess(header.index("help-link"), header.index('class="user-link"'))  # Left of the user icon.
+                self.assertIn('href="/despre/"><span class="nav-icon" aria-hidden="true">',
+                              section(html, 'aria-label="Toate paginile"', "</nav>"))
+                self.assertNotIn("/despre/", section(html, 'class="desktop-nav"', "</nav>"))
+
+
 class LandingPageTests(TestCase):
     def test_homepage_marketing_sections_for_anonymous_visitors(self):
         html = self.client.get("/").content.decode()
         self.assertEqual(html.count("<h1"), 1)
-        self.assertIn('<h1 id="hero-title">Corectează-ți engleza. Vorbește natural.</h1>', html)
+        self.assertIn('<h1 id="hero-title">Vorbește natural engleză</h1>', html)
         self.assertEqual(html.count('class="feature-card'), 12)
         for title, description in FEATURES.items():
             self.assertIn(f"<h3>{title}</h3><p>{description}</p>", html)

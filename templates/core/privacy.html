@@ -19,7 +19,7 @@
   <h3>Corecturi, traduceri, greșeli și progres</h3>
   <p>Dacă ai cont, pentru fiecare corectură sau traducere reușită păstrăm textul trimis, rezultatul (inclusiv explicațiile și versiunea nativă) și greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, un cod de eroare și data, fără text. Fără cont, textul și rezultatele nu sunt salvate.</p>
   <h3>Profilul tău de învățare</h3>
-  <p>Dacă ai cont, din corecturile tale salvate construim un profil de învățare privat: tiparele de greșeli pe care le faci (de exemplu „since / for”), de câte ori și când au apărut, prioritatea lor, cât de bine le stăpânești și când trebuie recapitulate. Păstrăm exercițiile pregătite pentru tine, sesiunile de exersare, răspunsurile tale la exerciții și dacă au fost corecte. Calculele (recurență, prioritate, recapitulare, progres) sunt făcute de aplicație, nu de AI. Aceste informații sunt vizibile doar pentru tine și pentru operator, atunci când e necesar pentru suport sau securitate.</p>
+  <p>Dacă ai cont, din corecturile tale salvate construim un profil de învățare privat: tipurile de greșeli pe care le faci (de exemplu „since / for”), de câte ori și când au apărut, prioritatea lor, cât de bine le stăpânești și când trebuie recapitulate. Păstrăm exercițiile pregătite pentru tine, sesiunile de exersare, răspunsurile tale la exerciții și dacă au fost corecte. Calculele (recurență, prioritate, recapitulare, progres) sunt făcute de aplicație, nu de AI. Aceste informații sunt vizibile doar pentru tine și pentru operator, atunci când e necesar pentru suport sau securitate.</p>
   <h3>Voce</h3>
   <ul>
     <li><strong>Transcriere în timp real:</strong> serverul nostru obține de la OpenAI o cheie temporară (valabilă 30 de secunde pentru pornire), iar browserul tău trimite sunetul direct către OpenAI. Sunetul nu trece prin serverele Corect.uk, iar textul transcris apare doar în pagina ta. Păstrăm o evidență tehnică a sesiunii (model, stare, orele de început și sfârșit și, dacă e cazul, contul sau identificatorul de analytics), fără sunet, text sau adresă IP.</li>
@@ -70,7 +70,7 @@
     <li>sunetul de la microfon, trimis direct din browser pentru transcrierea în timp real;</li>
     <li>înregistrarea trimisă pentru transcriere după înregistrare;</li>
     <li>propoziția în engleză pentru care ceri pronunția;</li>
-    <li>pentru exercițiile personalizate: doar contextul minim necesar (tiparul de greșeală, cel mult trei exemple recente scurte de greșeli și corecturi), niciodată tot istoricul tău; exercițiile rezultate sunt salvate și refolosite;</li>
+    <li>pentru exercițiile personalizate: doar contextul minim necesar (tipul de greșeală, cel mult trei exemple recente scurte de greșeli și corecturi), niciodată tot istoricul tău; exercițiile rezultate sunt salvate și refolosite;</li>
     <li>răspunsul tău la un exercițiu cu mai multe variante corecte, doar când nu poate fi verificat automat.</li>
   </ul>
   <p>Cheia noastră de acces la OpenAI rămâne pe server și nu ajunge în browser. Nu trimitem istoricul tău și nici numele contului. Cererile de corectare și traducere sunt trimise cu opțiunea <code>store=False</code>, prin care cerem ca răspunsurile să nu fie păstrate pentru a putea fi reluate ulterior. Asta nu înseamnă că OpenAI nu păstrează nimic: potrivit politicilor sale, OpenAI poate păstra datele primite prin API o perioadă limitată, de exemplu pentru prevenirea abuzurilor. Pentru transcriere și pronunție această opțiune nu se aplică.</p>
@@ -92,7 +92,7 @@
     <tbody>
       <tr><td>Contul și confirmările Termenilor</td><td>Până ștergi contul</td></tr>
       <tr><td>Istoricul corecturilor și traducerilor și greșelile găsite</td><td>Până ștergi contul</td></tr>
-      <tr><td>Profilul de învățare: tipare de greșeli, exerciții, sesiuni, răspunsuri</td><td>Până ștergi contul (exercițiile generate nefolosite sunt retrase după 90 de zile)</td></tr>
+      <tr><td>Profilul de învățare: tipuri de greșeli, exerciții, sesiuni, răspunsuri</td><td>Până ștergi contul (exercițiile generate nefolosite sunt retrase după 90 de zile)</td></tr>
       <tr><td>Sesiunea de autentificare</td><td>{{ retention.login_session_days }} zile de la autentificare; sesiunile expirate sunt șterse la curățarea zilnică</td></tr>
       <tr><td>Contoarele pentru limitele de utilizare</td><td>Un minut sau o zi, apoi sunt șterse la curățarea zilnică</td></tr>
       <tr><td>Codurile împotriva cererilor duplicate</td><td>{{ retention.submission_claim_days }} zile</td></tr>
