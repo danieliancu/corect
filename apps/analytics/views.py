@@ -1,4 +1,4 @@
-"""Staff-only usage analytics. Every figure is a database aggregate over the text and audio usage ledgers."""
+"""Staff-only usage analytics. Every figure is a database aggregate over the text, learning and audio usage ledgers."""
 from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
@@ -18,16 +18,16 @@ from django.utils import timezone
 from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
 from .identifiers import visitor_lookup
-from .models import AnonymousVisitor, AudioUsageEvent, UsageEvent
+from .models import AnonymousVisitor, AudioUsageEvent, LearningUsageEvent, UsageEvent
 
 User = get_user_model()
 PAGE_SIZE = 50
 MONEY = DecimalField(max_digits=16, decimal_places=8)
 ZERO = Value(Decimal(0), output_field=MONEY)
-USER_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "audio_cost": "audio_cost",
-              "total_cost": "total_cost", "transcriptions": "transcriptions", "realtime": "realtime_sessions",
-              "speech_plays": "speech_plays", "last_active": "last_active", "joined": "date_joined",
-              "username": "username"}
+USER_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "learning_cost": "learning_cost",
+              "audio_cost": "audio_cost", "total_cost": "total_cost", "transcriptions": "transcriptions",
+              "realtime": "realtime_sessions", "speech_plays": "speech_plays", "last_active": "last_active",
+              "joined": "date_joined", "username": "username"}
 VISITOR_SORTS = {"requests": "requests", "tokens": "tokens_total", "cost": "cost", "audio_cost": "audio_cost",
                  "total_cost": "total_cost", "transcriptions": "transcriptions", "realtime": "realtime_sessions",
                  "speech_plays": "speech_plays", "last_seen": "last_seen_at", "first_seen": "first_seen_at",
@@ -93,32 +93,62 @@ def audio_aggregates(scope=None):
     }
 
 
+def learning_aggregates():
+    """Aggregates over learning AI calls, in total and per learning feature."""
+    figures = {
+        "learning_calls": Count("id"), "learning_failures": Count("id", filter=Q(status="failed")),
+        "learning_rejections": Count("id", filter=Q(status="rejected")), "learning_tokens_in": Sum("input_tokens"),
+        "learning_tokens_out": Sum("output_tokens"), "learning_tokens_total": Sum("total_tokens"),
+        "learning_cost": Sum("estimated_cost"), "learning_without_cost": Count("id", filter=Q(estimated_cost__isnull=True)),
+        "learning_users": Count("user", distinct=True),
+    }
+    for feature in LearningUsageEvent.Feature.values:
+        figures[f"{feature}_calls"] = Count("id", filter=Q(feature=feature))
+        figures[f"{feature}_tokens"] = Sum("total_tokens", filter=Q(feature=feature))
+        figures[f"{feature}_cost"] = Sum("estimated_cost", filter=Q(feature=feature))
+    return figures
+
+
+def learning_breakdown(learning):
+    totals = learning.aggregate(**learning_aggregates())
+    cost, learners = totals["learning_cost"], totals["learning_users"]
+    return {
+        "learning_totals": totals,
+        "learning_features": [{"key": key, "label": label, "calls": totals[f"{key}_calls"],
+                               "tokens": totals[f"{key}_tokens"], "cost": totals[f"{key}_cost"]}
+                              for key, label in LearningUsageEvent.Feature.choices],
+        "learning_cost_per_learner": cost / learners if cost is not None and learners else None,
+        "learning_errors": learning.exclude(status="success").values("feature", "status", "error_code")
+        .annotate(total=Count("id")).order_by("-total", "error_code"),
+    }
+
+
 def known_sum(*values):
     """The sum of the known values, or None when none is known."""
     known = [value for value in values if value is not None]
     return sum(known, Decimal(0)) if known else None
 
 
-def cost_breakdown(text_cost, stt_cost, tts_cost, realtime_cost=None, file_cost=None):
-    """Grand total = text AI + speech to text + text to speech, with each source's share of it.
+def cost_breakdown(text_cost, stt_cost, tts_cost, realtime_cost=None, file_cost=None, learning_cost=None):
+    """Grand total = text AI + learning AI + speech to text + text to speech, with each source's share of it.
 
-    Speech to text is live (realtime) plus finished-recording (file) transcription.
+    Speech to text is live (realtime) plus finished-recording (file) transcription. Each ledger is counted once.
     """
     audio = known_sum(stt_cost, tts_cost)
-    total = known_sum(text_cost, audio)
+    total = known_sum(text_cost, learning_cost, audio)
 
     def share(value):
         return rate(value, total) if value is not None and total else None
-    return {"total": total, "text": text_cost, "audio": audio, "stt": stt_cost, "tts": tts_cost,
+    return {"total": total, "text": text_cost, "learning": learning_cost, "audio": audio, "stt": stt_cost, "tts": tts_cost,
             "stt_realtime": realtime_cost, "stt_file": file_cost,
-            "text_share": share(text_cost), "audio_share": share(audio), "stt_share": share(stt_cost),
-            "tts_share": share(tts_cost),
+            "text_share": share(text_cost), "learning_share": share(learning_cost), "audio_share": share(audio),
+            "stt_share": share(stt_cost), "tts_share": share(tts_cost),
             "realtime_audio_share": rate(realtime_cost, audio) if realtime_cost is not None and audio else None}
 
 
-def costs_with_audio(text_cost, audio_totals):
+def costs_with_audio(text_cost, audio_totals, learning_cost=None):
     return cost_breakdown(text_cost, audio_totals["stt_cost"], audio_totals["tts_cost"],
-                          audio_totals["stt_realtime_cost"], audio_totals["stt_file_cost"])
+                          audio_totals["stt_realtime_cost"], audio_totals["stt_file_cost"], learning_cost)
 
 
 def optional_total(*fields):
@@ -145,9 +175,16 @@ def audio_columns(owner_field, scope):
     }
 
 
+def learning_columns(owner_field, scope):
+    """Per-row learning AI figures as correlated subqueries (never multiplied by the row's other aggregates)."""
+    rows = LearningUsageEvent.objects.filter(scope, **{owner_field: OuterRef("pk")}).order_by().values(owner_field)
+    return {"learning_calls": Coalesce(Subquery(rows.annotate(value=Count("id")).values("value")[:1]), 0),
+            "learning_cost": Subquery(rows.annotate(value=Sum("estimated_cost")).values("value")[:1])}
+
+
 def with_costs(queryset):
     return queryset.annotate(audio_cost=optional_total("stt_cost", "tts_cost")) \
-        .annotate(total_cost=optional_total("cost", "stt_cost", "tts_cost"))
+        .annotate(total_cost=optional_total("cost", "learning_cost", "stt_cost", "tts_cost"))
 
 
 def windows():
@@ -198,7 +235,8 @@ def audio_breakdowns(audio):
 def model_choices():
     text = UsageEvent.objects.exclude(model="").values_list("model", flat=True).distinct()
     audio = AudioUsageEvent.objects.exclude(model="").values_list("model", flat=True).distinct()
-    return sorted(set(text) | set(audio))
+    learning = LearningUsageEvent.objects.exclude(model="").values_list("model", flat=True).distinct()
+    return sorted(set(text) | set(audio) | set(learning))
 
 
 def ordered(queryset, field, descending=True):
@@ -207,7 +245,7 @@ def ordered(queryset, field, descending=True):
 
 def render_report(request, template, title, section, context):
     ai_models = {"text": settings.OPENAI_MODEL, "stt": settings.OPENAI_TRANSCRIBE_MODEL,
-                 "live_stt": settings.OPENAI_LIVE_TRANSCRIBE_MODEL,
+                 "live_stt": settings.OPENAI_LIVE_TRANSCRIBE_MODEL, "learning": settings.OPENAI_LEARNING_MODEL,
                  "tts": settings.OPENAI_TTS_MODEL, "voice": settings.OPENAI_TTS_VOICE}
     return render(request, template, {**admin.site.each_context(request), "title": title, "section": section,
                                       "ai_models": ai_models, "gbp_per_usd": settings.ANALYTICS_GBP_PER_USD, **context})
@@ -226,6 +264,8 @@ def dashboard(request):
     events = UsageEvent.objects.filter(filters.events_q())
     totals = events.aggregate(**usage_aggregates())
     audio = audio_breakdowns(AudioUsageEvent.objects.filter(filters.audio_q()))
+    # Learning AI follows period, audience and model; the request type applies to text figures only.
+    learning = learning_breakdown(LearningUsageEvent.objects.filter(filters.audio_q()))
     recent = UsageEvent.objects.filter(filters.events_q(include_period=False))
     users = User.objects.aggregate(total=Count("id"),
                                    new=Count("id", filter=Q(date_joined__gte=start) if start else None))
@@ -238,14 +278,16 @@ def dashboard(request):
     registered, anonymous = replace(filters, audience="registered"), replace(filters, audience="anonymous")
     top_users = [] if filters.audience == "anonymous" else ordered(with_costs(
         User.objects.annotate(**usage_aggregates("usage_events__", registered.events_q("usage_events__")),
-                              **audio_columns("user", registered.audio_q()))).filter(requests__gt=0), "requests")[:10]
+                              **audio_columns("user", registered.audio_q()),
+                              **learning_columns("user", registered.audio_q()))).filter(requests__gt=0), "requests")[:10]
     top_visitors = [] if filters.audience == "registered" else ordered(with_costs(
         AnonymousVisitor.objects.select_related("converted_user").annotate(
             **usage_aggregates("usage_events__", anonymous.events_q("usage_events__")),
-            **audio_columns("visitor", anonymous.audio_q()))).filter(requests__gt=0), "requests")[:10]
+            **audio_columns("visitor", anonymous.audio_q()),
+            **learning_columns("visitor", anonymous.audio_q()))).filter(requests__gt=0), "requests")[:10]
     return render_report(request, "analytics/dashboard.html", "Usage analytics", "dashboard", {
-        **filter_context(filters, models), **breakdowns(events), **audio, "totals": totals,
-        "costs": costs_with_audio(totals["cost"], audio["audio_totals"]),
+        **filter_context(filters, models), **breakdowns(events), **audio, **learning, "totals": totals,
+        "costs": costs_with_audio(totals["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"]),
         "windows": recent.aggregate(**windows()), "users": users, "visitors": visitors,
         "top_users": top_users, "top_visitors": top_visitors,
         "success_rate": rate(totals["successes"], totals["successes"] + totals["failures"]),
@@ -261,6 +303,7 @@ def users_report(request):
     sort = request.GET.get("sort") if request.GET.get("sort") in USER_SORTS else "requests"
     users = with_costs(User.objects.annotate(**usage_aggregates("usage_events__", filters.events_q("usage_events__")),
                                              **audio_columns("user", filters.audio_q()),
+                                             **learning_columns("user", filters.audio_q()),
                                              last_active=Max("usage_events__created_at")))
     if query:
         users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
@@ -276,9 +319,10 @@ def user_detail(request, pk):
     events = UsageEvent.objects.filter(user=member)
     summary = events.aggregate(**usage_aggregates(), **windows(), last_active=Max("created_at"))
     audio = audio_breakdowns(AudioUsageEvent.objects.filter(user=member))
+    learning = learning_breakdown(LearningUsageEvent.objects.filter(user=member))
     return render_report(request, "analytics/user_detail.html", f"Usage: {member.get_username()}", "users", {
-        **breakdowns(events), **audio, "member": member, "summary": summary,
-        "costs": costs_with_audio(summary["cost"], audio["audio_totals"]),
+        **breakdowns(events), **audio, **learning, "member": member, "summary": summary,
+        "costs": costs_with_audio(summary["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"]),
         "success_rate": rate(summary["successes"], summary["successes"] + summary["failures"]),
         "visitors": member.converted_visitors.order_by("converted_at"),
         "series": activity_series(events, day_start(29))})
@@ -294,8 +338,9 @@ def visitors_report(request):
     sort = request.GET.get("sort") if request.GET.get("sort") in VISITOR_SORTS else "requests"
     visitors = (with_costs(AnonymousVisitor.objects.select_related("converted_user").annotate(
         **usage_aggregates("usage_events__", scope), **audio_columns("visitor", filters.audio_q()),
+        **learning_columns("visitor", filters.audio_q()),
         active_days=Count(TruncDate("usage_events__created_at"), distinct=True, filter=scope)))
-        .filter(Q(requests__gt=0) | Q(transcriptions__gt=0) | Q(speech_plays__gt=0)))
+        .filter(Q(requests__gt=0) | Q(transcriptions__gt=0) | Q(speech_plays__gt=0) | Q(learning_calls__gt=0)))
     if converted:
         visitors = visitors.filter(converted_user__isnull=converted == "no")
     if query:
@@ -316,12 +361,13 @@ def visitor_detail(request, pk):
                                first_request=Min("created_at"), last_request=Max("created_at"),
                                before_conversion=Count("id", filter=before))
     audio = audio_breakdowns(AudioUsageEvent.objects.filter(visitor=visitor, audience="anonymous"))
+    learning = learning_breakdown(LearningUsageEvent.objects.filter(visitor=visitor, audience="anonymous"))
     after = None
     if visitor.converted_user_id and visitor.converted_at:
         after = UsageEvent.objects.filter(user_id=visitor.converted_user_id, created_at__gte=visitor.converted_at) \
             .aggregate(**usage_aggregates())
     return render_report(request, "analytics/visitor_detail.html", f"Usage: {visitor.short_id}", "visitors", {
-        **breakdowns(events), **audio, "visitor": visitor, "summary": summary, "after": after,
-        "costs": costs_with_audio(summary["cost"], audio["audio_totals"]),
+        **breakdowns(events), **audio, **learning, "visitor": visitor, "summary": summary, "after": after,
+        "costs": costs_with_audio(summary["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"]),
         "success_rate": rate(summary["successes"], summary["successes"] + summary["failures"]),
         "series": activity_series(events, day_start(29))})

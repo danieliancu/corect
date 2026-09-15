@@ -1,0 +1,29 @@
+<section class="learn-hero{% if not plan.items %} is-waiting{% endif %}{% if activity and overview.stage != 'empty' %} has-activity{% endif %}" aria-labelledby="today-title">
+  <div class="learn-hero-copy">
+    <p class="learn-eyebrow">Pentru tine azi</p>
+    {% if plan.items %}
+    <h2 id="today-title">{{ plan.total }} exerciții alese din greșelile tale recente</h2>
+    <ul class="learn-hero-topics" role="list">{% for item in plan.items %}<li>{{ item.label }}</li>{% endfor %}</ul>
+    <p class="learn-hero-reason">{{ plan.reason }} Durează cam {{ plan.minutes }} minute.</p>
+    {% if open_session %}<a class="button learn-hero-button" href="{% url 'learn_session' open_session.pk %}">Continuă</a>
+    {% else %}<form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="today"><button class="button learn-hero-button" type="submit">Începe</button></form>{% endif %}
+    {% if plan.done_today %}<p class="learn-hero-reason">Ai terminat deja exercițiile de azi. Le poți relua oricând.</p>{% endif %}
+    {% elif overview.stage == 'empty' %}
+    <h2 id="today-title">Hai să începem.</h2>
+    <p class="learn-hero-reason">Începe să scrii sau să vorbești în engleză. Pe măsură ce folosești Corect, vom identifica ce merită să exersezi.</p>
+    <a class="button learn-hero-button" href="{% url 'home' %}">Scrie primul text</a>
+    {% else %}
+    <h2 id="today-title">Începem să vedem câteva tipare.</h2>
+    <p class="learn-hero-reason">Nu ai greșeli de exersat acum. Mai corectează câteva texte și îți pregătim exerciții.</p>
+    <a class="button learn-hero-button" href="{% url 'home' %}">Corectează un text</a>
+    {% endif %}
+  </div>
+  {% if activity and overview.stage != 'empty' %}
+  <div class="learn-hero-activity" role="group" aria-labelledby="activity-title">
+    <div class="learn-card-heading"><h3 id="activity-title">Progresul tău</h3><span class="learn-muted">7 zile</span></div>
+    <div class="learn-bars" aria-hidden="true">{% for day in activity %}<span class="learn-bar{% if forloop.last %} is-today{% endif %}"><span class="learn-bar-fill" style="height: {{ day.percent }}%"></span><small>{{ day.date|date:'D'|slice:':2' }}</small></span>{% endfor %}</div>
+    <table class="sr-only"><caption>Activitatea ta în ultimele 7 zile</caption><thead><tr><th scope="col">Ziua</th><th scope="col">Corecturi</th><th scope="col">Exerciții</th></tr></thead><tbody>{% for day in activity %}<tr><td>{{ day.date|date:'j F' }}</td><td>{{ day.corrections }}</td><td>{{ day.exercises }}</td></tr>{% endfor %}</tbody></table>
+    <p class="learn-muted">{{ activity_total }} {% if activity_total == 1 %}activitate{% else %}activități{% endif %} în ultimele 7 zile</p>
+  </div>
+  {% endif %}
+</section>

@@ -151,3 +151,47 @@ class AudioUsageEvent(models.Model):
 
     def __str__(self):
         return f"{self.get_operation_display()} {self.status} #{self.pk}"
+
+
+class LearningUsageEvent(models.Model):
+    """Append-only learning AI ledger: one row per AI call made by a learning feature (exercise generation, open-answer
+    evaluation). Holds no learning content, answers or prompts."""
+
+    class Feature(models.TextChoices):
+        PRACTICE = "practice", "Personalised practice"
+        OPEN_ANSWER = "open_answer", "Open-answer evaluation"
+    Status = UsageEvent.Status
+
+    audience = models.CharField(max_length=10, choices=UsageEvent.Audience.choices)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name="learning_usage_events")
+    visitor = models.ForeignKey(AnonymousVisitor, null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name="learning_usage_events")
+    feature = models.CharField(max_length=12, choices=Feature.choices)
+    model = models.CharField(max_length=100, blank=True)
+    response_model = models.CharField(max_length=100, blank=True)
+    prompt_version = models.CharField(max_length=40, blank=True)
+    status = models.CharField(max_length=10, choices=UsageEvent.Status.choices)
+    error_code = models.CharField(max_length=40, blank=True)
+    provider_calls = models.PositiveSmallIntegerField(default=0)
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    cached_input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    reasoning_tokens = models.PositiveIntegerField(null=True, blank=True)
+    total_tokens = models.PositiveIntegerField(null=True, blank=True)
+    estimated_cost = models.DecimalField(max_digits=14, decimal_places=8, null=True, blank=True,
+                                         help_text="USD at recording time; empty when pricing or tokens are unknown.")
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["feature", "created_at"], name="analytics_learn_feature_idx"),
+            models.Index(fields=["user", "-created_at"], name="analytics_learn_user_idx"),
+            models.Index(fields=["audience", "created_at"], name="analytics_learn_audience_idx"),
+            models.Index(fields=["model", "created_at"], name="analytics_learn_model_idx"),
+            models.Index(fields=["status", "created_at"], name="analytics_learn_status_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_feature_display()} {self.status} #{self.pk}"

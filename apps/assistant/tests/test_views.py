@@ -202,9 +202,9 @@ class EndpointTests(TestCase):
         self.assertContains(response, "vendor/chart.umd.min.js")
         response = self.client.get("/mistakes/")
         self.assertContains(response, "de 2 ori")
-        self.assertEqual(self.client.get("/practice/").status_code, 200)
-        response = self.client.post("/practice/", {"position": 0, "answer": "1"})
-        self.assertContains(response, "Corect!", html=False)
+        response = self.client.get("/practice/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Întrebare rapidă")
 
     def test_account_signup_login_profile_logout(self):
         response = self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
@@ -261,10 +261,9 @@ class EndpointTests(TestCase):
         self.assertContains(response, "1 greșeală înregistrată în această categorie")
         self.assertContains(response, "didn&#x27;t go")
         self.assertContains(response, f'href="/history/{entry.pk}/"')
-        self.assertContains(response, 'href="/practice/?category=verb_form"')
+        self.assertContains(response, 'href="/practice/"')
         for path in ("/mistakes/british_english/", "/mistakes/nonsense/"):
             self.assertEqual(self.client.get(path).status_code, 404)
-        self.assertContains(self.client.get("/practice/?category=verb_form"), "I didn&#x27;t ___ him yesterday.")
         self.client.force_login(self.other)
         self.assertNotContains(self.client.get("/mistakes/verb_form/"), "didn&#x27;t go")
 
@@ -307,7 +306,7 @@ class EndpointTests(TestCase):
     def test_header_user_icon_follows_sign_in_state(self):
         response = self.client.get("/confidentialitate/")
         self.assertContains(response, 'class="user-link" href="/accounts/login/" aria-label="Autentificare"')
-        self.assertContains(response, '<span class="nav-icon" aria-hidden="true">', count=7)
+        self.assertContains(response, '<span class="nav-icon" aria-hidden="true">', count=8)
         self.client.force_login(self.user)
         response = self.client.get("/confidentialitate/")
         self.assertContains(response, 'class="user-link is-signed-in" href="/accounts/profile/" aria-label="Profil: ana"')

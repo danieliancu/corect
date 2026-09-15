@@ -25,10 +25,11 @@
 <div class="analytics-columns">
   {% include "analytics/breakdowns.html" %}
   {% include "analytics/audio_breakdown.html" %}
+  {% include "analytics/learning_breakdown.html" %}
   <section class="module">
     <h2>Top registered users</h2>
-    <table><thead><tr><th scope="col">User</th><th scope="col" class="num">Text requests</th><th scope="col" class="num">Text AI cost</th><th scope="col" class="num">Audio cost</th><th scope="col" class="num">Total AI cost</th></tr></thead>
-      <tbody>{% for member in top_users %}<tr><td><a href="{% url 'analytics:user' member.pk %}">{{ member.get_username }}</a></td><td class="num">{{ member.requests|number }}</td><td class="num">{{ member.cost|money }}</td><td class="num">{{ member.audio_cost|money }}</td><td class="num">{{ member.total_cost|money }}</td></tr>{% empty %}<tr><td colspan="5">No registered usage.</td></tr>{% endfor %}</tbody></table>
+    <table><thead><tr><th scope="col">User</th><th scope="col" class="num">Text requests</th><th scope="col" class="num">Text AI cost</th><th scope="col" class="num">Learning AI cost</th><th scope="col" class="num">Audio cost</th><th scope="col" class="num">Total AI cost</th></tr></thead>
+      <tbody>{% for member in top_users %}<tr><td><a href="{% url 'analytics:user' member.pk %}">{{ member.get_username }}</a></td><td class="num">{{ member.requests|number }}</td><td class="num">{{ member.cost|money }}</td><td class="num">{{ member.learning_cost|money }}</td><td class="num">{{ member.audio_cost|money }}</td><td class="num">{{ member.total_cost|money }}</td></tr>{% empty %}<tr><td colspan="6">No registered usage.</td></tr>{% endfor %}</tbody></table>
   </section>
   <section class="module">
     <h2>Top anonymous visitors</h2>

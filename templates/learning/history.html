@@ -1,5 +1,5 @@
-{% extends 'base.html' %}{% load learning_labels %}{% block title %}Istoric — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><p class="eyebrow">O PROPOZIȚIE PE RÂND</p><h1>Istoricul tău</h1><p>Locul unde revezi ce ai învățat.</p></section>
+{% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Istoric — Corect.uk{% endblock %}{% block learning_content %}
+<section class="page-heading"><h1>Istoricul tău</h1><p>Locul unde revezi ce ai învățat.</p></section>
 {# One collapsible block per day; the most recent day on the page starts open. #}
 <div class="history-days">{% for day in days %}
   <details class="history-day"{% if forloop.first %} open{% endif %}>

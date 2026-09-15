@@ -1,4 +1,4 @@
-{% load assistant_ui %}
+{% load assistant_ui learning_labels %}
 <div class="correction-result">
   <div class="result-heading corrected-heading">
     {% speech_button result.corrected_text "correction" "heading" %}
@@ -31,6 +31,12 @@
           <span class="explanation-bulb" aria-hidden="true">{% include 'icons/bulb.html' %}</span>
           <div><h3>Explicație</h3><p lang="ro">{{ correction.explanation_ro }}</p></div>
         </div>
+        {% if learning_hints %}{% with hint=learning_hints|hint_for:correction.pattern %}{% if hint and hint.previous_count %}
+        <div class="learning-hint">
+          <p>Ai mai făcut această greșeală {{ hint.previous_count|times_phrase }}.{% if hint.is_top %} Pare să fie una dintre greșelile pe care le repeți cel mai des.{% endif %}</p>
+          <form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="pattern"><input type="hidden" name="pattern" value="{{ correction.pattern }}"><button class="button small" type="submit">Exersează acum</button></form>
+        </div>
+        {% endif %}{% endwith %}{% endif %}
       </div>
     {% endif %}
   {% endfor %}

@@ -4,7 +4,7 @@ from django.utils.html import format_html
 
 from .formatting import format_money
 from .identifiers import visitor_lookup
-from .models import AnonymousVisitor, AudioUsageEvent, UsageEvent
+from .models import AnonymousVisitor, AudioUsageEvent, LearningUsageEvent, UsageEvent
 
 
 class LedgerAdmin(admin.ModelAdmin):
@@ -44,6 +44,17 @@ class LedgerIdentityMixin:
         if obj.visitor_id:
             return obj.visitor.short_id
         return "deleted user" if obj.audience == UsageEvent.Audience.REGISTERED else "—"
+
+
+@admin.register(LearningUsageEvent)
+class LearningUsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
+    list_display = ["created_at", "identity", "feature", "status", "error_code", "model", "prompt_version",
+                    "input_tokens", "output_tokens", "total_tokens", "cost"]
+    list_filter = ["audience", "feature", "status", "model", "prompt_version", "created_at"]
+
+    @admin.display(description="Learning AI cost (£)", ordering="estimated_cost")
+    def cost(self, obj):
+        return format_money(obj.estimated_cost)
 
 
 @admin.register(UsageEvent)

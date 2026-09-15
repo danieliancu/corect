@@ -3,6 +3,7 @@ import re
 from django.conf import settings
 
 from apps.assistant.schemas import CorrectionResult
+from apps.learning.taxonomy import valid_pattern
 from .openai_client import AssistantError, guarded_parse
 from .prompts import CORRECTION_PROMPT
 
@@ -40,6 +41,9 @@ class CorrectionService:
             raise AssistantError("language", "Scrie în engleză pentru a primi corecturi.")
         if any(item.original not in text for item in result.corrections):
             raise AssistantError("invalid_snippet")
+        for item in result.corrections:
+            # A pattern from another category would put the mistake in the wrong learning group.
+            item.pattern = valid_pattern(item.category, item.pattern)
         genuine = [item for item in result.corrections if not same_words(item.original, item.replacement)]
         if len(genuine) < len(result.corrections) and not genuine:
             result.overall_explanation = ""

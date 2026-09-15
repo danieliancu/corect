@@ -54,6 +54,16 @@ professional actions that code cannot complete. None is done just because a conf
       contact address are handled.
 - [ ] Confirm the Privacy notice wording about OpenAI moderation matches the final provider terms.
 
+## Learning profile and learning AI
+
+- [ ] Run `python manage.py rebuild_learning_profiles` once after deploying, so existing learners see their patterns.
+- [ ] Confirm the learning AI price: `OPENAI_LEARNING_MODEL` must have a row in `OPENAI_PRICING`, otherwise learning
+      costs show "—" in the staff analytics. Review real cost per active learner after the first weeks.
+- [ ] Review a sample of live `pattern` keys from prompt `2026-09-v6` with a native speaker and tune the taxonomy.
+- [ ] Confirm the Privacy notice section "Profilul tău de învățare" (profile kept until account deletion, minimal
+      context sent to OpenAI) with the legal review below.
+- [ ] Before selling Pro, decide which learning features are Pro-only and set `PRO_ENTITLEMENTS_ENFORCED=true`.
+
 ## Professional review
 
 - [ ] Have the Terms and Privacy notice reviewed by a qualified UK legal professional before commercial launch

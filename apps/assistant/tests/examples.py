@@ -1,5 +1,6 @@
 """Contract fixtures, not evidence of live AI language quality."""
 from apps.assistant.schemas import CorrectionResult, TranslationResult
+from apps.learning.taxonomy import derive_pattern
 
 CORRECTION_CASES = [
     ("I didn't went to work yesterday.", "I didn't go to work yesterday.", "didn't went", "didn't go", "verb_form", "După did/didn't folosim forma de bază a verbului."),
@@ -21,7 +22,8 @@ def correction_result(case=CORRECTION_CASES[0]):
     text, corrected, original, replacement, category, explanation = case
     return CorrectionResult(detected_language="en", original_text=text, corrected_text=corrected,
         has_errors=bool(original), overall_explanation=explanation, native_text="", native_explanation="",
-        corrections=[dict(original=original, replacement=replacement, category=category, severity="minor",
+        corrections=[dict(original=original, replacement=replacement, category=category,
+                          pattern=derive_pattern(category, original, replacement), severity="minor",
                          explanation_ro=explanation, is_british_english_preference=False)] if original else [])
 
 

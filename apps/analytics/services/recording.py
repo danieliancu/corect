@@ -1,11 +1,11 @@
-"""Writes one usage ledger row per validated submission. Never stores submitted or generated text."""
+"""Writes usage ledger rows: one per validated submission, voice call or learning AI call. Never stores content."""
 import logging
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import DatabaseError
 
-from apps.analytics.models import AudioUsageEvent, UsageEvent
+from apps.analytics.models import AudioUsageEvent, LearningUsageEvent, UsageEvent
 from apps.assistant.services.pricing import estimate_cost, estimate_speech_cost, estimate_transcription_cost
 from apps.assistant.services.prompts import PROMPT_VERSION
 
@@ -18,16 +18,19 @@ def _total(values):
     return None if not values or None in values else sum(values)
 
 
+def _usage_totals(calls, status):
+    """Token totals and USD cost of the reported provider calls (zero when rejected before any call)."""
+    if status == UsageEvent.Status.REJECTED:
+        return dict.fromkeys(TOKEN_FIELDS, 0), Decimal(0)
+    tokens = {field: _total([getattr(call, field) for call in calls]) for field in TOKEN_FIELDS}
+    costs = [estimate_cost(call) for call in calls]
+    return tokens, None if not costs or None in costs else sum(costs, Decimal(0))
+
+
 def record_usage_event(*, request, kind, status, calls=(), error_code="", visitor=None, assistant_request=None,
                        auto_translated=False):
     user = request.user if request.user.is_authenticated else None
-    if status == UsageEvent.Status.REJECTED:
-        # Rejected before any provider call, so nothing was consumed.
-        tokens, cost = dict.fromkeys(TOKEN_FIELDS, 0), Decimal(0)
-    else:
-        tokens = {field: _total([getattr(call, field) for call in calls]) for field in TOKEN_FIELDS}
-        costs = [estimate_cost(call) for call in calls]
-        cost = None if not costs or None in costs else sum(costs, Decimal(0))
+    tokens, cost = _usage_totals(calls, status)
     try:
         return UsageEvent.objects.create(
             audience=UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS,
@@ -37,6 +40,22 @@ def record_usage_event(*, request, kind, status, calls=(), error_code="", visito
             estimated_cost=cost, assistant_request=assistant_request, **tokens)
     except DatabaseError:
         logger.error("usage_event_unavailable")
+        return None
+
+
+def record_learning_event(*, user, feature, status, calls=(), error_code="", prompt_version="", model="", visitor=None):
+    """One learning AI ledger row per call: identity, feature, model, prompt version, tokens and cost only."""
+    user = user if user is not None and user.is_authenticated else None
+    tokens, cost = _usage_totals(calls, status)
+    try:
+        return LearningUsageEvent.objects.create(
+            audience=UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS, user=user,
+            visitor=visitor, feature=feature, model=(model or settings.OPENAI_LEARNING_MODEL)[:100],
+            response_model=next((c.response_model for c in calls if c.response_model), ""),
+            prompt_version=prompt_version[:40], status=status, error_code=error_code[:40], provider_calls=len(calls),
+            estimated_cost=cost, **tokens)
+    except DatabaseError:
+        logger.error("learning_usage_event_unavailable")
         return None
 
 

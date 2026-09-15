@@ -1,0 +1,943 @@
+/* Learning area (dashboard, practice, progress, mistakes, history): a soft background, one white rounded application
+   shell with a compact sidebar, pastel statistic cards, lists with progress bars and a contextual right rail.
+   One column on phones and tablets; the header drawer replaces the sidebar there. */
+.learning-page {
+  --learn-bg: #f1f4fb;
+  --learn-ink: #14203f;
+  --learn-muted: #5e6e89;
+  --learn-line: #e6ebf5;
+  --learn-card: #ffffff;
+  --learn-yellow: #fdf2c4;
+  --learn-yellow-ink: #7a5a00;
+  --learn-mint: #dcf2e4;
+  --learn-mint-ink: #146b42;
+  --learn-blue: #e1ebff;
+  --learn-blue-ink: #0b54c7;
+  --learn-lilac: #ebe5ff;
+  --learn-lilac-ink: #5b3fc4;
+  --learn-radius: 20px;
+  background: var(--learn-bg);
+}
+.learning-page .site-header::before {
+  background: var(--learn-bg);
+  box-shadow: none;
+}
+.learning-page .site-footer {
+  border-top-color: #dfe5f1;
+}
+.learn-shell {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+  padding: 22px;
+  margin-top: 6px;
+  background: var(--learn-card);
+  border: 1px solid var(--learn-line);
+  border-radius: 28px;
+  box-shadow: 0 18px 50px #1b3a7a0f;
+}
+.learn-sidebar {
+  position: sticky;
+  top: calc(var(--header-height, 110px) + 16px);
+  display: grid;
+  gap: 4px;
+}
+.learn-sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--learn-muted);
+  font-size: 15px;
+  font-weight: 550;
+}
+.learn-sidebar a:hover {
+  background: #f3f6fc;
+  color: var(--learn-ink);
+  text-decoration: none;
+}
+.learn-sidebar a[aria-current="page"] {
+  background: var(--blue-dark);
+  color: #fff;
+}
+.learn-sidebar .learn-sidebar-editor {
+  margin-top: 14px;
+  border: 1px dashed #c9d6ec;
+}
+.learn-nav-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.learn-main {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.learn-main > .page-heading {
+  margin: 4px 0 0;
+}
+.learn-welcome h1 {
+  margin: 2px 0 4px;
+  font-size: 30px;
+  letter-spacing: -0.8px;
+}
+.learn-welcome p {
+  margin: 0;
+  color: var(--learn-muted);
+}
+.learn-eyebrow {
+  margin: 0 0 8px;
+  color: var(--blue-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.learn-muted {
+  color: var(--learn-muted);
+  font-size: 14px;
+}
+.learn-card {
+  padding: 22px;
+  background: var(--learn-card);
+  border: 1px solid var(--learn-line);
+  border-radius: var(--learn-radius);
+}
+.learn-card h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  letter-spacing: -0.4px;
+}
+.learn-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.learn-card-heading h2 {
+  margin: 0;
+}
+.learn-section-title {
+  margin: 4px 0 12px;
+  font-size: 20px;
+}
+
+/* "Pentru tine azi": the dark hero card. */
+.learn-hero {
+  padding: 30px 32px;
+  color: #fff;
+  background: #121a3a;
+  border-radius: 24px;
+}
+.learn-hero .learn-eyebrow {
+  color: #9ec3ff;
+}
+.learn-hero h2 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+}
+.learn-hero-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.learn-hero-topics li {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #ffffff1f;
+  font-size: 14px;
+  font-weight: 600;
+}
+.learn-hero-reason {
+  margin: 0 0 16px;
+  color: #d4def5;
+  font-size: 15px;
+}
+.button.learn-hero-button {
+  min-height: 46px;
+  padding: 10px 28px;
+  background: #fff;
+  color: var(--learn-ink);
+  font-size: 16px;
+}
+.button.learn-hero-button:hover {
+  background: #e7efff;
+}
+.learn-hero.has-activity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  align-items: center;
+  gap: 32px;
+}
+.learn-hero-activity {
+  padding: 18px 20px 16px;
+  border-radius: 18px;
+  background: #ffffff12;
+}
+.learn-hero-activity h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.learn-hero-activity .learn-muted {
+  margin: 0;
+  color: #b7c3e0;
+  font-size: 13px;
+}
+
+/* Pastel statistic cards. */
+.learn-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.learn-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 92px;
+  padding: 16px;
+  border-radius: 18px;
+}
+.learn-stat p {
+  margin: 0;
+}
+.learn-stat strong {
+  display: block;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: -0.6px;
+}
+.learn-stat p span {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 1.3;
+}
+.learn-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #ffffffb3;
+}
+.learn-stat-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.learn-stat.is-yellow {
+  background: var(--learn-yellow);
+  color: var(--learn-yellow-ink);
+}
+.learn-stat.is-mint {
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-stat.is-blue {
+  background: var(--learn-blue);
+  color: var(--learn-blue-ink);
+}
+.learn-stat.is-lilac {
+  background: var(--learn-lilac);
+  color: var(--learn-lilac-ink);
+}
+
+/* "Ce exersezi acum": rows with progress bars and a status. */
+.learn-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.learn-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid var(--learn-line);
+}
+.learn-row:first-child {
+  border-top: 0;
+}
+.learn-list.is-compact .learn-row {
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) auto;
+}
+.learn-row-main strong {
+  display: block;
+  font-size: 15px;
+}
+.learn-row-main span {
+  display: block;
+  color: var(--learn-muted);
+  font-size: 13px;
+}
+.learn-progress-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.learn-progress {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8ecf6;
+}
+.learn-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #7c6cf2;
+}
+.learn-progress.is-large {
+  height: 9px;
+}
+.learn-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--learn-blue);
+  color: var(--learn-blue-ink);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.learn-status.is-recurring {
+  background: #ffe7e0;
+  color: #a33a1a;
+}
+.learn-status.is-improving,
+.learn-status.is-mastered {
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-status.is-resurfaced {
+  background: var(--learn-yellow);
+  color: var(--learn-yellow-ink);
+}
+.learn-empty {
+  margin: 0;
+  color: var(--learn-muted);
+}
+
+
+/* Seven-day activity bars, inside the "Pentru tine azi" card. */
+.learn-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+  align-items: end;
+  height: 120px;
+  margin-bottom: 8px;
+}
+.learn-bar {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  gap: 5px;
+  text-align: center;
+}
+.learn-bar .learn-bar-fill {
+  align-self: end;
+  min-height: 4px;
+  border-radius: 8px;
+  background: #c6bdfa;
+}
+.learn-bar.is-today .learn-bar-fill {
+  background: repeating-linear-gradient(135deg, #7c6cf2 0 6px, #9d91f6 6px 12px);
+}
+.learn-bar small {
+  color: #b7c3e0;
+  font-size: 11px;
+}
+/* Practice session. */
+.learn-session-top h1 {
+  margin: 0 0 12px;
+  font-size: 26px;
+}
+.learn-exercise {
+  max-width: 760px;
+}
+.learn-exercise-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.learn-uk-pill {
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-instruction {
+  margin: 0 0 6px;
+  color: var(--learn-muted);
+  font-weight: 600;
+}
+.learn-exercise h2 {
+  margin-bottom: 16px;
+  font-size: 22px;
+  line-height: 1.35;
+}
+.learn-exercise fieldset {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+.learn-answer-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.learn-answer textarea {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #cdd9ea;
+  border-radius: 12px;
+  font-size: 18px;
+  resize: vertical;
+}
+.learn-note {
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--learn-yellow);
+  color: var(--learn-yellow-ink);
+}
+.learn-exercise .success-note,
+.learn-exercise .error-box,
+.learn-exercise .learn-note {
+  margin-bottom: 10px;
+}
+.learn-summary {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+.learn-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #f6f8fd;
+}
+.learn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* "Ce s-a schimbat": a soft panel of insight cards, each with a small chart drawn from the learner's data. */
+.learn-changes {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 34px 32px 32px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, #f6f8fe 0%, #eef2fb 100%);
+}
+.learn-changes::before,
+.learn-changes::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.learn-changes::before {
+  top: -240px;
+  right: -130px;
+  width: 440px;
+  height: 440px;
+  background: radial-gradient(circle, #e2e8f8 0%, #e2e8f800 70%);
+}
+.learn-changes::after {
+  bottom: -210px;
+  left: -100px;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, #ebe7fb 0%, #ebe7fb00 70%);
+}
+.learn-changes-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+.learn-changes-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: #fff;
+  color: #7c6cf2;
+  box-shadow: 0 10px 26px #1b3a7a14;
+}
+.learn-changes-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.learn-changes-heading h2 {
+  margin: 0 0 4px;
+  color: var(--learn-ink);
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.learn-changes-heading p {
+  margin: 0;
+  color: #5f6f8c;
+  font-size: 16px;
+}
+.learn-changes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.learn-change {
+  --change-ink: #e8612f;
+  --change-soft: #fff0e9;
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  overflow: hidden;
+  padding: 24px 26px 26px;
+  border: 1px solid #e8edf7;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 12px 32px #1b3a7a0d;
+}
+.learn-change > * {
+  position: relative;
+}
+.learn-change.is-wide {
+  grid-column: 1 / -1;
+}
+.learn-change.is-almost {
+  --change-ink: #5b4fd9;
+  --change-soft: #efecff;
+}
+.learn-change.is-improved {
+  --change-ink: #16804a;
+  --change-soft: #e3f5ea;
+}
+.learn-change.is-resurfaced {
+  --change-ink: #a86f00;
+  --change-soft: #fdf2d2;
+}
+.learn-change.is-almost::before {
+  content: "";
+  position: absolute;
+  right: 14%;
+  bottom: -250px;
+  width: 460px;
+  height: 320px;
+  border: 40px solid #f6f4ff;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.learn-change-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.learn-change-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 12px;
+  background: var(--change-soft);
+  color: var(--change-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.learn-change-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #ffffffa6;
+}
+.learn-change-badge-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.learn-change-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f2f4f9;
+  color: #44516b;
+}
+.learn-change-link svg {
+  width: 18px;
+  height: 18px;
+}
+.learn-change-link:hover {
+  background: #e6eaf3;
+  color: var(--learn-ink);
+  text-decoration: none;
+}
+.learn-change-link:focus-visible {
+  outline: 3px solid #075cc9;
+  outline-offset: 2px;
+}
+.learn-change-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 42%);
+  align-items: center;
+  gap: 18px;
+}
+.learn-change.is-wide .learn-change-body {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.learn-change-copy h3 {
+  margin: 0 0 8px;
+  color: var(--learn-ink);
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.7px;
+}
+.learn-change-copy p {
+  max-width: 36ch;
+  margin: 0;
+  color: #5f6f8c;
+  font-size: 16.5px;
+  line-height: 1.5;
+}
+.learn-trend {
+  display: block;
+  justify-self: end;
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  overflow: visible;
+  color: var(--change-ink);
+}
+.learn-change.is-wide .learn-trend {
+  width: 230px;
+}
+.learn-change-score {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.learn-ring {
+  position: relative;
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+}
+.learn-ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.learn-ring-track,
+.learn-ring-fill {
+  fill: none;
+  stroke-width: 10;
+}
+.learn-ring-track {
+  stroke: #eceef5;
+}
+.learn-ring-fill {
+  stroke: var(--change-ink);
+  stroke-linecap: round;
+}
+.learn-ring strong {
+  color: var(--learn-ink);
+  font-size: 26px;
+  letter-spacing: -0.5px;
+}
+.learn-change-dots {
+  display: grid;
+  gap: 10px;
+  color: #5f6f8c;
+  font-size: 15px;
+}
+.learn-dots {
+  display: flex;
+  gap: 10px;
+}
+.learn-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e6e9f2;
+}
+.learn-dot.is-on {
+  background: var(--change-ink);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .learn-change {
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .learn-change:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 40px #1b3a7a17;
+  }
+}
+/* Where a pair of cards gets narrow (sidebar beside it, or tablets), the chart moves under the text. */
+@media (max-width: 1200px) {
+  .learn-change:not(.is-wide) .learn-change-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .learn-change:not(.is-wide) .learn-trend {
+    justify-self: start;
+  }
+  .learn-change-copy h3 {
+    font-size: 24px;
+  }
+}
+@media (max-width: 767px) {
+  .learn-changes {
+    padding: 24px 16px 18px;
+    border-radius: 24px;
+  }
+  .learn-changes-heading {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .learn-changes-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+  }
+  .learn-changes-heading h2 {
+    font-size: 26px;
+  }
+  .learn-changes-heading p {
+    font-size: 15px;
+  }
+  .learn-changes-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .learn-change {
+    gap: 14px;
+    padding: 20px 18px;
+  }
+  .learn-change-copy h3 {
+    font-size: 22px;
+  }
+  .learn-change-copy p {
+    font-size: 15.5px;
+  }
+  .learn-change-body,
+  .learn-change.is-wide .learn-change-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .learn-trend,
+  .learn-change.is-wide .learn-trend {
+    justify-self: start;
+    width: 100%;
+    max-width: 260px;
+  }
+  .learn-change-score {
+    gap: 20px;
+  }
+  .learn-ring {
+    width: 104px;
+    height: 104px;
+  }
+  .learn-ring strong {
+    font-size: 22px;
+  }
+  .learn-dots {
+    gap: 8px;
+  }
+  .learn-dot {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* The correction result: "Ai mai făcut această greșeală…". */
+.learning-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #efeaff;
+  color: #3d2c8f;
+}
+.learning-hint p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 550;
+}
+.learning-hint form {
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  .learn-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .learn-row,
+  .learn-list.is-compact .learn-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .learn-row-progress {
+    grid-column: 1;
+  }
+  .learn-row .learn-status {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .learn-row form {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+@media (max-width: 1023px) {
+  .learn-shell {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .learn-sidebar {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .learn-main {
+    gap: 14px;
+  }
+  .learn-welcome h1 {
+    font-size: 25px;
+  }
+  .learn-hero {
+    padding: 22px;
+    border-radius: 20px;
+  }
+  .learn-hero h2 {
+    font-size: 22px;
+  }
+  .learn-hero.has-activity {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .learn-card {
+    padding: 16px;
+  }
+  .learn-stats {
+    gap: 10px;
+  }
+  .learn-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 0;
+    padding: 12px;
+  }
+  .learn-stat strong {
+    font-size: 22px;
+  }
+  .learn-stat-icon {
+    width: 34px;
+    height: 34px;
+  }
+  /* Two tight lines per pattern: name and status, then progress and the button. */
+  .learn-row,
+  .learn-list.is-compact .learn-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+    padding: 11px 0;
+  }
+  .learn-row-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .learn-row .learn-status {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+  }
+  .learn-row-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .learn-list.is-compact .learn-row-progress {
+    grid-column: 1 / -1;
+  }
+  .learn-row-progress .learn-progress-label {
+    flex-shrink: 0;
+    margin: 0;
+    white-space: nowrap;
+  }
+  .learn-row-progress .learn-progress {
+    flex: 1;
+    min-width: 40px;
+  }
+  .learn-row form {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+  .learn-row form .button {
+    min-height: 36px;
+    padding: 6px 14px;
+    font-size: 14px;
+  }
+  .learn-card-heading {
+    flex-wrap: wrap;
+  }
+  .learning-hint {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .learn-sidebar a {
+    transition:
+      background 0.15s,
+      color 0.15s;
+  }
+}

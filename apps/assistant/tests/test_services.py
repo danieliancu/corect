@@ -56,7 +56,7 @@ class ServiceTests(SimpleTestCase):
     def test_british_preference_is_not_an_error(self):
         result = CorrectionResult(detected_language="en", original_text="I like this color.", corrected_text="I like this colour.",
             has_errors=False, overall_explanation="Ambele variante sunt corecte.", corrections=[dict(original="color", replacement="colour",
-            category="british_english", severity="suggestion", explanation_ro="Colour este varianta britanică.", is_british_english_preference=True)],
+            category="british_english", pattern="american_spelling_preference", severity="suggestion", explanation_ro="Colour este varianta britanică.", is_british_english_preference=True)],
             native_text="", native_explanation="")
         self.response(result)
         self.assertEqual(CorrectionService().correct(result.original_text).corrected_text, result.original_text)
@@ -118,9 +118,9 @@ class ServiceTests(SimpleTestCase):
                 CorrectionService().correct(CORRECTION_CASES[0][0])
 
     def test_capitalisation_and_punctuation_are_fixed_silently(self):
-        spelling = dict(original="tomorow", replacement="tomorrow", category="spelling", severity="minor",
-                        explanation_ro="Se scrie cu doi r.", is_british_english_preference=False)
-        capital = dict(original="i", replacement="I", category="spelling", severity="minor",
+        spelling = dict(original="tomorow", replacement="tomorrow", category="spelling", pattern="spelling_other",
+                        severity="minor", explanation_ro="Se scrie cu doi r.", is_british_english_preference=False)
+        capital = dict(original="i", replacement="I", category="spelling", pattern="spelling_other", severity="minor",
                        explanation_ro="Am adăugat majuscula.", is_british_english_preference=False)
         for corrections, errors in (([capital], False), ([capital, spelling], True)):
             with self.subTest(errors=errors):

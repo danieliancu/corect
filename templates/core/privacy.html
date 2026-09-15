@@ -17,7 +17,9 @@
   <h3>Contul</h3>
   <p>Numele de utilizator, adresa de email (opțională și neverificată), parola (păstrată doar sub formă criptată, ca hash), data creării contului și data ultimei autentificări. Păstrăm și confirmarea Termenilor și a Politicii de confidențialitate: versiunile și data.</p>
   <h3>Corecturi, traduceri, greșeli și progres</h3>
-  <p>Dacă ai cont, pentru fiecare corectură sau traducere reușită păstrăm textul trimis, rezultatul (inclusiv explicațiile și versiunea nativă) și greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, un cod de eroare și data, fără text. Paginile Istoric, Greșelile mele și Progres sunt calculate din aceste date. Răspunsurile la exercițiile Practice nu sunt salvate. Fără cont, textul și rezultatele nu sunt salvate.</p>
+  <p>Dacă ai cont, pentru fiecare corectură sau traducere reușită păstrăm textul trimis, rezultatul (inclusiv explicațiile și versiunea nativă) și greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, un cod de eroare și data, fără text. Fără cont, textul și rezultatele nu sunt salvate.</p>
+  <h3>Profilul tău de învățare</h3>
+  <p>Dacă ai cont, din corecturile tale salvate construim un profil de învățare privat: tiparele de greșeli pe care le faci (de exemplu „since / for”), de câte ori și când au apărut, prioritatea lor, cât de bine le stăpânești și când trebuie recapitulate. Păstrăm exercițiile pregătite pentru tine, sesiunile de exersare, răspunsurile tale la exerciții și dacă au fost corecte. Calculele (recurență, prioritate, recapitulare, progres) sunt făcute de aplicație, nu de AI. Aceste informații sunt vizibile doar pentru tine și pentru operator, atunci când e necesar pentru suport sau securitate.</p>
   <h3>Voce</h3>
   <ul>
     <li><strong>Transcriere în timp real:</strong> serverul nostru obține de la OpenAI o cheie temporară (valabilă 30 de secunde pentru pornire), iar browserul tău trimite sunetul direct către OpenAI. Sunetul nu trece prin serverele Corect.uk, iar textul transcris apare doar în pagina ta. Păstrăm o evidență tehnică a sesiunii (model, stare, orele de început și sfârșit și, dacă e cazul, contul sau identificatorul de analytics), fără sunet, text sau adresă IP.</li>
@@ -39,7 +41,7 @@
   <div class="legal-table-wrap"><table>
     <thead><tr><th scope="col">Scop</th><th scope="col">Bază legală</th></tr></thead>
     <tbody>
-      <tr><td>Contul, corectarea, traducerea, istoricul, vocea, pronunția și funcțiile de învățare</td><td>Executarea contractului cu tine (Termenii) sau pașii pe care ni-i ceri</td></tr>
+      <tr><td>Contul, corectarea, traducerea, istoricul, vocea, pronunția și funcțiile de învățare (profilul de greșeli, exercițiile personalizate, recapitulările și progresul)</td><td>Executarea contractului cu tine (Termenii) sau pașii pe care ni-i ceri</td></tr>
       <tr><td>Securitate, prevenirea abuzului, limite de utilizare, protecția împotriva cererilor duplicate, jurnale necesare</td><td>Interes legitim: să protejăm serviciul și utilizatorii</td></tr>
       <tr><td>Statistici de utilizare fără text (evidența costurilor și a funcționării)</td><td>Interes legitim: să înțelegem costurile și să menținem serviciul</td></tr>
       <tr><td>Identificatorul anonim de analytics</td><td>Interes legitim: să înțelegem cum este folosit site-ul. Te poți opune oricând, oprindu-l din Setări cookie-uri</td></tr>
@@ -67,7 +69,9 @@
     <li>textul trimis pentru corectare sau traducere, care este verificat în același timp și de serviciul de moderare al OpenAI, ca să blocăm conținutul abuziv (păstrăm doar faptul că o cerere a fost refuzată și codul motivului, fără text);</li>
     <li>sunetul de la microfon, trimis direct din browser pentru transcrierea în timp real;</li>
     <li>înregistrarea trimisă pentru transcriere după înregistrare;</li>
-    <li>propoziția în engleză pentru care ceri pronunția.</li>
+    <li>propoziția în engleză pentru care ceri pronunția;</li>
+    <li>pentru exercițiile personalizate: doar contextul minim necesar (tiparul de greșeală, cel mult trei exemple recente scurte de greșeli și corecturi), niciodată tot istoricul tău; exercițiile rezultate sunt salvate și refolosite;</li>
+    <li>răspunsul tău la un exercițiu cu mai multe variante corecte, doar când nu poate fi verificat automat.</li>
   </ul>
   <p>Cheia noastră de acces la OpenAI rămâne pe server și nu ajunge în browser. Nu trimitem istoricul tău și nici numele contului. Cererile de corectare și traducere sunt trimise cu opțiunea <code>store=False</code>, prin care cerem ca răspunsurile să nu fie păstrate pentru a putea fi reluate ulterior. Asta nu înseamnă că OpenAI nu păstrează nimic: potrivit politicilor sale, OpenAI poate păstra datele primite prin API o perioadă limitată, de exemplu pentru prevenirea abuzurilor. Pentru transcriere și pronunție această opțiune nu se aplică.</p>
 
@@ -88,6 +92,7 @@
     <tbody>
       <tr><td>Contul și confirmările Termenilor</td><td>Până ștergi contul</td></tr>
       <tr><td>Istoricul corecturilor și traducerilor și greșelile găsite</td><td>Până ștergi contul</td></tr>
+      <tr><td>Profilul de învățare: tipare de greșeli, exerciții, sesiuni, răspunsuri</td><td>Până ștergi contul (exercițiile generate nefolosite sunt retrase după 90 de zile)</td></tr>
       <tr><td>Sesiunea de autentificare</td><td>{{ retention.login_session_days }} zile de la autentificare; sesiunile expirate sunt șterse la curățarea zilnică</td></tr>
       <tr><td>Contoarele pentru limitele de utilizare</td><td>Un minut sau o zi, apoi sunt șterse la curățarea zilnică</td></tr>
       <tr><td>Codurile împotriva cererilor duplicate</td><td>{{ retention.submission_claim_days }} zile</td></tr>

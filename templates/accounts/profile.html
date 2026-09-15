@@ -1,13 +1,13 @@
 {% extends 'base.html' %}{% block title %}Profilul tău — Corect.uk{% endblock %}{% block content %}
-<section class="auth-container">
+<section class="auth-container profile-page">
   <div class="page-heading"><p class="eyebrow">URMĂTORUL TĂU PAS</p><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p></div>
-  <form method="post" class="card account-form">{% csrf_token %}
+  <form method="post" class="card account-form profile-details">{% csrf_token %}
     <input type="hidden" name="action" value="profile">
     <h2>Datele contului</h2>
     {{ profile_form.as_p }}
     <button class="button" type="submit">Salvează modificările</button>
   </form>
-  <form method="post" class="card account-form">{% csrf_token %}
+  <form method="post" class="card account-form profile-password">{% csrf_token %}
     <input type="hidden" name="action" value="password">
     <h2>Schimbă parola</h2>
     {{ password_form.as_p }}

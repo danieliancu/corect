@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% load learning_labels %}{% block title %}Greșeli: {{ category|category_label }} — Corect.uk{% endblock %}{% block content %}
+{% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Greșeli: {{ category|category_label }} — Corect.uk{% endblock %}{% block learning_content %}
 <section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← Greșelile mele</a><h1>{{ category|category_label }}</h1><p>{{ page_obj.paginator.count|recorded_mistakes }} în această categorie</p></section>
 <div class="mistake-list">
   {% for item in page_obj %}
@@ -15,5 +15,5 @@
   {% endfor %}
 </div>
 {% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Paginile cu greșeli">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← Înapoi</a>{% endif %}<span>Pagina {{ page_obj.number }} din {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Înainte →</a>{% endif %}</nav>{% endif %}
-{% if has_practice %}<a class="button" href="{% url 'practice' %}?category={{ category }}">Exersează asta</a>{% endif %}
+<a class="button" href="{% url 'practice' %}">Exersează</a>
 {% endblock %}

@@ -1,0 +1,32 @@
+{% load learning_labels %}<section class="learn-changes" aria-labelledby="changes-title">
+  <header class="learn-changes-heading">
+    <span class="learn-changes-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span>
+    <div><h2 id="changes-title">Ce s-a schimbat</h2><p>O privire rapidă asupra progresului tău din ultima perioadă.</p></div>
+  </header>
+  <div class="learn-changes-grid">
+    {% for card in cards %}
+    <article class="learn-change is-{{ card.kind }}{% if card.wide %} is-wide{% endif %}" aria-labelledby="change-{{ forloop.counter }}">
+      <div class="learn-change-top">
+        <span class="learn-change-badge"><span class="learn-change-badge-icon" aria-hidden="true">{% if card.kind == 'almost' %}{% include 'icons/chart.html' %}{% elif card.kind == 'improved' %}{% include 'icons/trend.html' %}{% else %}{% include 'icons/refresh.html' %}{% endif %}</span>{{ card.title }}</span>
+        {% if card.detail_url %}<a class="learn-change-link" href="{{ card.detail_url }}" aria-label="Vezi greșelile din categoria {{ card.category|category_label }}">{% include 'icons/chevron-right.html' %}</a>{% endif %}
+      </div>
+      <div class="learn-change-body">
+        <div class="learn-change-copy"><h3 id="change-{{ forloop.counter }}">{{ card.label }}</h3><p>{{ card.text }}</p></div>
+        {% if card.kind == 'almost' %}
+        <div class="learn-change-score">
+          <span class="learn-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="learn-ring-track" cx="50" cy="50" r="42"/>{% if card.percent %}<circle class="learn-ring-fill" cx="50" cy="50" r="42" stroke-dasharray="{{ card.ring_length }} {{ card.ring_circumference }}"/>{% endif %}</svg><strong>{{ card.percent }}%</strong></span>
+          {% if card.dots %}<div class="learn-change-dots"><span class="learn-dots" aria-hidden="true">{% for correct in card.dots %}<span class="learn-dot{% if correct %} is-on{% endif %}"></span>{% endfor %}</span><span>{{ card.dots_correct }} din {{ card.dots|length }} corecte</span></div>{% endif %}
+        </div>
+        {% else %}
+        <svg class="learn-trend" viewBox="0 0 200 80" role="img" aria-label="Apariții pe săptămână în ultimele 8 săptămâni: {{ card.trend.counts|join:', ' }}">
+          <defs><linearGradient id="trend-fill-{{ forloop.counter }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0.22"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+          <path d="{{ card.trend.area }}" fill="url(#trend-fill-{{ forloop.counter }})"/>
+          <path d="{{ card.trend.line }}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="{{ card.trend.end_x }}" cy="{{ card.trend.end_y }}" r="5" fill="currentColor"/>
+        </svg>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>

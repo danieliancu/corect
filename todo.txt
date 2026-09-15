@@ -1,13 +1,13 @@
-| Milestone                                       |                                     Status actual |
-| ----------------------------------------------- | ------------------------------------------------: |
-| **M1 — Core AI: Correct + Translate + Native**  |                                        ✅ **DONE** |
-| **M2 — Accounts + History + Learning**          |                                        ✅ **DONE** |
-| **M3 — Analytics + Anonymous + Tokens + Costs** |                                        ✅ **DONE** |
-| **M4 — Voice input + British voice output**     | 🟢 **FEATURE COMPLETE / validare manuală finală** |
-| **M5 — Production deployment**                  |                  🎯 **URMĂTORUL MILESTONE MAJOR** |
-| **M6 — Private/Public Beta**                    |                                                 ⏳ |
-| **M7 — Monetisation + Free/Pro**                |    🟡 **model conceptual definit, neimplementat** |
-| **M8 — Optimisation din date reale**            |                                                 ⏳ |
+| Milestone                          |                                                     Stare reală acum |
+| ---------------------------------- | -------------------------------------------------------------------: |
+| M1 — Core AI                       |                                                               ✅ DONE |
+| M2 — Accounts + History + Learning |                                                               ✅ DONE |
+| M3 — Analytics + costuri           |                                                               ✅ DONE |
+| M4 — Voice + British TTS           |                   🟢 Feature complete, mai trebuie validarea manuală |
+| **M5 — Production**                |            🟡 Aproape, dar mai sunt câteva blocaje înainte de deploy |
+| M6 — Beta                          |                                                                    ⏳ |
+| **M7 — Free / Pro**                | 🟡 UI + pricing + structură Pro există; payments/enforcement încă nu |
+| M8 — Optimisation                  |                                                                    ⏳ |
 
 
 

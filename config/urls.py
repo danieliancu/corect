@@ -32,6 +32,9 @@ urlpatterns = [
     path("mistakes/<slug:category>/", learning.mistake_category, name="mistake_category"),
     path("progress/", learning.progress, name="progress"),
     path("practice/", learning.practice, name="practice"),
+    path("learn/", learning.dashboard, name="learn_dashboard"),
+    path("learn/practice/start/", learning.practice_start, name="learn_start"),
+    path("learn/practice/<uuid:pk>/", learning.practice_session, name="learn_session"),
     # Staff-only analytics; listed before the admin so /admin/analytics/ is the dashboard.
     path("admin/analytics/", include("apps.analytics.urls")),
     path("admin/", admin.site.urls),

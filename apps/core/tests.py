@@ -208,7 +208,7 @@ class ConsentTests(TestCase):
         self.assertNotIn('class="consent-bar"', self.html())
         with override_settings(TERMS_VERSION="2099-01-01"):
             self.assertIn('class="consent-bar"', self.html())
-            self.assertEqual(self.acknowledge().cookies[CONSENT_COOKIE].value, "2099-01-01|2026-09-14|0")
+            self.assertEqual(self.acknowledge().cookies[CONSENT_COOKIE].value, "2099-01-01|2026-09-14.2|0")
 
     def test_signed_in_users_are_recorded_against_their_account(self):
         user = User.objects.create_user("ana", password="test-password")
@@ -219,7 +219,7 @@ class ConsentTests(TestCase):
         self.acknowledge()
         acceptance = LegalAcceptance.objects.get(user=user)
         self.assertEqual((acceptance.terms_version, acceptance.privacy_version, acceptance.source),
-                         ("2026-09-14", "2026-09-14", "visit"))
+                         ("2026-09-14", "2026-09-14.2", "visit"))
         self.assertNotIn('class="consent-bar"', self.html())
         with override_settings(PRIVACY_VERSION="2099-01-01"):
             self.assertIn('class="consent-bar"', self.html())

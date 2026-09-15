@@ -1,6 +1,8 @@
-{% extends 'base.html' %}{% load learning_labels %}{% block title %}Exersează — Corect.uk{% endblock %}{% block content %}
-<section class="page-heading"><p class="eyebrow">PAȘI MICI CARE RĂMÂN</p><h1>Puțin exercițiu</h1><p>{% if personalised %}O întrebare pe baza greșelilor tale din categoria {{ category|category_label|lower }}.{% else %}O întrebare utilă. Un pas înainte.{% endif %}</p></section>
-<section class="card practice-card"><span class="pill">{{ category|category_label }}</span><h2 lang="en-GB">{{ question }}</h2>{% if error %}<p class="error-box" role="alert">{{ error }}</p>{% endif %}
-{% if checked %}<div class="{% if correct %}success-note{% else %}error-box{% endif %}" role="status">{% if correct %}Corect!{% else %}Nu chiar. Răspunsul corect este: <span lang="en-GB">{{ answer }}</span>{% endif %}</div><p class="explanation" lang="ro">{{ explanation }}</p><a class="button" href="?q={{ next }}">Întrebarea următoare →</a>
-{% else %}<form method="post">{% csrf_token %}<input type="hidden" name="position" value="{{ position }}"><fieldset><legend class="sr-only">Alege răspunsul corect</legend>{% for option in options %}<label class="practice-option"><input type="radio" name="answer" value="{{ forloop.counter0 }}" required><span lang="en-GB">{{ option }}</span></label>{% endfor %}</fieldset><button class="button" type="submit">Verifică răspunsul</button></form>{% endif %}</section>
-{% endblock %}
+{% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Exersează — Corect.uk{% endblock %}
+{% block learning_content %}
+<section class="page-heading"><h1>Exersează</h1><p>Exerciții alese din greșelile tale și programate să revină la momentul potrivit.</p></section>
+{% include 'learning/_today.html' %}
+<section class="learn-card" aria-labelledby="patterns-title">
+  <div class="learn-card-heading"><h2 id="patterns-title">Alege ce exersezi</h2></div>
+  {% include 'learning/_patterns.html' %}
+</section>{% endblock %}

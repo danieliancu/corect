@@ -17,6 +17,16 @@ def format_money(value):
     return f"£{value:.4f}" if abs(value) < Decimal("0.01") else f"£{value:,.2f}"
 
 
+def format_usd(value):
+    """A ledger amount in US dollars, as OpenAI bills it."""
+    if value is None:
+        return UNKNOWN
+    value = Decimal(value)
+    if value == 0:
+        return "$0.00"
+    return f"${value:.6f}" if abs(value) < Decimal("0.01") else f"${value:,.4f}"
+
+
 def format_number(value):
     return UNKNOWN if value is None else f"{value:,}"
 

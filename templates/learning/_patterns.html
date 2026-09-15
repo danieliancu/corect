@@ -1,0 +1,14 @@
+{% load learning_labels %}{% if patterns %}
+<ul class="learn-list{% if compact %} is-compact{% endif %}" role="list">
+  {% for pattern in patterns %}
+  <li class="learn-row">
+    <div class="learn-row-main"><strong>{{ pattern.pattern_key|pattern_name }}</strong><span>{{ pattern.category|category_label }} · {{ pattern.occurrence_count }} {% if pattern.occurrence_count == 1 %}apariție{% else %}apariții{% endif %}{% if pattern.next_review_at %} · recapitulare {{ pattern.next_review_at|date:'j M' }}{% endif %}</span></div>
+    <div class="learn-row-progress"><span class="learn-progress-label">{{ pattern.mastery }}% rezolvat</span><span class="learn-progress" aria-hidden="true"><span style="width: {{ pattern.mastery }}%"></span></span></div>
+    <span class="learn-status is-{{ pattern.status }}">{{ pattern.status|pattern_status_label }}</span>
+    {% if not compact %}<form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="pattern"><input type="hidden" name="pattern" value="{{ pattern.pattern_key }}"><button class="button secondary small" type="submit" aria-label="Exersează: {{ pattern.pattern_key|pattern_name }}">Exersează</button></form>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="learn-empty">Începe să scrii sau să vorbești în engleză. Pe măsură ce folosești Corect, vom identifica ce merită să exersezi.</p>
+{% endif %}

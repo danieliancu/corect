@@ -116,6 +116,13 @@ RATE_LIMIT_DAY = int(os.getenv("RATE_LIMIT_DAY", "100"))
 # Abuse guardrails. Text sent to Correct/Translate is checked with OpenAI's free moderation endpoint, in parallel with
 # the correction so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
 CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"
+# Learning engine (apps/learning/services). Python decides what to practise; AI only creates or evaluates content, which
+# is stored and reused. Every learning AI call is recorded in analytics.LearningUsageEvent.
+OPENAI_LEARNING_MODEL = os.getenv("OPENAI_LEARNING_MODEL", "").strip() or OPENAI_MODEL
+LEARNING_REUSE_THRESHOLD = int(os.getenv("LEARNING_REUSE_THRESHOLD", "7"))  # Unused stored exercises that avoid AI.
+LEARNING_BATCH_SIZE = int(os.getenv("LEARNING_BATCH_SIZE", "8"))  # Exercises per generation call.
+# Pro features stay open to every signed-in user until billing exists (apps/core/entitlements.py).
+PRO_ENTITLEMENTS_ENFORCED = os.getenv("PRO_ENTITLEMENTS_ENFORCED", "false").lower() == "true"
 OPENAI_MODERATION_MODEL = os.getenv("OPENAI_MODERATION_MODEL", "omni-moderation-latest")
 # Public contact address; the Contact page and footer link appear only when it is set.
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
@@ -139,7 +146,7 @@ LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
 # Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
 # privacy.html: everyone (including signed-in users) is then asked to accept the new version.
 TERMS_VERSION = "2026-09-14"
-PRIVACY_VERSION = "2026-09-14"
+PRIVACY_VERSION = "2026-09-14.2"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

@@ -60,6 +60,33 @@ def history_day_summary(day):
     return " · ".join(parts)
 
 
+STATUS_LABELS = {"new": "De exersat", "recurring": "Se repetă", "improving": "Se îmbunătățește",
+                 "mastered": "Rezolvat", "resurfaced": "A revenit"}
+
+
+@register.filter
+def pattern_status_label(value):
+    return STATUS_LABELS.get(str(value), str(value))
+
+
+@register.filter
+def pattern_name(key):
+    from apps.learning.taxonomy import pattern_label
+    return pattern_label(str(key))
+
+
+@register.filter
+def hint_for(hints, key):
+    return hints.get(key) if isinstance(hints, dict) else None
+
+
+@register.filter
+def times_phrase(count):
+    """"o dată", "de 4 ori", "de 20 de ori"."""
+    count = int(count)
+    return "o dată" if count == 1 else f"de {romanian_count(count, 'dată', 'ori')}"
+
+
 @register.filter
 def request_type_label(value):
     return REQUEST_TYPE_LABELS.get(str(value), str(value))

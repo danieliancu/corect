@@ -9,6 +9,7 @@ from apps.analytics.models import UsageEvent
 from apps.analytics.services.recording import record_usage_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
 from apps.core.views import home_context
+from apps.learning.services.profile import record_correction_occurrences
 from .forms import AssistantForm
 from .services.correction import CorrectionService
 from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
@@ -71,6 +72,12 @@ def submit(request, kind):
                     result = TranslationService().translate(text)
                 usage["assistant_request"] = save_result(request.user, kind, text, result)
                 context["result"] = result.model_dump()
+                if kind == "correction" and usage["assistant_request"] is not None:
+                    try:
+                        # The learner's profile: "you have made this mistake N times" and "Exersează acum".
+                        context["learning_hints"] = record_correction_occurrences(request.user, usage["assistant_request"])
+                    except DatabaseError:
+                        logger.error("learning_profile_unavailable")
             except AssistantError as exc:
                 retry_after = exc.retry_after
                 context["error"] = exc.message

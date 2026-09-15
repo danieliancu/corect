@@ -1,0 +1,42 @@
+{% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Exersează — Corect.uk{% endblock %}
+{% block learning_content %}
+{% if finished %}
+<section class="learn-card learn-session-done" aria-labelledby="done-title">
+  <p class="learn-eyebrow">{{ title }}</p>
+  <h1 id="done-title">Gata, ai terminat!</h1>
+  <p>Ai răspuns corect la {{ session.correct_count }} din {{ answered }} {% if answered == 1 %}exercițiu{% else %}exerciții{% endif %}.</p>
+  {% if by_pattern %}<ul class="learn-summary" role="list">{% for row in by_pattern %}<li><strong>{{ row.label }}</strong><span>{{ row.correct }} din {{ row.total }} corecte</span></li>{% endfor %}</ul>{% endif %}
+  <p class="learn-muted">Am programat următoarea recapitulare în funcție de rezultatele tale.</p>
+  <div class="learn-actions"><a class="button" href="{% url 'learn_dashboard' %}">Înapoi la panou</a><a class="button secondary" href="{% url 'progress' %}">Vezi progresul</a></div>
+</section>
+{% else %}
+<header class="learn-session-top">
+  <p class="learn-eyebrow">{{ title }}</p>
+  <h1>Exercițiul {{ number }} din {{ total }}</h1>
+  <div class="learn-progress is-large" role="progressbar" aria-label="Exerciții terminate" aria-valuemin="0" aria-valuemax="{{ total }}" aria-valuenow="{{ session.position }}"><span style="width: {{ percent }}%"></span></div>
+</header>
+<section class="learn-card learn-exercise" aria-labelledby="exercise-question">
+  <div class="learn-exercise-meta"><span class="pill">{{ pattern_label }}</span>{% if exercise.uk_context %}<span class="pill learn-uk-pill">UK · {{ exercise.uk_context }}</span>{% endif %}</div>
+  <p class="learn-instruction">{{ instruction }}</p>
+  <h2 id="exercise-question" lang="en-GB">{{ exercise.question }}</h2>
+  {% if error %}<p class="error-box" role="alert">{{ error }}</p>{% endif %}
+  {% if attempt %}
+  <div class="{% if attempt.is_correct %}success-note{% elif attempt.is_correct is None %}learn-note{% else %}error-box{% endif %}" role="status">
+    {% if attempt.is_correct %}Corect!{% elif attempt.is_correct is None %}Nu am putut verifica acum răspunsul tău. Compară-l cu varianta de mai jos.{% else %}Nu chiar.{% endif %}
+    {% if not attempt.is_correct %} Răspunsul corect: <span lang="en-GB">{{ exercise.correct_answer }}</span>{% endif %}
+  </div>
+  <p class="learn-muted">Răspunsul tău: <span lang="en-GB">{{ chosen|default:attempt.answer }}</span></p>
+  {% if attempt.feedback_ro %}<p class="explanation" lang="ro">{{ attempt.feedback_ro }}</p>{% endif %}
+  {% if better_answer and better_answer != attempt.answer %}<p class="learn-muted">O variantă naturală: <span lang="en-GB">{{ better_answer }}</span></p>{% endif %}
+  <p class="explanation" lang="ro">{{ exercise.explanation_ro }}</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="next"><button class="button" type="submit">{% if is_last %}Termină{% else %}Continuă →{% endif %}</button></form>
+  {% else %}
+  <form method="post" class="learn-answer">{% csrf_token %}<input type="hidden" name="action" value="answer">
+    {% if is_choice %}<fieldset><legend class="sr-only">Alege răspunsul</legend>{% for option in exercise.options %}<label class="practice-option"><input type="radio" name="answer" value="{{ forloop.counter0 }}" required><span lang="en-GB">{{ option }}</span></label>{% endfor %}</fieldset>
+    {% else %}<label class="learn-answer-label" for="answer">Răspunsul tău</label><textarea id="answer" name="answer" rows="{% if exercise.exercise_type == 'fill_blank' %}1{% else %}3{% endif %}" maxlength="400" required lang="en-GB" autocomplete="off" spellcheck="false"></textarea>{% endif %}
+    <button class="button" type="submit">Verifică</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

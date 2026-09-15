@@ -1,0 +1,17 @@
+{% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Panou — Corect.uk{% endblock %}
+{% block learning_content %}
+<header class="learn-welcome"><h1>Bun venit, {{ user.get_username }}</h1><p>{% if user_is_pro %}Pro{% else %}Free{% endif %} · {{ overview.patterns }} {% if overview.patterns == 1 %}tipar urmărit{% else %}tipare urmărite{% endif %}</p></header>
+{% include 'learning/_today.html' %}
+{% if overview.stage != 'empty' %}
+<section class="learn-stats" aria-label="Pe scurt, în ultimele 30 de zile">
+  <div class="learn-stat is-yellow"><span class="learn-stat-icon" aria-hidden="true">{% include 'icons/target.html' %}</span><p><strong>{{ overview.to_practise }}</strong><span>Zone de exersat</span></p></div>
+  <div class="learn-stat is-mint"><span class="learn-stat-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span><p><strong>{{ overview.improved }}</strong><span>Zone îmbunătățite</span></p></div>
+  <div class="learn-stat is-blue"><span class="learn-stat-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span><p>{% if overview.repeated_reduction is not None %}<strong>{{ overview.repeated_reduction }}%</strong><span>Mai puține greșeli repetate</span>{% elif overview.repeated_change is not None %}<strong>{% if overview.repeated_change > 0 %}+{% endif %}{{ overview.repeated_change }}%</strong><span>Greșeli repetate față de luna trecută</span>{% else %}<strong>—</strong><span>Tendința apare după câteva săptămâni</span>{% endif %}</p></div>
+  <div class="learn-stat is-lilac"><span class="learn-stat-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><p><strong>{{ overview.exercises_30 }}</strong><span>Exerciții în 30 de zile</span></p></div>
+</section>
+{% endif %}
+<section class="learn-card" aria-labelledby="now-title">
+  <div class="learn-card-heading"><h2 id="now-title">Ce exersezi acum</h2>{% if patterns %}<a class="button secondary small" href="{% url 'mistakes' %}">Vezi tot</a>{% endif %}</div>
+  {% include 'learning/_patterns.html' with compact=True %}
+</section>
+{% endblock %}

@@ -1535,18 +1535,6 @@ a.category-row:hover .category-arrow {
 .trend-data summary {
   padding: 8px 0;
 }
-.practice-card {
-  max-width: 700px;
-  margin: 0 auto 30px;
-}
-.practice-card h2 {
-  margin: 25px 0;
-}
-.practice-card fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0 0 24px;
-}
 .practice-option {
   display: flex;
   gap: 14px;
@@ -1565,9 +1553,6 @@ a.category-row:hover .category-arrow {
   accent-color: var(--blue);
   width: 19px;
   height: 19px;
-}
-.practice-card .explanation {
-  margin: 24px 0;
 }
 .auth-container {
   max-width: 510px;
@@ -1613,6 +1598,35 @@ a.category-row:hover .category-arrow {
 .account-form h2 {
   font-size: 21px;
   margin-bottom: 16px;
+}
+/* Profile on desktop: account details and deletion on the left, password on the right, across the page width.
+   The HTML order (details, password, deletion) is what phones and tablets show. */
+@media (min-width: 1024px) {
+  .auth-container.profile-page {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 20px 24px;
+    max-width: none;
+  }
+  .profile-page > .page-heading {
+    grid-column: 1 / -1;
+  }
+  .profile-page > .profile-details {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .profile-page > .profile-password {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+  }
+  .profile-page > .delete-account {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .profile-page > .account-form + .account-form {
+    margin-top: 0;
+  }
 }
 .form-footer {
   text-align: center;
@@ -2071,6 +2085,20 @@ a.category-row:hover .category-arrow {
     margin-top: 16px;
     padding: 14px 0 16px;
   }
+  /* Homepage on phones and tablets: only the footer links, on a single line. */
+  .home-page .footer-logo {
+    display: none;
+  }
+  .home-page .footer-links {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+  .home-page .footer-links a {
+    font-size: min(14px, 3.4vw);
+    white-space: nowrap;
+  }
   .detail-workspace .card {
     padding: 24px;
   }
@@ -2330,9 +2358,6 @@ a.category-row:hover .category-arrow {
   .pagination {
     font-size: 13px;
     gap: 15px;
-  }
-  .practice-card {
-    padding: 22px;
   }
 }
 /* On desktop, links to a place on the page (Beneficii, the editor) scroll there smoothly instead of jumping.

@@ -2,9 +2,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from apps.learning.taxonomy import PATTERN_KEYS
+
 Category = Literal["spelling", "verb_tense", "verb_form", "article", "preposition", "word_order",
     "subject_verb_agreement", "conditional", "collocation", "punctuation", "vocabulary",
     "british_english", "romanian_transfer", "other"]
+PatternKey = Literal[PATTERN_KEYS]  # Mistake patterns (apps/learning/taxonomy.py), chosen in the same response.
 Language = Literal["en", "ro", "other", "ambiguous"]
 
 
@@ -16,6 +19,7 @@ class Correction(StrictModel):
     original: str = Field(min_length=1)
     replacement: str
     category: Category
+    pattern: PatternKey
     severity: Literal["minor", "major", "suggestion"]
     explanation_ro: str = Field(min_length=1, max_length=1500)
     is_british_english_preference: bool

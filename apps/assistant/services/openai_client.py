@@ -35,18 +35,20 @@ class AssistantError(Exception):
         super().__init__(code)
 
 
-def parse_response(prompt: str, text: str, schema: type[Result]) -> ParsedResponse[Result]:
-    if not settings.OPENAI_API_KEY or not settings.OPENAI_MODEL:
+def parse_response(prompt: str, text: str, schema: type[Result], *, model: str = "",
+                   max_output_tokens: int = 6000) -> ParsedResponse[Result]:
+    model = model or settings.OPENAI_MODEL
+    if not settings.OPENAI_API_KEY or not model:
         raise AssistantError("not_configured", NOT_CONFIGURED)
     try:
         with OpenAI(api_key=settings.OPENAI_API_KEY, timeout=settings.OPENAI_TIMEOUT, max_retries=0) as client:
             response = client.responses.parse(
-                model=settings.OPENAI_MODEL,
+                model=model,
                 input=[{"role": "system", "content": prompt}, {"role": "user", "content": text}],
-                text_format=schema, store=False, max_output_tokens=6000,
+                text_format=schema, store=False, max_output_tokens=max_output_tokens,
             )
         # Billed tokens are reported before the checks below, which may still reject the response.
-        usage = usage_from_response(response, settings.OPENAI_MODEL)
+        usage = usage_from_response(response, model)
         report_usage(usage)
         if response.status != "completed":
             raise AssistantError("incomplete")
@@ -84,17 +86,20 @@ def moderate_text(text: str) -> None:
         raise AssistantError("content_blocked", SELF_HARM_BLOCKED if self_harm else CONTENT_BLOCKED)
 
 
-def guarded_parse(prompt: str, text: str, schema: type[Result]) -> ParsedResponse[Result]:
+def guarded_parse(prompt: str, text: str, schema: type[Result], *, checked_text: str | None = None,
+                  **options) -> ParsedResponse[Result]:
     """parse_response behind the abuse guardrails. Moderation runs alongside the model call, so it adds no waiting time;
-    the result is only returned once the text has passed moderation."""
-    if INSTRUCTION_PATTERN.search(text):
+    the result is only returned once the text has passed moderation. `checked_text` is the learner-written part when
+    `text` also carries other context."""
+    checked = text if checked_text is None else checked_text
+    if INSTRUCTION_PATTERN.search(checked):
         raise AssistantError("instruction_attempt", INSTRUCTION_ATTEMPT)
     if not settings.CONTENT_MODERATION_ENABLED:
-        return parse_response(prompt, text, schema)
+        return parse_response(prompt, text, schema, **options)
     with ThreadPoolExecutor(max_workers=1) as pool:
-        moderation = pool.submit(moderate_text, text)
+        moderation = pool.submit(moderate_text, checked)
         try:
-            parsed = parse_response(prompt, text, schema)
+            parsed = parse_response(prompt, text, schema, **options)
         except AssistantError:
             moderation.result()  # Abusive text is refused as such even when the model call failed as well.
             raise
