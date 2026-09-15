@@ -1,12 +1,15 @@
 {% load assistant_ui learning_labels %}
 <div class="correction-result">
+  {# With a natural version the correction becomes its own box that can be collapsed; the natural version is the second box. #}
+  <div class="correction-block{% if result.native_text %} result-box{% endif %}">
   <div class="result-heading corrected-heading">
     {% speech_button result.corrected_text "correction" "heading" %}
-    <h2>Corectură</h2>
-    <span class="improvement-badge"><span aria-hidden="true">{% include 'icons/chart.html' %}</span>Text corectat</span>
+    <h2 id="corrected-title">Engleza ta, corectată</h2>
+    {% if result.native_text %}<button type="button" class="collapse-toggle" data-collapse-toggle aria-controls="corrected-body" aria-expanded="true" aria-label="Arată sau ascunde corectura" hidden>{% include 'icons/chevron-right.html' %}</button>{% endif %}
   </div>
+  <div id="corrected-body" class="result-box-body">
   <p class="result-text corrected-sentence" lang="en-GB">{{ result.corrected_text }}</p>
-  <p class="correction-caption" lang="ro">Textul tău a fost corectat!</p>
+  <p class="correction-caption" lang="ro">Am reparat greșelile de mai jos.</p>
 
   {% for correction in result.corrections %}
     {% if correction.is_british_english_preference %}
@@ -48,4 +51,6 @@
     <span class="comparison-arrow" aria-hidden="true">↓</span>
     <p class="sentence-after" lang="en-GB"><span class="sr-only" lang="ro">După: </span>{% for part in comparison.corrected %}{% if part.changed %}<mark>{{ part.text }}</mark>{% else %}{{ part.text }}{% endif %}{% endfor %}</p>
   </section>
+  </div>
+  </div>
   {% include 'assistant/native_version.html' %}</div>

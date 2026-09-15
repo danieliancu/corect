@@ -1,7 +1,13 @@
 {% load assistant_ui %}{% if result.native_text %}
-<section class="native-version" aria-label="Cum ar spune un vorbitor nativ">
-  <div class="native-version-heading"><h3>Versiunea nativă</h3><span>Engleză britanică</span></div>
-  <div class="spoken-sentence"><p class="native-sentence" lang="en-GB">{{ result.native_text }}</p>{% speech_button result.native_text "native" %}</div>
-  {% if result.native_explanation %}<p class="native-explanation" lang="ro">{{ result.native_explanation }}</p>{% endif %}
-</section>
+<div class="native-version result-box">
+  <div class="result-heading corrected-heading">
+    {% speech_button result.native_text "native" "heading" %}
+    <h2 id="natural-title">Sună mai natural:</h2>
+    <button type="button" class="collapse-toggle" data-collapse-toggle aria-controls="natural-body" aria-expanded="true" aria-label="Arată sau ascunde varianta naturală" hidden>{% include 'icons/chevron-right.html' %}</button>
+  </div>
+  <div id="natural-body" class="result-box-body">
+    <p class="native-sentence" lang="en-GB">{{ result.native_text }}</p>
+    {% if result.native_explanation %}<p class="native-explanation" lang="ro">{{ result.native_explanation }}</p>{% endif %}
+  </div>
+</div>
 {% endif %}

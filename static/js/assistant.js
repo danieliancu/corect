@@ -5,9 +5,24 @@
   const text = document.getElementById("text");
   const status = document.getElementById("request-status");
   const result = document.getElementById("result");
-  // Corectare and Traducere never change their look while a request runs; `busy` alone blocks repeat submissions.
+  // "Vreau să sune natural!" never changes its look while a request runs; `busy` alone blocks repeat submissions.
   let busy = false;
+  // The × at the top right of the text box clears everything. Shown only while there is text and the box can be
+  // edited (not during live transcription); out of the tab order, since the keyboard already has Delete.
+  const clear = form.querySelector("[data-clear-text]");
+  const showClear = () => {
+    if (clear) clear.hidden = !text.value || text.readOnly;
+  };
+  clear?.addEventListener("click", () => {
+    if (text.readOnly) return;
+    text.value = "";
+    text.dispatchEvent(new Event("input", { bubbles: true }));
+    text.focus();
+  });
+  // The microphone changes the box to read-only and back; check once its state change has been applied.
+  form.addEventListener("voice-state", () => requestAnimationFrame(showClear));
   const count = () => {
+    showClear();
     const length = Array.from(text.value).length;
     form.querySelectorAll("[data-count]").forEach((el) => (el.textContent = String(length)));
     // An empty box shows an invitation to speak or type instead of "0/2000".
@@ -15,7 +30,7 @@
   };
   text.addEventListener("input", count);
   count();
-  // Links to the editor ("Poți începe și fără cont", "Începe o corectare", "Mergi la editor") scroll to the very top,
+  // Links to the editor ("Poți începe și fără cont", "Scrie primul text", "Mergi la editor") scroll to the very top,
   // where the title and the editor are, and put the cursor in the text box.
   document.addEventListener("click", (event) => {
     if (!event.target.closest('a[href="#text"]')) return;
@@ -33,36 +48,28 @@
   // Reserve scroll room below a short mobile result, without stretching its card.
   const resultObserver = new ResizeObserver(measureResult);
   resultObserver.observe(result);
-  function showLoading(active) {
-    const correcting = active.classList.contains("correct-button");
-    result.classList.toggle("is-correction-active", correcting);
+  function showLoading() {
+    result.classList.add("is-result-active");
     const loading = document.createElement("div");
     loading.className = "result-loading";
     const heading = document.createElement("h2");
-    heading.textContent = correcting ? "Corectură" : "Traducere";
+    heading.textContent = "Engleză britanică";
     const spinner = document.createElement("span");
     spinner.className = "result-spinner";
     spinner.setAttribute("aria-hidden", "true");
     const message = document.createElement("p");
-    message.textContent = correcting
-      ? "Verificăm textul tău…"
-      : "Traducem textul tău…";
+    message.textContent = "Conversie în text natural…";
     message.lang = "ro";
     loading.append(heading, spinner, message);
     result.replaceChildren(loading);
-    if (correcting) {
-      measureResult();
-      result.focus({ preventScroll: true });
-      requestAnimationFrame(() =>
-        result.scrollIntoView({
-          behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-            .matches
-            ? "instant"
-            : "smooth",
-          block: "start",
-        }),
-      );
-    }
+    measureResult();
+    result.focus({ preventScroll: true });
+    requestAnimationFrame(() =>
+      result.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        block: "start",
+      }),
+    );
   }
   function showConnectionError(message) {
     const alert = document.createElement("p");
@@ -83,12 +90,11 @@
       return;
     }
     busy = true;
-    const active = event.detail.elt;
-    status.textContent = active.dataset.loading || "Se lucrează…";
+    status.textContent = event.detail.elt.dataset.loading || "Se lucrează…";
     result.setAttribute("aria-busy", "true");
     const actions = document.getElementById("result-actions");
     if (actions) actions.hidden = true;
-    showLoading(active);
+    showLoading();
   });
   document.body.addEventListener("htmx:beforeSwap", (event) => {
     if (event.detail.target !== result) return;
@@ -114,7 +120,7 @@
       }
     }),
   );
-  // Native form fallback also prevents rapid repeat submissions without losing formaction.
+  // Native form fallback also prevents rapid repeat submissions.
   form.addEventListener("submit", (event) => {
     if (window.htmx) return;
     if (busy) {

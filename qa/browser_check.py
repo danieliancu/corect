@@ -1,5 +1,6 @@
 """Opt-in Chromium checks. Run separately with the documented test settings."""
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -16,7 +17,10 @@ from django.test import override_settings
 from playwright.sync_api import sync_playwright, expect
 
 from apps.analytics.models import AudioUsageEvent
-from apps.assistant.tests.examples import correction_result, translation_result
+from apps.assistant.models import RealtimeTranscriptionSession
+from apps.assistant.schemas import TranslationResult
+from apps.assistant.services.naturalize import Naturalized
+from apps.assistant.tests.examples import CORRECTION_CASES, correction_result
 from apps.assistant.services.openai_client import AssistantError
 from apps.assistant.services.voice import AudioUsage
 from apps.accounts.models import LegalAcceptance
@@ -26,18 +30,44 @@ from apps.learning.models import ExerciseAttempt
 from apps.learning.services.profile import record_correction_occurrences, refresh_patterns
 from apps.learning.tests.helpers import batch, make_correction, make_exercise, patch_ai
 
-# Browser stand-ins for the microphone and the WebRTC connection to OpenAI: tests play the provider's transcript events.
+ACTION = "Vreau să sune natural!"
+ROMANIAN = "Nu cred că ajung la muncă înainte de nouă."
+BRITISH = "I don't think I'll get to work before nine."
+UNNATURAL = "I want to ask you if you can help me with a thing."
+
+# Browser stand-ins for the microphone, the permission state and the WebRTC connection to OpenAI: tests play the
+# provider's transcript events and read the moments the page muted the microphone and committed the audio.
 REALTIME_MOCKS = """(() => {
-  const rt = (window.__rt = { gum: 0, tracksStopped: 0, sent: [], channel: null, pc: null, pcClosed: false });
+  const rt = (window.__rt = { gum: 0, tracksStopped: 0, sent: [], channel: null, pc: null, pcClosed: false,
+                              permission: "prompt", gumDelay: 0, gumError: null, sessionRequests: [] });
   if (!navigator.mediaDevices) Object.defineProperty(navigator, "mediaDevices", { value: {} });
   navigator.mediaDevices.getUserMedia = async () => {
     rt.gum += 1;
-    const track = { kind: "audio", enabled: true, stop() { rt.tracksStopped += 1; } };
+    if (rt.gumDelay) await new Promise((resolve) => setTimeout(resolve, rt.gumDelay));
+    rt.gumAt = performance.now();
+    if (rt.gumError) throw new DOMException("mock", rt.gumError);
+    const track = { kind: "audio", live: true, stop() { rt.tracksStopped += 1; },
+      get enabled() { return this.live; },
+      set enabled(value) { if (!value && this.live) rt.mutedAt = performance.now(); this.live = value; } };
     return { getTracks: () => [track], getAudioTracks: () => [track] };
+  };
+  const permissions = navigator.permissions;
+  Object.defineProperty(navigator, "permissions", { configurable: true, value: {
+    query: async (descriptor) => descriptor && descriptor.name === "microphone"
+      ? { state: rt.permission } : permissions.query(descriptor) } });
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input.url;
+    if (url.includes("realtime-transcription/session")) rt.sessionRequests.push(performance.now());
+    return nativeFetch(input, init);
   };
   class FakeChannel extends EventTarget {
     constructor() { super(); this.readyState = "connecting"; }
-    send(data) { rt.sent.push(JSON.parse(data)); }
+    send(data) {
+      const event = JSON.parse(data);
+      if (event.type === "input_audio_buffer.commit") rt.commitAt = performance.now();
+      rt.sent.push(event);
+    }
     close() { this.readyState = "closed"; }
   }
   class FakePeerConnection extends EventTarget {
@@ -121,8 +151,8 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page = self.context.new_page()
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
-        self.correction = patch("apps.assistant.views.CorrectionService.correct", side_effect=self.mock_correct).start()
-        self.translation = patch("apps.assistant.views.TranslationService.translate", return_value=translation_result()).start()
+        self.naturalize = patch("apps.assistant.views.NaturalizeService.naturalize",
+                                side_effect=self.mock_naturalize).start()
 
     def tearDown(self):
         self.context.close()
@@ -132,36 +162,59 @@ class BrowserChecks(StaticLiveServerTestCase):
         super().tearDown()
 
     @staticmethod
-    def mock_correct(text):
+    def mock_naturalize(text):
+        """English with errors by default; Romanian, natural and correct-but-unnatural English by their first words."""
         time.sleep(.25)  # Make loading-state assertions deterministic.
         if text == "Simulate failure":
             raise AssistantError("timeout", "A durat prea mult. Încearcă din nou.")
+        if text.startswith("Nu cred"):
+            return Naturalized("translation", "ro", TranslationResult(source_language="ro", target_language="en",
+                                                                      original_text=text, translated_text=BRITISH))
+        if text.startswith(("I want to ask", "I've lived")):
+            result = correction_result(CORRECTION_CASES[4])
+            result.original_text = result.corrected_text = text
+            if text.startswith("I want to ask"):
+                result.native_text, result.native_explanation = "Could you help me with something?", "Sună mai direct."
+            return Naturalized("correction", "en", result)
         result = correction_result()
         if text.startswith("Native example"):
             result.native_text = "I didn't make it to work yesterday."
         if text.startswith("Long example"):
             result.corrected_text = "I've been learning English for five years. " * 25
             result.corrections[0].explanation_ro = "După did/didn't folosim forma de bază a verbului. " * 10
-        return result
+        return Naturalized("correction", "en", result)
+
+    def submit(self, page=None):
+        (page or self.page).get_by_role("button", name=ACTION, exact=True).click()
+
+    def assert_no_overflow(self, page, width):
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+        clipped = page.evaluate("[...document.querySelectorAll('.button')].filter(b => b.offsetParent && "
+                                "b.scrollWidth > b.clientWidth + 1).map(b => b.textContent.trim())")
+        self.assertEqual(clipped, [])
 
     def test_responsive_workflow(self):
         measurements = []
-        for width in (375, 390, 430, 768, 1024, 1440):
+        for width in (360, 375, 390, 430, 768, 1024, 1440):
             with self.subTest(width=width):
                 self.page.set_viewport_size({"width": width, "height": 900})
                 self.page.goto(self.live_server_url)
-                expect(self.page.locator(".empty-result")).to_contain_text("Scrie ceva, apoi alege")
+                expect(self.page.locator(".empty-result")).to_contain_text("greșelile reparate și explicate")
+                expect(self.page.locator("#assistant-form button[type=submit]")).to_have_count(1)
+                self.assert_no_overflow(self.page, width)
                 self.page.screenshot(path=str(self.artifacts / f"home-{width}.png"), full_page=True)
                 self.page.locator("#text").fill(correction_result().original_text)
-                self.assertEqual(self.correction.call_count, len(measurements))
-                self.page.get_by_role("button", name="Corectare", exact=True).click()
-                # While the correction loads, both buttons keep their label and look.
+                self.assertEqual(self.naturalize.call_count, len(measurements))
+                self.submit()
+                # While the request loads, the button keeps its label and look.
                 expect(self.page.locator(".result-loading")).to_be_visible()
-                expect(self.page.get_by_role("button", name="Corectăm…", exact=True)).to_have_count(0)
-                expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_enabled()
-                expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
+                expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_enabled()
                 expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
-                expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
+                expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_enabled()
+                heading = self.page.locator(".corrected-heading h2")
+                expect(heading).to_have_text("Engleza ta, corectată")
+                self.assertLess(heading.bounding_box()["height"], 40)  # One line, with no badge beside it.
+                expect(self.page.locator(".improvement-badge")).to_have_count(0)
                 self.page.evaluate("window.scrollTo({top: 0, behavior: 'instant'})")
                 self.page.screenshot(path=str(self.artifacts / f"correction-{width}.png"), full_page=True)
                 layout = self.page.evaluate("""() => ({width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
@@ -176,6 +229,33 @@ class BrowserChecks(StaticLiveServerTestCase):
         (self.artifacts / "layout-checks.json").write_text(json.dumps(measurements, indent=2), encoding="utf-8")
         self.assertEqual(self.errors, [])
 
+    def test_one_action_for_english_and_romanian_and_every_result_state(self):
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.goto(self.live_server_url)
+        body = self.page.evaluate("document.body.innerText")
+        for stale in ("Corectare", "Traducere", "Corectură", "alege"):
+            self.assertNotIn(stale, body)
+        text, result = self.page.locator("#text"), self.page.locator("#result")
+        cases = [
+            (correction_result().original_text, "Engleza ta, corectată", "Ascultă varianta corectă în engleză britanică"),
+            (UNNATURAL, "Sună mai natural:", "Ascultă varianta naturală în engleză britanică"),
+            (CORRECTION_CASES[4][0], "✓ Sună deja natural.", "Ascultă varianta corectă în engleză britanică"),
+            (ROMANIAN, "În engleză britanică", "Ascultă în engleză britanică"),
+        ]
+        for value, heading, speaker in cases:
+            with self.subTest(heading=heading):
+                text.fill(value)
+                self.submit()
+                expect(result.get_by_role("heading", level=2).first).to_have_text(heading)
+                expect(result.get_by_role("button", name=speaker)).to_have_count(1)
+                self.assert_no_overflow(self.page, 390)
+                self.page.screenshot(path=str(self.artifacts / f"result-{heading[:12].strip('✓ :').lower()}-390.png"),
+                                     full_page=True)
+        expect(result).to_contain_text(BRITISH)
+        expect(result.locator(".correction-comparison")).to_have_count(0)
+        self.assertEqual([call.args[0] for call in self.naturalize.call_args_list], [case[0] for case in cases])
+        self.assertEqual(self.errors, [])
+
     def test_about_page_from_the_mobile_header_and_menu(self):
         # Phones and tablets: a touch screen, where the "?" shows. One context per size, as a real device.
         for width, height in ((390, 844), (360, 740), (768, 1024)):
@@ -188,20 +268,17 @@ class BrowserChecks(StaticLiveServerTestCase):
                     self.check_about_page_on_touch_screen(page, width)
                 finally:
                     phone.close()
-        # Desktop never shows the "?": not on a wide screen, and not in a narrow window with a mouse, where the
-        # hamburger menu keeps "Despre" and the user icon moves back to the right.
+        # Every width below the desktop menu shows the "?" (also a narrow window with a mouse); desktop never does.
         for width in (1440, 900):
             with self.subTest(width=width, device="desktop"):
                 self.page.set_viewport_size({"width": width, "height": 900})
                 self.page.goto(self.live_server_url + "/despre/")
-                expect(self.page.locator(".help-link")).to_be_hidden()
                 expect(self.page.get_by_role("heading", name="Cum funcționează")).to_be_visible()
                 if width < 1024:
+                    expect(self.page.locator(".help-link")).to_be_visible()
                     expect(self.page.locator(".nav-menu")).to_be_visible()
-                    header = self.page.evaluate("""() => ({user: document.querySelector('.user-link:not(.help-link)').getBoundingClientRect().toJSON(),
-                        menu: document.querySelector('.nav-menu summary').getBoundingClientRect().toJSON()})""")
-                    self.assertLess(header["menu"]["left"] - header["user"]["right"], 30)  # Beside the menu.
                 else:
+                    expect(self.page.locator(".help-link")).to_be_hidden()
                     expect(self.page.locator(".nav-menu")).to_be_hidden()
                 self.page.screenshot(path=str(self.artifacts / f"about-desktop-{width}.png"))
         self.assertEqual(self.errors, [])
@@ -229,7 +306,10 @@ class BrowserChecks(StaticLiveServerTestCase):
         page.screenshot(path=str(self.artifacts / f"about-{width}.png"), full_page=True)
         page.goto(self.live_server_url + "/termeni/")
         page.locator(".nav-menu summary").click()
-        page.get_by_role("navigation", name="Toate paginile").get_by_role("link", name="Despre", exact=True).click()
+        menu = page.get_by_role("navigation", name="Toate paginile")
+        links = menu.get_by_role("link").all_inner_texts()
+        self.assertEqual([link.strip() for link in links[:5]], ["Acasă", "Panou", "Progres", "Greșeli", "Istoric"])
+        menu.get_by_role("link", name="Despre", exact=True).click()
         expect(page).to_have_url(self.live_server_url + "/despre/")
 
     def test_desktop_landing_sections_and_footer(self):
@@ -240,15 +320,17 @@ class BrowserChecks(StaticLiveServerTestCase):
                 self.page.goto(self.live_server_url)
                 expect(self.page.locator("#hero-title")).to_have_text("Vorbește natural engleză")
                 expect(self.page.locator("#text")).to_be_visible()
-                expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_visible()
-                expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_visible()
+                expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_visible()
+                desktop_links = self.page.get_by_role("navigation", name="Navigare principală").get_by_role("link")
+                self.assertEqual([link.strip() for link in desktop_links.all_inner_texts()[:4]],
+                                 ["Panou", "Progres", "Greșeli", "Istoric"])
                 expect(marketing).to_be_visible()
                 cards = self.page.locator(".feature-card")
                 expect(cards).to_have_count(12)
                 for index in range(12):
                     expect(cards.nth(index)).to_be_visible()
                 expect(self.page.locator(".feature-card.is-pro .pro-ribbon")).to_have_count(5)
-                for title in ("Versiune nativă", "Scrii sau dictezi", "Pronunție britanică", "Explicații în română"):
+                for title in ("Sună natural", "Scrii sau dictezi", "Pronunție britanică", "Explicații în română"):
                     expect(self.page.get_by_role("heading", name=title, exact=True)).to_be_visible()
                 # Promotion: the normal price struck through, the promotional monthly price prominent, Fair Use linked.
                 pro = self.page.locator(".plan-pro")
@@ -296,13 +378,13 @@ class BrowserChecks(StaticLiveServerTestCase):
                 self.page.set_viewport_size({"width": width, "height": height})
                 self.page.goto(self.live_server_url)
                 expect(self.page.locator("#text")).to_be_visible()
-                # The editor and its buttons still fit on the first screen.
+                # The editor and its button still fit on the first screen.
                 self.assertLessEqual(self.page.locator(".action-buttons").bounding_box()["y"]
                                      + self.page.locator(".action-buttons").bounding_box()["height"], height)
                 expect(marketing).to_be_hidden()
                 for selector in (".feature-card", ".step-card", ".plan-card", ".plan-strip", ".landing-cta"):
                     expect(self.page.locator(selector).first).to_be_hidden()
-                # Nothing written yet: the editor, the Corectură card and the footer fit on one screen, no scrolling.
+                # Nothing written yet: the editor, the result card and the footer fit on one screen, no scrolling.
                 self.page.wait_for_function(f"document.documentElement.scrollHeight <= {height}")
                 box = footer.bounding_box()
                 self.assertLessEqual(box["y"] + box["height"], height)
@@ -313,7 +395,7 @@ class BrowserChecks(StaticLiveServerTestCase):
                 rows = footer.evaluate("f => [...f.querySelectorAll('.footer-links a')].map(a => Math.round(a.getBoundingClientRect().top))")
                 self.assertGreaterEqual(len(rows), 3)
                 self.assertLessEqual(max(rows) - min(rows), 2)
-                self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), width)
+                self.assert_no_overflow(self.page, width)
                 self.page.screenshot(path=str(self.artifacts / f"landing-{width}x{height}.png"), full_page=True)
         self.assertEqual(self.errors, [])
 
@@ -329,7 +411,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.locator("#id_password").press("Enter")
         expect(self.page.locator("#text")).to_be_visible()
         self.page.evaluate("window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'instant'})")
-        self.page.locator(".landing-cta").get_by_role("link", name="Începe o corectare").click()
+        self.page.locator(".landing-cta").get_by_role("link", name="Scrie primul text").click()
         expect(self.page.locator("#text")).to_be_focused()
         self.page.wait_for_function("window.scrollY === 0")
         expect(self.page.locator("#hero-title")).to_be_in_viewport()
@@ -340,16 +422,16 @@ class BrowserChecks(StaticLiveServerTestCase):
         expect(self.page.get_by_role("heading", name="Ești în planul potrivit.")).to_be_visible()
         expect(self.page.get_by_role("heading", name="Alege planul potrivit")).to_have_count(0)
         expect(self.page.locator(".plan-card")).to_have_count(0)
-        expect(self.page.locator(".pro-benefits li")).to_have_count(10)
+        expect(self.page.locator(".pro-benefits li")).to_have_count(9)
         self.page.locator("#plans").screenshot(path=str(self.artifacts / "landing-pro-plans-1440.png"))
         self.assertEqual(self.errors, [])
 
-    def test_correct_scrolls_to_loading_and_keeps_result_in_view(self):
+    def test_submitting_scrolls_to_loading_and_keeps_result_in_view(self):
         self.page.emulate_media(reduced_motion="reduce")
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.goto(self.live_server_url)
         self.page.locator("#text").fill(correction_result().original_text)
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
+        self.submit()
         expect(self.page.locator("#result")).to_be_focused()
         # The result scrolls up to just below the sticky header, which stays in view.
         below_header = "document.querySelector('.site-header').getBoundingClientRect().bottom + 18"
@@ -363,19 +445,19 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.screenshot(path=str(self.artifacts / "correction-scrolled-390.png"))
         self.assertEqual(self.errors, [])
 
-    def test_translation_error_recovery_menu_and_long_content(self):
+    def test_romanian_error_recovery_menu_and_long_content(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.goto(self.live_server_url)
-        self.page.locator("#text").fill(translation_result().original_text)
-        self.page.get_by_role("button", name="Traducere", exact=True).click()
-        expect(self.page.locator(".result-text")).to_have_text(translation_result().translated_text)
+        self.page.locator("#text").fill(ROMANIAN)
+        self.submit()
+        expect(self.page.locator(".result-text")).to_have_text(BRITISH)
         self.page.locator("#text").fill("Simulate failure")
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
+        self.submit()
         expect(self.page.get_by_role("alert")).to_have_text("A durat prea mult. Încearcă din nou.")
         expect(self.page.locator("#text")).to_have_value("Simulate failure")
-        expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
+        expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_enabled()
         self.page.locator("#text").fill("Long example")
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
+        self.submit()
         expect(self.page.locator(".result-text")).to_contain_text("I've been learning English")
         self.assertEqual(self.page.evaluate("document.documentElement.scrollWidth"), 390)
         self.page.screenshot(path=str(self.artifacts / "long-result-390.png"), full_page=True)
@@ -396,11 +478,51 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.get_by_role("button", name="Creează cont", exact=True).click()
         expect(self.page.locator("#text")).to_be_visible()
         self.page.locator("#text").fill(correction_result().original_text)
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
+        self.submit()
         expect(self.page.locator(".result-text")).to_be_visible()
+        self.page.locator("#text").fill(ROMANIAN)
+        self.submit()
+        expect(self.page.locator(".result-text")).to_have_text(BRITISH)
         self.page.goto(self.live_server_url + "/history/")
-        self.page.locator(".history-entry").click()
-        expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
+        expect(self.page.locator(".history-day-count").first).to_contain_text("1 text în engleză")
+        expect(self.page.locator(".history-day-count").first).to_contain_text("1 text din română")
+        self.page.locator(".history-entry").filter(has_text="Română → engleză").click()
+        expect(self.page.get_by_role("heading", level=1)).to_have_text("Română → engleză")
+        expect(self.page.locator(".result-text")).to_have_text(BRITISH)
+        self.page.goto(self.live_server_url + "/history/")
+        self.page.locator(".history-entry").filter(has_not_text="Română").first.click()
+        expect(self.page.locator(".result-text").first).to_have_text(correction_result().corrected_text)
+        self.page.goto(self.live_server_url + "/mistakes/")
+        # Greșeli: the status sits beside the pattern name, the details stay on one line, and the arrow on the
+        # right is the only way into the exercises (no long button).
+        listing = self.page.locator(".learn-list.is-listing")
+        expect(listing.locator(".learn-row-title .learn-status")).to_have_count(1)
+        expect(listing.locator(".button")).to_have_count(0)
+        expect(self.page.get_by_role("button", name="Exersează", exact=True)).to_have_count(0)
+        for width in (1440, 390, 360):
+            self.page.set_viewport_size({"width": width, "height": 844})
+            row = self.page.evaluate("""() => { const r = s => document.querySelector(s).getBoundingClientRect().toJSON();
+                const meta = document.querySelector('.learn-row-meta');
+                return {title: r('.learn-row-title strong'), status: r('.learn-row-title .learn-status'), meta: r('.learn-row-meta'),
+                        lineHeight: parseFloat(getComputedStyle(meta).lineHeight) || 20, arrow: r('.learn-row-arrow'),
+                        progress: r('.learn-row-progress'), clipped: meta.scrollWidth > meta.clientWidth + 1,
+                        row: r('.learn-row'), scrollWidth: document.documentElement.scrollWidth}; }""")
+            self.assertLess(abs(row["title"]["top"] + row["title"]["height"] / 2 - row["status"]["top"] - row["status"]["height"] / 2), 8)
+            self.assertLess(row["meta"]["height"], row["lineHeight"] * 1.5)
+            self.assertFalse(row["clipped"])  # "Categorie · N apariții · recapitulare 15 Sep" fits on its one line.
+            self.assertLess(row["title"]["height"], row["lineHeight"] * 2.6)  # The name is not squeezed into a narrow column.
+            self.assertGreaterEqual(row["arrow"]["left"], row["progress"]["right"])
+            self.assertGreater(row["arrow"]["right"], row["row"]["right"] - 50)  # On the right edge of the card.
+            self.assertGreaterEqual(row["arrow"]["width"], 44)
+            self.assertLessEqual(row["scrollWidth"], width)
+            self.page.screenshot(path=str(self.artifacts / f"mistakes-listing-{width}.png"), full_page=True)
+        self.page.set_viewport_size({"width": 1440, "height": 1000})
+        arrow_form = listing.locator(".learn-row-go").first  # Starts the exercises (covered without AI in the learning tests).
+        expect(arrow_form).to_have_attribute("action", "/learn/practice/start/")
+        expect(arrow_form.locator("input[name=kind]")).to_have_value("pattern")
+        self.page.locator(".category-row").first.click()
+        expect(self.page.locator(".mistake-item")).to_have_count(1)
+        expect(self.page.get_by_role("link", name="Exersează", exact=True)).to_have_count(0)
         for path in ("mistakes", "progress", "practice", "confidentialitate", "termeni", "accounts/profile"):
             self.page.goto(f"{self.live_server_url}/{path}/")
             self.assertEqual(self.page.locator("h1").count(), 1)
@@ -432,10 +554,11 @@ class BrowserChecks(StaticLiveServerTestCase):
             page = no_js.new_page()
             page.goto(self.live_server_url)
             page.locator("#text").fill(correction_result().original_text)
-            page.get_by_role("button", name="Corectare", exact=True).click()
+            self.submit(page)
             expect(page.locator(".result-text")).to_have_text(correction_result().corrected_text)
-            page.get_by_role("button", name="Traducere", exact=True).click()
-            expect(page.locator(".result-text")).to_have_text(translation_result().translated_text)
+            page.locator("#text").fill(ROMANIAN)
+            self.submit(page)
+            expect(page.locator(".result-text")).to_have_text(BRITISH)
         finally:
             no_js.close()
 
@@ -476,10 +599,11 @@ class BrowserChecks(StaticLiveServerTestCase):
                 expect(self.page.locator(".learn-hero").get_by_role("button")).to_have_count(0)
                 expect(self.page.locator(".learn-welcome .learn-plan-pill")).to_have_text("Free")
                 expect(self.page.locator(".learn-welcome")).to_contain_text("1 tip urmărit")
+                expect(self.page.locator(".learn-sidebar-editor")).to_contain_text("Adaugă un text nou")
                 expect(self.page.locator(".learn-rail")).to_have_count(0)
                 expect(self.page.get_by_role("heading", name="Următoarele")).to_have_count(0)
                 activity = self.page.locator(".learn-hero .learn-hero-activity")
-                expect(activity.get_by_role("heading", name="Progresul tău")).to_be_visible()
+                expect(activity.get_by_role("heading", name="Progres", exact=True)).to_be_visible()
                 layout = self.page.evaluate("""() => {
                     const r = s => document.querySelector(s).getBoundingClientRect().toJSON();
                     return {sidebar: r('.learn-sidebar'), main: r('.learn-main'), shell: r('.learn-shell'),
@@ -554,7 +678,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         for _ in range(2):
             self.page.goto(self.live_server_url)
             self.page.locator("#text").fill(correction_result().original_text)
-            self.page.get_by_role("button", name="Corectare", exact=True).click()
+            self.submit()
             expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
         hint = self.page.locator(".learning-hint")
         expect(hint).to_contain_text("Ai mai făcut această greșeală o dată.")
@@ -670,15 +794,15 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.page.get_by_role("button", name="Oprește înregistrarea").click()
         expect(self.page.locator("#text")).to_have_value(f"Hello {transcript}")
         expect(self.page.locator(".mobile-count [data-count]")).to_have_text(str(len(f"Hello {transcript}")))
-        expect(self.page.locator("#voice-status")).to_contain_text("Am adăugat înregistrarea")
+        expect(self.page.locator("#voice-status")).to_contain_text(f"Am adăugat înregistrarea. Verific-o, apoi apasă „{ACTION}”.")
         self.assertGreaterEqual(self.page.evaluate("window.__tracksStopped"), 1)
         transcribe.assert_called_once()
 
         self.page.locator("#text").fill(correction_result().original_text)
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
-        correction_speaker = self.page.get_by_role("button", name="Ascultă corectura în engleză britanică")
+        self.submit()
+        correction_speaker = self.page.get_by_role("button", name="Ascultă varianta corectă în engleză britanică")
         expect(correction_speaker).to_have_count(1)
-        expect(self.page.get_by_role("button", name="Ascultă versiunea nativă în engleză britanică")).to_have_count(0)
+        expect(self.page.get_by_role("button", name="Ascultă varianta naturală în engleză britanică")).to_have_count(0)
         correction_speaker.click()
         expect(correction_speaker).to_have_attribute("aria-pressed", "true")
         correction_speaker.click()
@@ -689,18 +813,89 @@ class BrowserChecks(StaticLiveServerTestCase):
 
         self.page.set_viewport_size({"width": 1440, "height": 900})
         self.page.locator("#text").fill("Native example: I didn't went to work yesterday.")
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
-        native_speaker = self.page.get_by_role("button", name="Ascultă versiunea nativă în engleză britanică")
+        self.submit()
+        native_speaker = self.page.get_by_role("button", name="Ascultă varianta naturală în engleză britanică")
         expect(native_speaker).to_have_count(1)
         native_speaker.click()
         expect(native_speaker).to_have_attribute("aria-pressed", "true")
-        new_correction_speaker = self.page.get_by_role("button", name="Ascultă corectura în engleză britanică")
+        new_correction_speaker = self.page.get_by_role("button", name="Ascultă varianta corectă în engleză britanică")
         new_correction_speaker.click()
         expect(new_correction_speaker).to_have_attribute("aria-pressed", "true")
         expect(native_speaker).to_have_attribute("aria-pressed", "false")
-        self.assertEqual(speak.call_count, 3)  # A new correction carries a new token, so it is fetched once.
+        self.assertEqual(speak.call_count, 3)  # A new result carries a new token, so it is fetched once.
+
+        self.page.locator("#text").fill(ROMANIAN)
+        self.submit()
+        british_speaker = self.page.get_by_role("button", name="Ascultă în engleză britanică")
+        british_speaker.click()
+        expect(british_speaker).to_have_attribute("aria-pressed", "true")
+        self.assertEqual(speak.call_args.args[0], BRITISH)  # The useful English is spoken, never the Romanian.
         self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 1440)
         self.page.screenshot(path=str(self.artifacts / "voice-controls-1440.png"), full_page=True)
+        self.assertEqual(self.errors, [])
+
+    def test_correction_and_natural_version_are_separate_collapsible_boxes(self):
+        for width in (390, 360, 1440):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": 900})
+                self.page.goto(self.live_server_url)
+                self.page.locator("#text").fill("Native example: I didn't went to work yesterday.")
+                self.submit()
+                boxes = self.page.locator("#result .result-box")
+                expect(boxes).to_have_count(2)
+                corrected, natural = boxes.nth(0), boxes.nth(1)
+                expect(corrected.get_by_role("heading", level=2)).to_have_text("Engleza ta, corectată")
+                expect(natural.get_by_role("heading", level=2)).to_have_text("Sună mai natural:")
+                expect(natural).not_to_contain_text("Engleză britanică")  # No pill.
+                for box, speaker in ((corrected, "Ascultă varianta corectă în engleză britanică"),
+                                     (natural, "Ascultă varianta naturală în engleză britanică")):
+                    heading = box.locator(".result-heading")
+                    title = heading.get_by_role("heading", level=2).bounding_box()
+                    button = heading.get_by_role("button", name=speaker).bounding_box()
+                    toggle = heading.locator("[data-collapse-toggle]").bounding_box()
+                    self.assertLess(button["x"] + button["width"], title["x"] + 1)  # Speaker left of the title.
+                    self.assertGreaterEqual(toggle["x"], title["x"] + title["width"])  # Arrow on the right.
+                    self.assertLess(title["height"], 32)  # The title stays on one line.
+                    self.assertLessEqual(toggle["x"] + toggle["width"], box.bounding_box()["x"] + box.bounding_box()["width"])
+                first = corrected.bounding_box()
+                self.assertGreater(natural.bounding_box()["y"], first["y"] + first["height"])  # Separate boxes.
+                self.assert_no_overflow(self.page, width)
+                self.page.screenshot(path=str(self.artifacts / f"natural-boxes-{width}.png"), full_page=True)
+                toggle = corrected.locator("[data-collapse-toggle]")
+                expect(toggle).to_have_attribute("aria-expanded", "true")
+                toggle.click()
+                expect(toggle).to_have_attribute("aria-expanded", "false")
+                expect(corrected.locator(".corrected-sentence")).to_be_hidden()
+                expect(natural.locator(".native-sentence")).to_be_visible()
+                self.page.screenshot(path=str(self.artifacts / f"natural-boxes-collapsed-{width}.png"), full_page=True)
+                toggle.click()
+                expect(corrected.locator(".corrected-sentence")).to_be_visible()
+        self.assertEqual(self.errors, [])
+
+    def test_clear_button_empties_the_text_box(self):
+        clear = self.page.locator("[data-clear-text]")
+        for width, height in ((390, 844), (360, 640), (1440, 900)):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": height})
+                self.page.goto(self.live_server_url)
+                text = self.page.locator("#text")
+                expect(clear).to_be_hidden()  # Nothing to clear.
+                text.fill("I goed home yesterday because I was very tired after the work.")
+                expect(self.page.get_by_role("button", name="Șterge tot textul")).to_be_visible()
+                box, button = text.bounding_box(), clear.bounding_box()
+                self.assertGreater(button["x"], box["x"] + box["width"] / 2)  # Top right, inside the box.
+                self.assertLessEqual(button["x"] + button["width"], box["x"] + box["width"])
+                self.assertLess(button["y"] - box["y"], 20)
+                self.assertGreaterEqual(button["width"], 40)
+                self.assertEqual(clear.get_attribute("tabindex"), "-1")  # The keyboard already has Delete.
+                # Text keeps clear of the button.
+                self.assertGreaterEqual(text.evaluate("t => parseFloat(getComputedStyle(t).paddingRight)"), button["width"])
+                self.page.screenshot(path=str(self.artifacts / f"clear-button-{width}.png"))
+                clear.click()
+                expect(text).to_have_value("")
+                expect(text).to_be_focused()
+                expect(clear).to_be_hidden()
+                expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Scrie în acest ecran sau vorbește aici")
         self.assertEqual(self.errors, [])
 
     # ----- Example sentences in the empty text box -----
@@ -766,19 +961,19 @@ class BrowserChecks(StaticLiveServerTestCase):
         example = self.page.locator(".example-prompt")
         expect(example).to_be_visible()
         self.page.wait_for_function("document.querySelector('.example-prompt').textContent.length > 10")
-        for path, name in (("/assistant/correct/", "Corectare"), ("/assistant/translate/", "Traducere")):
-            with self.subTest(button=name):
-                with self.page.expect_request(lambda request, path=path: request.method == "POST" and request.url.endswith(path)) as sent:
-                    self.page.get_by_role("button", name=name, exact=True).click()
-                body = sent.value.post_data or ""
-                self.assertEqual(parse_qs(body, keep_blank_values=True).get("text"), [""])
-                for sentence in TYPED:
-                    self.assertNotIn(sentence[:12], unquote_plus(body))
-                expect(self.page.locator(".error-box")).to_contain_text("scrie ceva în casetă sau apasă microfonul")
+        with self.page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/naturalize/")) as sent:
+            self.submit()
+        body = sent.value.post_data or ""
+        self.assertEqual(parse_qs(body, keep_blank_values=True).get("text"), [""])
+        for sentence in TYPED:
+            self.assertNotIn(sentence[:12], unquote_plus(body))
+        expect(self.page.locator(".error-box")).to_contain_text("scrie ceva în casetă sau apasă microfonul")
         self.page.locator("#text").fill("I goed home.")
-        with self.page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/assistant/correct/")) as sent:
-            self.page.get_by_role("button", name="Corectare", exact=True).click()
-        self.assertEqual(parse_qs(sent.value.post_data, keep_blank_values=True)["text"], ["I goed home."])
+        with self.page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/naturalize/")) as sent:
+            self.submit()
+        fields = parse_qs(sent.value.post_data, keep_blank_values=True)
+        self.assertEqual(fields["text"], ["I goed home."])
+        self.assertEqual(set(fields), {"csrfmiddlewaretoken", "submission_token", "leave_empty", "text"})  # No operation.
         expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
         self.assertEqual(self.errors, [])
 
@@ -849,13 +1044,13 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 1440)
         page.screenshot(path=str(self.artifacts / "consent-bar-1440.png"))
 
-        def correct():
+        def send():
             page.locator("#text").fill(correction_result().original_text)
-            page.get_by_role("button", name="Corectare", exact=True).click()
+            self.submit(page)
             expect(page.locator(".result-text")).to_have_text(correction_result().corrected_text)
 
-        # Nothing is blocked: Correct works while the notice shows, and anonymous analytics is on by default.
-        correct()
+        # Nothing is blocked: the action works while the notice shows, and anonymous analytics is on by default.
+        send()
         self.assertIn(VISITOR_COOKIE, self.cookie_values(context))
         bar.get_by_role("button", name="Am înțeles").click()
         expect(page.locator("[data-consent-bar]")).to_have_count(0)
@@ -878,10 +1073,10 @@ class BrowserChecks(StaticLiveServerTestCase):
         cookies = self.cookie_values(context)
         self.assertNotIn(VISITOR_COOKIE, cookies)
         self.assertEqual(cookies[CONSENT_COOKIE], consent_cookie_value(False))
-        correct()
+        send()
         self.assertNotIn(VISITOR_COOKIE, self.cookie_values(context))
         save_cookie_settings(True)
-        correct()
+        send()
         self.assertIn(VISITOR_COOKIE, self.cookie_values(context))
         self.assertEqual(self.errors, [])
 
@@ -896,7 +1091,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertLessEqual(box["y"] + box["height"], 844)
         self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
         expect(page.locator(".desktop-marketing")).to_be_hidden()
-        expect(page.get_by_role("button", name="Corectare", exact=True)).to_be_visible()
+        expect(page.get_by_role("button", name=ACTION, exact=True)).to_be_visible()
         page.screenshot(path=str(self.artifacts / "consent-bar-390.png"))
         bar.get_by_role("link", name="Termenii").click()
         page.wait_for_url("**/termeni/")
@@ -992,7 +1187,9 @@ class BrowserChecks(StaticLiveServerTestCase):
         overlay = self.page.locator("#voice-overlay")  # Until the connection listens, a waiting screen covers the page.
         expect(overlay).to_be_visible()
         expect(overlay).to_contain_text("Pornim microfonul…")
-        self.page.wait_for_function("window.__rt.channel !== null")
+        self.page.wait_for_function("window.__rt.channel !== null && window.__rt.channel.readyState === 'connecting' && window.__rt.pc !== null")
+        self.page.wait_for_function("window.__rt.sessionRequests.length === 1")
+        self.page.wait_for_timeout(100)
         self.page.evaluate("window.__rt.open()")
         stop = self.page.get_by_role("button", name="Oprește transcrierea live")
         expect(stop).to_have_attribute("aria-pressed", "true")
@@ -1002,8 +1199,8 @@ class BrowserChecks(StaticLiveServerTestCase):
         expect(self.page.locator("#voice-status")).to_contain_text("Ascult… Vorbește normal. Textul apare pe măsură ce vorbești.")
         self.assertEqual(self.offers, ["Bearer ek_browser_test"])  # The browser only ever holds the short-lived secret.
         expect(text).not_to_be_editable()
-        expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_disabled()
-        expect(self.page.get_by_role("button", name="Traducere", exact=True)).to_be_disabled()
+        expect(self.page.locator("[data-clear-text]")).to_be_hidden()  # Nothing can be cleared while words arrive.
+        expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_disabled()
         seen = []
         for delta in (" we", " should", " meet"):
             self.emit(type=DELTA, item_id="item_1", delta=delta)
@@ -1025,10 +1222,10 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.emit(type="input_audio_buffer.committed", item_id="item_1", previous_item_id=None)
         self.emit(type=DELTA, item_id="item_2", delta=" Late")  # Speech after the stop is not added.
         self.emit(type=COMPLETED, item_id="item_1", transcript="we should meet", usage={"type": "duration", "seconds": 1})
-        expect(self.page.locator("#voice-status")).to_contain_text("Gata. Poți modifica textul, apoi alege Corectare sau Traducere.")
+        expect(self.page.locator("#voice-status")).to_contain_text(f"Gata. Poți modifica textul, apoi apasă „{ACTION}”.")
         expect(text).to_have_value("I think we should meet tomorrow.")
         expect(text).to_be_editable()
-        expect(self.page.get_by_role("button", name="Corectare", exact=True)).to_be_enabled()
+        expect(self.page.get_by_role("button", name=ACTION, exact=True)).to_be_enabled()
         expect(self.page.get_by_role("button", name="Înregistrează-ți vocea")).to_have_attribute("aria-pressed", "false")
         self.assertGreaterEqual(self.page.evaluate("window.__rt.tracksStopped"), 1)
         self.assertTrue(self.page.evaluate("window.__rt.pcClosed"))
@@ -1039,8 +1236,112 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.file_transcribe.assert_not_called()  # One transcription service per recording: never both.
 
         text.fill(correction_result().original_text)
-        self.page.get_by_role("button", name="Corectare", exact=True).click()
+        self.submit()
         expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
+        self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100, VOICE_TRAILING_AUDIO_MS=300, VOICE_FINAL_TRANSCRIPT_MS=1000)
+    def test_stop_keeps_the_microphone_open_briefly_then_ends_on_the_final_transcript(self):
+        self.start_live_mocks()
+        finishes = []
+        self.page.on("request", lambda request: finishes.append(request.post_data or "")
+                     if request.url.endswith("/realtime-transcription/finish/") else None)
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.goto(self.live_server_url)
+        text = self.page.locator("#text")
+        mic = self.page.get_by_role("button", name="Înregistrează-ți vocea")
+        stop = self.page.get_by_role("button", name="Oprește transcrierea live")
+        mic.click()
+        expect(stop).to_be_visible()
+        self.emit(type=DELTA, item_id="item_1", delta=" Nu cred că ajung la muncă înainte de nouă.")
+        self.page.evaluate("window.__rt.stopAt = performance.now()")
+        stop.click()
+        self.wait_for_commit()
+        moments = self.page.evaluate("({stop: window.__rt.stopAt, muted: window.__rt.mutedAt, commit: window.__rt.commitAt})")
+        self.assertGreaterEqual(moments["muted"] - moments["stop"], 250)  # The microphone stayed on for the trailing window.
+        self.assertGreaterEqual(moments["commit"], moments["muted"])  # Muted first, then committed.
+        self.emit(type=COMPLETED, item_id="item_1", transcript="Nu cred că ajung la muncă înainte de nouă.",
+                  usage={"type": "duration", "seconds": 3})
+        expect(mic).to_have_attribute("aria-pressed", "false")
+        timings = self.page.evaluate("window.CorectVoice.lastTimings")
+        for name in ("mic_ms", "session_ms", "connect_ms", "startup_ms", "first_word_ms", "finalise_ms"):
+            self.assertIsNotNone(timings[name], name)
+            self.assertEqual(timings[name], int(timings[name]), name)
+        self.assertTrue(timings["final_received"])
+        self.assertLess(timings["finalise_ms"], 1300)  # Ended by the final transcript, not by the safety timeout.
+        event = self.ledger_row(stt_mode="realtime")
+        self.assertEqual((event.final_received, event.finalise_ms), (True, timings["finalise_ms"]))
+        self.assertIsNotNone(event.startup_ms)
+        self.assertTrue(any('name="finalise_ms"' in body for body in finishes))
+        self.assertFalse(any("Nu cred" in body for body in finishes))  # Timings only: never the transcript.
+
+        mic.click()  # No final transcript this time: the short safety timeout ends the wait and the text stays.
+        expect(stop).to_be_visible()
+        self.emit(type=DELTA, item_id="item_2", delta=" Mersi mult!")
+        stop.click()
+        self.wait_for_commit(count=2)
+        committed = time.time()
+        expect(mic).to_have_attribute("aria-pressed", "false", timeout=4000)
+        self.assertGreaterEqual(time.time() - committed, 0.8)
+        self.assertFalse(self.page.evaluate("window.CorectVoice.lastTimings.final_received"))
+        expect(text).to_have_value("Nu cred că ajung la muncă înainte de nouă. Mersi mult!")
+        self.assertFalse(self.ledger_row(stt_mode="realtime", final_received=False).final_received)
+
+        self.submit()  # Spoken Romanian is sent like typed Romanian.
+        expect(self.page.locator("#result").get_by_role("heading", level=2)).to_have_text("În engleză britanică")
+        self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100, VOICE_TRAILING_AUDIO_MS=0, VOICE_FINAL_TRANSCRIPT_MS=500)
+    def test_microphone_permission_decides_whether_the_session_request_overlaps(self):
+        self.start_live_mocks()
+        mic_label, stop_label = "Înregistrează-ți vocea", "Oprește transcrierea live"
+        status = self.page.locator("#voice-status")
+
+        # Nothing connects to the provider before the learner reaches for the microphone.
+        self.page.goto(self.live_server_url)
+        preconnect = self.page.locator('link[rel="preconnect"][href="https://api.openai.com"]')
+        expect(preconnect).to_have_count(0)
+        mic = self.page.get_by_role("button", name=mic_label)
+        mic.dispatch_event("pointerdown")
+        mic.dispatch_event("pointerdown")
+        expect(preconnect).to_have_count(1)
+
+        def attempt(permission, delay=0, error=None):
+            self.page.goto(self.live_server_url)
+            self.page.evaluate("([permission, delay, error]) => Object.assign(window.__rt, "
+                               "{permission, gumDelay: delay, gumError: error})", [permission, delay, error])
+            self.page.get_by_role("button", name=mic_label).click()
+
+        def moments():
+            return self.page.evaluate("({session: window.__rt.sessionRequests[0], mic: window.__rt.gumAt})")
+
+        def stop_listening():
+            self.page.get_by_role("button", name=stop_label).click()
+            expect(self.page.get_by_role("button", name=mic_label)).to_have_attribute("aria-pressed", "false")
+
+        attempt("granted", delay=400)
+        expect(self.page.get_by_role("button", name=stop_label)).to_be_visible()
+        order = moments()
+        self.assertLess(order["session"], order["mic"])  # Requested while the microphone was still starting.
+        stop_listening()
+
+        attempt("prompt", delay=200)
+        expect(self.page.get_by_role("button", name=stop_label)).to_be_visible()
+        order = moments()
+        self.assertGreater(order["session"], order["mic"])  # Only once the learner has allowed the microphone.
+        stop_listening()
+
+        sessions = self.in_database_thread(RealtimeTranscriptionSession.objects.count)
+        attempt("denied", error="NotAllowedError")
+        expect(status).to_contain_text("Accesul la microfon a fost refuzat.")
+        self.assertEqual(self.page.evaluate("window.__rt.sessionRequests.length"), 0)
+        self.assertEqual(self.in_database_thread(RealtimeTranscriptionSession.objects.count), sessions)  # No quota used.
+
+        attempt("granted", error="NotReadableError")  # Allowed, but the microphone is busy.
+        expect(status).to_contain_text("Nu am putut folosi microfonul.")
+        self.assertEqual(self.page.evaluate("window.__rt.sessionRequests.length"), 1)
+        closed = self.ledger_row(error_code="realtime_connect_failed")
+        self.assertEqual((closed.audio_seconds, closed.estimated_cost), (Decimal("0.00"), Decimal("0")))  # No audio, $0.
         self.assertEqual(self.errors, [])
 
     @override_settings(VOICE_TRANSCRIBE_LIMIT_MINUTE=100)
@@ -1074,7 +1375,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         expect(example).to_be_hidden()  # Live transcript text and example sentences never appear together.
         started = time.time()
         self.wait_for_commit(count=2)
-        self.assertGreaterEqual(time.time() - started, 3.0)
+        self.assertGreaterEqual(time.time() - started, 2.8)  # Three seconds after the last word, less the round trip.
         self.emit(type=COMPLETED, item_id="item_1", transcript="Hello there.", usage={"type": "duration", "seconds": 6})
         expect(self.page.locator("#voice-status")).to_contain_text("Nu te-am mai auzit, așa că am oprit microfonul.")
         expect(text).to_have_value("Hello there.")
@@ -1144,3 +1445,46 @@ class BrowserChecks(StaticLiveServerTestCase):
         closed = self.ledger_row(timeout=20, error_code="realtime_page_closed")
         self.assertEqual(closed.metering_source, "stream_duration")
         self.assertEqual(self.errors, [])
+
+    @override_settings(VOICE_REALTIME_ENABLED=False)
+    def test_unsupported_browser_is_told_and_nothing_is_sent(self):
+        self.page.add_init_script("delete window.MediaRecorder; delete window.RTCPeerConnection;")
+        self.page.goto(self.live_server_url)
+        self.page.get_by_role("button", name="Înregistrează-ți vocea").click()
+        expect(self.page.locator("#voice-status")).to_contain_text("Înregistrarea nu este acceptată în acest browser.")
+        self.assertEqual(self.in_database_thread(AudioUsageEvent.objects.count), 0)
+        self.assertEqual(self.errors, [])
+
+    # ----- Accessibility -----
+    def test_accessibility_with_axe(self):
+        source = Path(os.environ.get("AXE_CORE_PATH") or Path(settings.BASE_DIR) / "artifacts" / "axe.min.js")
+        if not source.exists():
+            self.skipTest("axe-core not available: set AXE_CORE_PATH to axe.min.js")
+        script = source.read_text(encoding="utf-8")
+        checked = []
+
+        def audit(name):
+            self.page.add_script_tag(content=script)
+            violations = self.page.evaluate("""async () => (await axe.run(document, {runOnly: {type: 'tag',
+                values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}})).violations.map(v => ({id: v.id, impact: v.impact,
+                help: v.help, nodes: v.nodes.slice(0, 5).map(n => ({target: n.target.join(' '),
+                summary: n.failureSummary}))}))""")
+            (self.artifacts / f"axe-{name}.json").write_text(json.dumps(violations, indent=2), encoding="utf-8")
+            checked.append((name, [violation for violation in violations if violation["impact"] in ("serious", "critical")]))
+
+        for width in (390, 1440):
+            self.page.set_viewport_size({"width": width, "height": 900})
+            self.page.goto(self.live_server_url)
+            audit(f"home-{width}")
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        for value, name in ((correction_result().original_text, "english"), (UNNATURAL, "unnatural"), (ROMANIAN, "romanian")):
+            self.page.goto(self.live_server_url)
+            self.page.locator("#text").fill(value)
+            self.submit()
+            expect(self.page.locator(".result-loading")).to_have_count(0)
+            expect(self.page.locator("#result-actions")).to_be_visible()
+            self.page.wait_for_timeout(400)  # Let the buttons' 0.15 s colour transition finish before measuring contrast.
+            audit(f"result-{name}")
+        self.page.goto(self.live_server_url + "/despre/")
+        audit("despre")
+        self.assertEqual([(name, found) for name, found in checked if found], [])

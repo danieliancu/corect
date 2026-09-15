@@ -16,7 +16,8 @@ from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.services.voice import (BRITISH_TTS_INSTRUCTIONS, SPEECH_TOKEN_SALT, VoiceError, make_speech_token,
                                            read_speech_token)
-from .examples import correction_result, translation_result
+from .examples import TRANSLATION_CASES, correction_result, naturalized_english, translation_result
+from .provider import ProviderMock
 
 SENTENCE = "I didn't go to work yesterday."
 USAGE = {"input_tokens": 12, "output_tokens": 240, "total_tokens": 252}
@@ -38,11 +39,10 @@ def speech_stream(with_usage=True):
     return sse_lines(*events)
 
 
-class SpeechEndpointTests(TestCase):
+class SpeechEndpointTests(ProviderMock, TestCase):
     def setUp(self):
-        self.sdk = patch("apps.assistant.services.voice.OpenAI").start()
-        self.addCleanup(patch.stopall)
-        self.create = self.sdk.return_value.__enter__.return_value.audio.speech.with_streaming_response.create
+        super().setUp()
+        self.create = self.api.audio.speech.with_streaming_response.create
         self.stream(speech_stream())
 
     def stream(self, lines):
@@ -63,6 +63,7 @@ class SpeechEndpointTests(TestCase):
         self.assertEqual((event.input_tokens, event.output_tokens, event.total_tokens), (12, 240, 252))
         # (12 × $0.60 + 240 × $12.00) per million tokens
         self.assertEqual(event.estimated_cost, Decimal("0.00288720"))
+        self.assertIsInstance(event.provider_duration_ms, int)
         self.assertFalse(UsageEvent.objects.exists())
         self.assertEqual(self.post(token=make_speech_token("I'm sorry I couldn't get here earlier.", "translation")).status_code, 200)
         self.assertEqual(AudioUsageEvent.objects.latest("pk").speech_target, "translation")
@@ -141,9 +142,9 @@ class SpeechEndpointTests(TestCase):
 
     def test_speech_links_to_the_correction_and_the_anonymous_visitor(self):
         self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)  # Analytics allowed.
-        with patch("apps.assistant.views.CorrectionService.correct", return_value=correction_result()):
-            page = self.client.post("/assistant/correct/", {"text": correction_result().original_text,
-                                                            "submission_token": uuid4()})
+        with patch("apps.assistant.views.NaturalizeService.naturalize", return_value=naturalized_english()):
+            page = self.client.post("/naturalize/", {"text": correction_result().original_text,
+                                                     "submission_token": uuid4()})
         token = TOKEN_PATTERN.search(page.content.decode()).group(1)
         text, target, usage_event_id = read_speech_token(token)
         self.assertEqual((text, target, usage_event_id), (correction_result().corrected_text, "correction",
@@ -168,10 +169,7 @@ class SpeechEndpointTests(TestCase):
         self.assertIsNone(AudioUsageEvent.objects.latest("pk").visitor)
 
 
-class SpeechControlRenderingTests(TestCase):
-    def setUp(self):
-        self.sdk = patch("apps.assistant.services.voice.OpenAI").start()
-        self.addCleanup(patch.stopall)
+class SpeechControlRenderingTests(ProviderMock, TestCase):
 
     def tokens(self, html):
         return [read_speech_token(token) for token in TOKEN_PATTERN.findall(html)]
@@ -180,29 +178,32 @@ class SpeechControlRenderingTests(TestCase):
         result = correction_result().model_dump()
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
         self.assertEqual([(text, target) for text, target, _ in self.tokens(html)], [(result["corrected_text"], "correction")])
-        self.assertIn('aria-label="Ascultă corectura în engleză britanică"', html)
-        self.assertNotIn("Ascultă versiunea nativă", html)
+        self.assertIn('aria-label="Ascultă varianta corectă în engleză britanică"', html)
+        self.assertNotIn("Ascultă varianta naturală", html)
         result.update(native_text="I didn't make it to work yesterday.", native_explanation="Explicație în română.")
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
         self.assertEqual([(text, target) for text, target, _ in self.tokens(html)],
                          [(result["corrected_text"], "correction"), (result["native_text"], "native")])
-        self.assertIn('aria-label="Ascultă versiunea nativă în engleză britanică"', html)
+        self.assertIn('aria-label="Ascultă varianta naturală în engleză britanică"', html)
         spoken = [text for text, _, _ in self.tokens(html)]
         self.assertNotIn("Explicație în română.", spoken)
         for correction in result["corrections"]:
             self.assertNotIn(correction["explanation_ro"], spoken)
 
-    def test_unchanged_text_and_english_translations_get_speakers_but_romanian_translations_do_not(self):
+    def test_natural_unnatural_and_british_english_results_speak_the_useful_english(self):
         result = correction_result().model_dump()
         result.update(has_errors=False, corrections=[], corrected_text=result["original_text"])
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
-        self.assertEqual(len(self.tokens(html)), 1)
+        self.assertEqual([(text, target) for text, target, _ in self.tokens(html)], [(result["corrected_text"], "correction")])
+        result.update(native_text="I didn't make it to work yesterday.")
+        html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
+        self.assertEqual([(text, target) for text, target, _ in self.tokens(html)], [(result["native_text"], "native")])
         into_english = translation_result().model_dump()
         html = render_to_string("assistant/result.html", {"result": into_english, "kind": "translation"})
         self.assertEqual([(text, target) for text, target, _ in self.tokens(html)],
                          [(into_english["translated_text"], "translation")])
-        self.assertIn('aria-label="Ascultă traducerea în engleză britanică"', html)
-        into_romanian = dict(into_english, source_language="en", target_language="ro", translated_text="Locuiesc în Londra.")
+        self.assertIn('aria-label="Ascultă în engleză britanică"', html)
+        into_romanian = translation_result(TRANSLATION_CASES[2]).model_dump()  # Older history only.
         html = render_to_string("assistant/result.html", {"result": into_romanian, "kind": "translation"})
         self.assertEqual(self.tokens(html), [])
 

@@ -52,7 +52,8 @@ def usage_aggregates(prefix="", scope=None):
 
     return {
         "requests": count(), "corrections": count(request_type="correction"),
-        "translations": count(request_type="translation"), "successes": count(status="success"),
+        "translations": count(request_type="translation"), "unclassified": count(request_type="unclassified"),
+        "successes": count(status="success"),
         "failures": count(status="failed"), "rejections": count(status="rejected"),
         "tokens_in": total("input_tokens"), "tokens_cached": total("cached_input_tokens"),
         "tokens_out": total("output_tokens"), "tokens_total": total("total_tokens"), "cost": total("estimated_cost"),

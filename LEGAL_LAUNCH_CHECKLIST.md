@@ -39,10 +39,13 @@ professional actions that code cannot complete. None is done just because a conf
       easy way to object. Confirm whether that exemption is in force and applies, or switch analytics back to opt-in
       (`apps/core/consent.py:analytics_chosen`).
 - [ ] First visit: the notice bar appears on every page until "Am înțeles"; its Terms and Privacy links work.
-- [ ] `corect_visitor_id` appears after the first Correct/Translate/voice action unless analytics was switched off.
+- [ ] `corect_visitor_id` appears after the first „Vreau să sune natural!” or voice action unless analytics was
+      switched off.
 - [ ] Switching analytics off in "Setări cookie-uri" deletes `corect_visitor_id` and it does not come back.
 - [ ] Signup requires the checkbox and records a `LegalAcceptance` row with both versions.
-- [ ] A version bump shows the notice again to visitors and signed-in users.
+- [ ] A version bump shows the notice again to visitors and signed-in users. `TERMS_VERSION` and `PRIVACY_VERSION`
+      were raised to `2026-09-15` when the two buttons (Corectare/Traducere) became one action and the usage ledger
+      started recording the detected source language and processing durations; include that wording in the review.
 - [ ] Account deletion from Profile removes the account and history.
 
 ## Abuse guardrails
@@ -59,7 +62,7 @@ professional actions that code cannot complete. None is done just because a conf
 - [ ] Run `python manage.py rebuild_learning_profiles` once after deploying, so existing learners see their patterns.
 - [ ] Confirm the learning AI price: `OPENAI_LEARNING_MODEL` must have a row in `OPENAI_PRICING`, otherwise learning
       costs show "—" in the staff analytics. Review real cost per active learner after the first weeks.
-- [ ] Review a sample of live `pattern` keys from prompt `2026-09-v6` with a native speaker and tune the taxonomy.
+- [ ] Review a sample of live `pattern` keys from prompt `2026-09-v7-naturalize` with a native speaker and tune the taxonomy.
 - [ ] Confirm the Privacy notice section "Profilul tău de învățare" (profile kept until account deletion, minimal
       context sent to OpenAI) with the legal review below.
 - [ ] Before selling Pro, decide which learning features are Pro-only and set `PRO_ENTITLEMENTS_ENFORCED=true`.

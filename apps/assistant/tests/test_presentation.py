@@ -3,8 +3,13 @@ from types import SimpleNamespace
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
+from apps.assistant.presentation import history_group, history_kind, history_label, result_outcome
 from apps.assistant.templatetags.assistant_ui import sentence_comparison
-from .examples import correction_result
+from .examples import TRANSLATION_CASES, correction_result, translation_result
+
+
+def entry(kind, language, result):
+    return SimpleNamespace(request_type=kind, detected_language=language, result_data=result)
 
 
 class CorrectionPresentationTests(SimpleTestCase):
@@ -52,36 +57,74 @@ class CorrectionPresentationTests(SimpleTestCase):
             with self.subTest(sign_in=sign_in):
                 html = render(result=result, kind="correction", user=user)
                 self.assertNotIn(" hidden", html.split(">", 1)[0])
-                self.assertIn('href="/" data-new-correction', html)
+                self.assertIn('href="/" data-new-text>Text nou</a>', html)
                 self.assertEqual("Autentificare / Creează cont" in html, sign_in)
         translation = render(result=result, kind="translation", user=SimpleNamespace(is_authenticated=True))
         self.assertNotIn(" hidden", translation.split(">", 1)[0])
-        self.assertIn('href="/" data-new-correction', translation)
         for context in ({}, {"result": result, "kind": "correction", "error": "Oops"},
                         {"result": result, "kind": "translation", "error": "Oops"}):
             html = render(**context)
             self.assertIn(" hidden", html.split(">", 1)[0])
-            self.assertNotIn("data-new-correction", html)
-        self.assertNotIn("data-new-correction", render_to_string("assistant/result.html", {"result": result, "kind": "correction"}))
+            self.assertNotIn("data-new-text", html)
+        self.assertNotIn("data-new-text", render_to_string("assistant/result.html", {"result": result, "kind": "correction"}))
 
-    def test_native_version_shown_only_when_present(self):
+    def test_errors_show_the_natural_version_only_when_it_adds_something(self):
         result = correction_result().model_dump()
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
+        self.assertIn("<h2>Engleza ta, corectată</h2>", html)
         self.assertNotIn('class="native-version"', html)
-        native = dict(native_text="I didn't make it to work yesterday.", native_explanation="Sună mai natural.")
-        unchanged = dict(has_errors=False, corrections=[], corrected_text=result["original_text"])
-        for variant in ({}, unchanged):
-            with self.subTest(has_errors=not variant):
-                html = render_to_string("assistant/result.html", {"result": {**result, **native, **variant}, "kind": "correction"})
-                self.assertIn('class="native-version"', html)
-                self.assertIn("make it to work", html)
+        result.update(native_text="I didn't make it to work yesterday.", native_explanation="Sună mai natural.")
+        html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
+        self.assertIn('class="native-version result-box"', html)  # Its own box, beside the correction's box.
+        self.assertIn('<h2 id="natural-title">Sună mai natural:</h2>', html)
+        self.assertIn('class="correction-block result-box"', html)
+        self.assertEqual(html.count("data-collapse-toggle"), 2)
+        self.assertNotIn("<span>Engleză britanică</span>", html)
 
-    def test_unchanged_text_and_translation_do_not_show_error_comparison(self):
+    def test_correct_but_unnatural_english_emphasises_the_natural_version_without_errors(self):
+        result = correction_result().model_dump()
+        result.update(has_errors=False, corrections=[], corrected_text=result["original_text"],
+                      native_text="I didn't make it to work yesterday.", native_explanation="Sună mai natural.")
+        html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
+        self.assertIn("<h2>Sună mai natural:</h2>", html)
+        self.assertLess(html.index("make it to work"), html.index("✓ Engleza ta e corectă."))
+        self.assertNotIn("Greșit", html)
+        self.assertNotIn('class="correction-comparison"', html)
+
+    def test_already_natural_english_and_british_english_from_romanian(self):
         result = correction_result().model_dump()
         result.update(has_errors=False, corrections=[], corrected_text=result["original_text"])
         html = render_to_string("assistant/result.html", {"result": result, "kind": "correction"})
+        self.assertIn("<h2>✓ Sună deja natural.</h2>", html)
         self.assertNotIn('class="correction-comparison"', html)
-        self.assertIn("Textul tău este corect", html)
-        html = render_to_string("assistant/result.html", {"result": {"translated_text": "Hello", "target_language": "en"}, "kind": "translation"})
-        self.assertNotIn('class="correction-comparison"', html)
-        self.assertIn("Traducere", html)
+        self.assertNotIn("Sună mai natural", html)
+        html = render_to_string("assistant/result.html", {"result": translation_result().model_dump(), "kind": "translation"})
+        self.assertIn("<h2>În engleză britanică</h2>", html)
+        self.assertIn('lang="en-GB">I&#x27;m sorry I couldn&#x27;t get here earlier.', html)
+        for jargon in ("Traducere", "traducere", "translation mode", "Română → engleză"):
+            self.assertNotIn(jargon, html)
+
+    def test_outcomes_for_new_and_legacy_results(self):
+        correction = correction_result().model_dump()
+        natural = dict(correction, has_errors=False, corrections=[], native_text="")
+        unnatural = dict(natural, native_text="Could you help me?")
+        legacy_to_romanian = translation_result(TRANSLATION_CASES[2]).model_dump()
+        cases = [("correction", correction, "errors"), ("correction", unnatural, "unnatural"),
+                 ("correction", natural, "natural"), ("translation", translation_result().model_dump(), "translated"),
+                 ("translation", legacy_to_romanian, "legacy_to_romanian"), ("correction", {}, ""),
+                 ("translation", None, ""), ("translation", {"translated_text": "Hello"}, "translated")]
+        for kind, result, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(result_outcome(kind, result), expected)
+
+    def test_history_labels_for_new_and_legacy_entries(self):
+        cases = [
+            (entry("correction", "en", correction_result().model_dump()), "english", "Engleză", ("text în engleză", "texte în engleză")),
+            (entry("translation", "ro", translation_result().model_dump()), "into_english", "Română → engleză",
+             ("text din română", "texte din română")),
+            (entry("translation", "en", translation_result(TRANSLATION_CASES[2]).model_dump()), "legacy_to_romanian",
+             "Engleză → română", ("text în română", "texte în română")),
+        ]
+        for item, kind, label, group in cases:
+            with self.subTest(kind=kind):
+                self.assertEqual((history_kind(item), history_label(item), history_group(item)), (kind, label, group))

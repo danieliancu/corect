@@ -7,8 +7,10 @@ from django.utils import timezone
 
 class AssistantRequest(models.Model):
     class Kind(models.TextChoices):
-        CORRECTION = "correction", "Correction"
-        TRANSLATION = "translation", "Translation"
+        """The effective internal operation (apps/assistant/languages.py), never the public action."""
+        CORRECTION = "correction", "Correction (English)"
+        TRANSLATION = "translation", "Translation into British English"
+        UNCLASSIFIED = "unclassified", "Unclassified (failed before the language was known)"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE)
     request_type = models.CharField(max_length=12, choices=Kind.choices)

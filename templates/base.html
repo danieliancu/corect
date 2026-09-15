@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}corect.uk — Corectare și traducere în engleză{% endblock %}</title>
-  <meta name="description" content="Scrie cu încredere. Corectează-ți engleza britanică, înțelege greșelile în română și tradu natural între engleză și română.">
+  <title>{% block title %}corect.uk — Engleză britanică naturală, din română sau engleză{% endblock %}</title>
+  <meta name="description" content="Scrie sau spune în română sau engleză și primești engleză britanică naturală, cu greșelile explicate simplu în română.">
   <meta property="og:title" content="corect.uk — Vorbești corect.">
   <meta property="og:description" content="Asistentul tău simplu pentru engleza britanică, cu explicații clare în română.">
   <meta property="og:type" content="website">
@@ -27,7 +27,7 @@
       <span class="brand-copy"><strong>corect.uk</strong><span class="tagline" lang="ro"><span class="sr-only">Acum ești sigur.</span><span class="tagline-letters" aria-hidden="true"><span>A</span><span>c</span><span>u</span><span>m</span><span>&nbsp;</span><span>e</span><span>ș</span><span>t</span><span>i</span><span>&nbsp;</span><span>s</span><span>i</span><span>g</span><span>u</span><span>r</span><span>.</span></span></span></span>
     </a>
     <nav class="desktop-nav" aria-label="Navigare principală">
-      <a href="{% url 'learn_dashboard' %}">Panou</a><a href="{% url 'history' %}">Istoric</a><a href="{% url 'mistakes' %}">Greșelile mele</a><a href="{% url 'progress' %}">Progres</a>
+      <a href="{% url 'learn_dashboard' %}">Panou</a><a href="{% url 'progress' %}">Progres</a><a href="{% url 'mistakes' %}">Greșeli</a><a href="{% url 'history' %}">Istoric</a>
       {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-text-button" type="submit">Deconectare</button></form>
       {% else %}<a href="{% url 'home' %}#plans">Beneficii</a>{% endif %}
     </nav>
@@ -39,9 +39,9 @@
       <nav aria-label="Toate paginile">
         <a href="{% url 'home' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/home.html' %}</span>Acasă</a>
         <a href="{% url 'learn_dashboard' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/chart.html' %}</span>Panou</a>
-        <a href="{% url 'history' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/clock.html' %}</span>Istoric</a>
-        <a href="{% url 'mistakes' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/circle-x.html' %}</span>Greșelile mele</a>
         <a href="{% url 'progress' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>Progres</a>
+        <a href="{% url 'mistakes' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/circle-x.html' %}</span>Greșeli</a>
+        <a href="{% url 'history' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/clock.html' %}</span>Istoric</a>
         <a href="{% url 'about' %}"><span class="nav-icon" aria-hidden="true">{% include 'icons/help.html' %}</span>Despre</a>
         <hr>
         {% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-logout" type="submit"><span class="nav-icon" aria-hidden="true">{% include 'icons/logout.html' %}</span>Deconectare</button></form>

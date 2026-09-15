@@ -1,30 +1,39 @@
-{% load assistant_ui %}{% if result.has_errors and kind == 'correction' and not error %}
+{% load assistant_ui %}{% result_outcome kind result as outcome %}{% if outcome == 'errors' and not error %}
   {% include 'assistant/correction_result.html' %}
 {% else %}
-<div class="result-heading">{% if result and not error and kind != 'translation' %}{% speech_button result.corrected_text "correction" "heading" %}{% elif result and not error and result.target_language == 'en' %}{% speech_button result.translated_text "translation" "heading" %}{% else %}<span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span>{% endif %}<h2>{% if kind == 'translation' %}Traducere{% else %}Corectură{% endif %}</h2></div>
+{% if error or outcome %}<div class="result-heading">{% if error %}<span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><h2>Engleză britanică</h2>{% elif outcome == 'unnatural' %}{% speech_button result.native_text "native" "heading" %}<h2>Sună mai natural:</h2>{% elif outcome == 'natural' %}{% speech_button result.corrected_text "correction" "heading" %}<h2>✓ Sună deja natural.</h2>{% elif outcome == 'translated' %}{% speech_button result.translated_text "translation" "heading" %}<h2>În engleză britanică</h2>{% else %}<span class="round-icon" aria-hidden="true">{% include 'icons/document.html' %}</span><h2>În română</h2>{% endif %}</div>{% endif %}
 {% if error %}
   <div class="error-box" role="alert">{{ error }}</div>{% if not empty_text %}<p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>{% endif %}
-{% elif result %}
-  {% if kind == 'translation' %}
-    <p class="eyebrow">{% if result.target_language == 'en' %}Română → engleză britanică{% else %}Engleză → română{% endif %}</p>
-    {% if auto_translated %}<p class="muted" lang="ro">Textul tău era în română, așa că l-am tradus.</p>{% endif %}
-    {% if result.target_language == 'en' %}<p class="result-text" lang="en-GB">{{ result.translated_text }}</p>
-    {% else %}<p class="result-text" lang="ro">{{ result.translated_text }}</p>{% endif %}
+{% elif outcome == 'translated' %}
+  <p class="result-text" lang="en-GB">{{ result.translated_text }}</p>
+{% elif outcome == 'legacy_to_romanian' %}
+  <p class="eyebrow">Engleză → română</p>
+  <p class="result-text" lang="ro">{{ result.translated_text }}</p>
+{% elif outcome == 'unnatural' or outcome == 'natural' %}
+  {% if outcome == 'unnatural' %}
+    <p class="result-text" lang="en-GB">{{ result.native_text }}</p>
+    {% if result.native_explanation %}<p class="native-explanation" lang="ro">{{ result.native_explanation }}</p>{% endif %}
+    <p class="success-note" lang="ro">✓ Engleza ta e corectă.</p>
+    <p class="written-text"><span lang="ro">Ai scris:</span> <span lang="en-GB">{{ result.corrected_text }}</span></p>
   {% else %}
     <p class="result-text" lang="en-GB">{{ result.corrected_text }}</p>
-    {% if not result.has_errors %}<p class="success-note" lang="ro">✓ Textul tău este corect. Bravo!</p>{% endif %}
-    {% for correction in result.corrections %}
-      <div class="correction-item">
-        {% if correction.is_british_english_preference %}<p class="preference-label">Sugestie de engleză britanică</p><p><span>Original:</span> <span lang="en-GB">{{ correction.original }}</span></p><p><span class="right-label">Sugestie:</span> <span lang="en-GB">{{ correction.replacement }}</span></p>
-        {% else %}<div class="snippet-pair"><p><span class="wrong-label">Greșit:</span> <span lang="en-GB">{{ correction.original }}</span></p><p><span class="right-label">Corect:</span> <span lang="en-GB">{{ correction.replacement }}</span></p></div>{% endif %}
-        <p class="explanation" lang="ro"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span><span>{{ correction.explanation_ro }}</span></p>
-      </div>
-    {% endfor %}
-    {% if not result.corrections and result.overall_explanation %}<p class="explanation" lang="ro">{{ result.overall_explanation }}</p>{% endif %}
-    {% include 'assistant/native_version.html' %}
   {% endif %}
+  {% for correction in result.corrections %}
+    <div class="correction-item">
+      {% if correction.is_british_english_preference %}<p class="preference-label">Sugestie de engleză britanică</p><p><span>Original:</span> <span lang="en-GB">{{ correction.original }}</span></p><p><span class="right-label">Sugestie:</span> <span lang="en-GB">{{ correction.replacement }}</span></p>
+      {% else %}<div class="snippet-pair"><p><span class="wrong-label">Greșit:</span> <span lang="en-GB">{{ correction.original }}</span></p><p><span class="right-label">Corect:</span> <span lang="en-GB">{{ correction.replacement }}</span></p></div>{% endif %}
+      <p class="explanation" lang="ro"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span><span>{{ correction.explanation_ro }}</span></p>
+    </div>
+  {% endfor %}
+  {% if not result.corrections and result.overall_explanation %}<p class="explanation" lang="ro">{{ result.overall_explanation }}</p>{% endif %}
 {% else %}
-  <div class="empty-result"><span class="empty-spark" aria-hidden="true">✧</span><p>Scrie ceva, apoi alege<br><strong>Corectare</strong> sau <strong>Traducere</strong>.</p></div>
-  <p class="result-footnote"><span class="help-icon" aria-hidden="true">{% include 'icons/bulb.html' %}</span>Explicații simple, în română.</p>
+  <div class="empty-result">
+    <ul class="empty-benefits" role="list">
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/check.html' %}</span>greșelile reparate și explicate</li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/chat.html' %}</span>alternativa naturală în limba engleză</li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/volume.html' %}</span>pronunție britanică cu un click</li>
+      <li><span class="empty-benefit-icon" aria-hidden="true">{% include 'icons/trend.html' %}</span>progres, istoric<br> și exerciții</li>
+    </ul>
+  </div>
 {% endif %}
 {% endif %}

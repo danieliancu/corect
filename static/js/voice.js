@@ -43,15 +43,35 @@
   }
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const now = () => performance.now();
+  const debugging = () => {
+    try {
+      return window.localStorage.getItem("corectVoiceDebug") === "1";
+    } catch {
+      return false;
+    }
+  };
 
   // ---------- Voice input ----------
   const mic = document.querySelector("[data-voice-record]");
   const textarea = document.getElementById("text");
   if (mic && textarea) {
     const CONNECT_TIMEOUT_MS = 10000;
-    const TRAILING_AUDIO_MS = 800; // Words already spoken are still on their way when the microphone is muted.
-    const FINAL_TRANSCRIPT_MS = 4000;
     const SILENCE_STOP_MS = 3000;
+    const bounded = (value, fallback, low, high) => {
+      const number = Number.parseInt(value, 10);
+      return Number.isFinite(number) ? Math.min(high, Math.max(low, number)) : fallback;
+    };
+    // Set on the server (VOICE_TRAILING_AUDIO_MS, VOICE_FINAL_TRANSCRIPT_MS). A debug override exists only for benchmarks.
+    const trailingAudioMs = () => {
+      let override = null;
+      try {
+        if (debugging()) override = window.localStorage.getItem("corectVoiceTrailingMs");
+      } catch {}
+      return bounded(override ?? mic.dataset.trailingMs, 200, 0, 1500);
+    };
+    const finalTranscriptMs = bounded(mic.dataset.finalMs, 2500, 500, 4000);
+    const ACTION = mic.dataset.actionLabel || "Vreau să sune natural!";
     const LABELS = {
       idle: "Înregistrează-ți vocea",
       starting: "Înregistrează-ți vocea",
@@ -73,6 +93,7 @@
     let stopTimer = null;
     let formBusy = false;
     let lockedButtons = [];
+    let preconnected = false;
     // File fallback
     let recorder = null;
     let chunks = [];
@@ -80,6 +101,8 @@
     // Live transcription
     let live = null;
     mic.hidden = false;
+    // Timings of the last live session, in milliseconds (numbers only), for developers and benchmarks.
+    window.CorectVoice = { lastTimings: null };
 
     const setState = (next) => {
       state = next;
@@ -129,6 +152,33 @@
       lockedButtons = [];
     }
 
+    // The connection to the transcription provider is warmed only once the learner reaches for the microphone
+    // (pointer down or Enter/Space), never on page load.
+    function preconnect() {
+      if (preconnected || state !== "idle" || !liveAvailable() || !mic.dataset.preconnect) return;
+      preconnected = true;
+      const link = document.createElement("link");
+      link.rel = "preconnect";
+      link.href = mic.dataset.preconnect;
+      link.crossOrigin = "anonymous";
+      document.head.append(link);
+    }
+
+    // ----- Live transcription timings -----
+    function timingsOf(session) {
+      const t = session.t;
+      const span = (from, to) => (t[from] != null && t[to] != null ? Math.max(0, Math.round(t[to] - t[from])) : null);
+      return {
+        mic_ms: span("click", "mic"),
+        session_ms: span("sessionSent", "sessionDone"),
+        connect_ms: span("sdpSent", "connected"),
+        startup_ms: span("click", "listening"),
+        first_word_ms: span("listening", "firstDelta"),
+        finalise_ms: span("stop", "final"),
+        final_received: session.commitSent ? t.finalReceived === true : null,
+      };
+    }
+
     // ----- Live transcription -----
     function render(session) {
       const { text, caret } = session.transcript.snapshot();
@@ -158,6 +208,12 @@
       body.append("session", session.token);
       body.append("outcome", outcome);
       if (session.providerSeconds !== null) body.append("provider_seconds", String(session.providerSeconds));
+      if (session.t) {
+        Object.entries(timingsOf(session)).forEach(([name, value]) => {
+          if (typeof value === "boolean") body.append(name, value ? "1" : "0");
+          else if (value !== null) body.append(name, String(value));
+        });
+      }
       body.append("csrfmiddlewaretoken", csrfToken());
       if (pageClosing && navigator.sendBeacon && navigator.sendBeacon(mic.dataset.finishUrl, body)) return;
       post(mic.dataset.finishUrl, body).catch(() => {});
@@ -171,6 +227,8 @@
       closeConnection(session);
       releaseMicrophone();
       sendFinish(session, pageClosing ? "page_closed" : session.outcome, pageClosing);
+      window.CorectVoice.lastTimings = timingsOf(session);
+      if (debugging()) console.debug("corect voice timings", window.CorectVoice.lastTimings);
       if (pageClosing) return;
       render(session);
       unlockEditor();
@@ -183,9 +241,9 @@
       } else if (!session.transcript.spoken()) {
         announce("Nu am auzit nimic. Apasă microfonul și încearcă din nou.", true);
       } else if (session.stoppedBySilence) {
-        announce("Nu te-am mai auzit, așa că am oprit microfonul. Poți modifica textul, apoi alege Corectare sau Traducere.");
+        announce(`Nu te-am mai auzit, așa că am oprit microfonul. Poți modifica textul, apoi apasă „${ACTION}”.`);
       } else {
-        announce("Gata. Poți modifica textul, apoi alege Corectare sau Traducere.");
+        announce(`Gata. Poți modifica textul, apoi apasă „${ACTION}”.`);
       }
       // On touch screens, focusing would pop up the keyboard over the text the learner wants to read first.
       if (!window.matchMedia?.("(pointer: coarse)")?.matches) textarea.focus({ preventScroll: true });
@@ -196,26 +254,37 @@
       if (!session || session.stopping) return;
       session.stopping = true;
       session.outcome = outcome;
+      session.t.stop = now();
       clearTimeout(stopTimer);
       clearTimeout(session.silenceTimer);
       setState("finalising");
-      stream?.getAudioTracks().forEach((track) => (track.enabled = false));
+      const mute = () => stream?.getAudioTracks().forEach((track) => (track.enabled = false));
       if (outcome !== "interrupted" && session.dc?.readyState === "open") {
-        await wait(TRAILING_AUDIO_MS);
+        // Words just spoken are still on their way, so the microphone stays on for a short trailing window before the
+        // audio is committed. After three silent seconds, or at the character limit, there is nothing left to wait for.
+        const trailing = session.stoppedBySilence || outcome === "limit" ? 0 : trailingAudioMs();
+        if (trailing) await wait(trailing);
+        mute();
         if (live === session && session.dc.readyState === "open") {
+          let safety;
+          // The provider's final transcript ends the wait at once; the timeout only guards against it never arriving.
           const finalTranscript = new Promise((resolve) => {
-            session.finalReceived = resolve;
-            setTimeout(resolve, FINAL_TRANSCRIPT_MS);
+            session.finishWait = resolve;
+            safety = setTimeout(resolve, finalTranscriptMs);
           });
           session.commitSent = true;
           try {
             session.dc.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
           } catch {
-            session.finalReceived();
+            session.finishWait();
           }
           await finalTranscript;
+          clearTimeout(safety);
         }
+      } else {
+        mute();
       }
+      session.t.final = now();
       endLive(session);
     }
 
@@ -233,7 +302,7 @@
 
     function connectionLost(session) {
       if (live !== session || session.closing) return;
-      if (session.stopping) session.finalReceived?.();
+      if (session.stopping) session.finishWait?.();
       else if (state === "listening") stopLive("interrupted");
       else session.failConnect?.(new Error("closed"));
     }
@@ -252,13 +321,14 @@
       switch (event.type) {
         case "conversation.item.input_audio_transcription.delta":
           if (!ours || session.stopping && session.outcome === "limit") return;
+          session.t.firstDelta ??= now();
           if (session.transcript.applyDelta(id, event.delta) === "limit") {
             render(session);
             stopLive("limit");
             return;
           }
           render(session);
-          stopAfterSilence(session);
+          if (!session.stopping) stopAfterSilence(session);
           return;
         case "input_audio_buffer.committed":
           if (!id) return;
@@ -276,27 +346,31 @@
             return;
           }
           render(session);
-          if (session.commitSent) session.finalReceived?.();
+          if (session.commitSent) {
+            session.t.finalReceived = true;
+            session.finishWait?.();
+          }
           return;
         case "conversation.item.input_audio_transcription.failed":
         case "error":
-          if (session.stopping) session.finalReceived?.();
+          if (session.stopping) session.finishWait?.();
           else if (state === "listening") stopLive("interrupted");
           return;
         default:
       }
     }
 
-    async function connect(session, data) {
+    // Peer connection, data channel and offer need nothing from the server, so they are prepared while the session
+    // request is still on its way.
+    async function prepare(session) {
       const pc = (session.pc = new RTCPeerConnection());
       stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
       const dc = (session.dc = pc.createDataChannel("oai-events"));
-      const opened = new Promise((resolve, reject) => {
+      session.opened = new Promise((resolve, reject) => {
         session.failConnect = reject;
         dc.addEventListener("open", resolve, { once: true });
-        setTimeout(() => reject(new Error("timeout")), CONNECT_TIMEOUT_MS);
       });
-      opened.catch(() => {});
+      session.opened.catch(() => {});
       dc.addEventListener("message", (event) => onProviderEvent(session, event.data));
       dc.addEventListener("close", () => connectionLost(session));
       pc.addEventListener("connectionstatechange", () => {
@@ -304,26 +378,78 @@
       });
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      // The short-lived client secret authorises this one connection; the server's API key never reaches the browser.
-      const answer = await fetch(data.calls_url, {
-        method: "POST",
-        body: offer.sdp,
-        headers: { Authorization: `Bearer ${data.client_secret}`, "Content-Type": "application/sdp" },
+      session.offer = offer;
+    }
+
+    async function connect(session, data) {
+      const abort = new AbortController();
+      const timeout = setTimeout(() => {
+        abort.abort();
+        session.failConnect?.(new Error("timeout"));
+      }, CONNECT_TIMEOUT_MS);
+      try {
+        session.t.sdpSent = now();
+        // The short-lived client secret authorises this one connection; the server's API key never reaches the browser.
+        const answer = await fetch(data.calls_url, {
+          method: "POST",
+          body: session.offer.sdp,
+          headers: { Authorization: `Bearer ${data.client_secret}`, "Content-Type": "application/sdp" },
+          signal: abort.signal,
+        });
+        if (!answer.ok) throw new Error("offer rejected");
+        await session.pc.setRemoteDescription({ type: "answer", sdp: await answer.text() });
+        await session.opened;
+        session.t.connected = now();
+        session.failConnect = null;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    async function microphoneAlreadyAllowed() {
+      try {
+        return (await navigator.permissions?.query({ name: "microphone" }))?.state === "granted";
+      } catch {
+        return false;
+      }
+    }
+
+    function requestSession(t) {
+      t.sessionSent = now();
+      const request = post(mic.dataset.realtimeUrl, new FormData()).then((response) => {
+        t.sessionDone = now();
+        return response;
       });
-      if (!answer.ok) throw new Error("offer rejected");
-      await pc.setRemoteDescription({ type: "answer", sdp: await answer.text() });
-      await opened;
-      session.failConnect = null;
+      request.catch(() => {});
+      return request;
+    }
+
+    // The microphone failed after a session was already requested (only possible when permission was granted): close
+    // that session as a connection failure, which costs nothing, instead of leaving it open.
+    function closeUnusedSession(request, t) {
+      request
+        .then(async (response) => {
+          if (!response.ok) return;
+          const data = await response.json();
+          sendFinish({ token: data.session, providerSeconds: null, t, commitSent: false }, "connect_failed");
+        })
+        .catch(() => {});
     }
 
     async function startLive() {
+      const t = { click: now() };
       setState("connecting");
       announce("Pornim transcrierea live…");
+      // With the microphone already allowed the browser cannot ask or refuse, so the session request overlaps
+      // microphone start-up. Otherwise nothing is claimed until the learner has allowed the microphone.
+      let sessionRequest = (await microphoneAlreadyAllowed()) ? requestSession(t) : null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
+        t.mic = now();
       } catch (error) {
+        if (sessionRequest) closeUnusedSession(sessionRequest, t);
         setState("idle");
         announce(microphoneError(error), true);
         return;
@@ -338,14 +464,19 @@
         }),
         providerSeconds: null,
         outcome: "completed",
+        t,
       };
       live = session;
       lockEditor();
       try {
-        const response = await post(mic.dataset.realtimeUrl, new FormData());
+        const preparing = prepare(session);
+        preparing.catch(() => {});
+        sessionRequest ??= requestSession(t);
+        const response = await sessionRequest;
         if (live !== session) return;
         if (response.status === 429) {
           live = null;
+          closeConnection(session);
           releaseMicrophone();
           unlockEditor();
           setState("idle");
@@ -355,8 +486,10 @@
         if (!response.ok) throw new Error("session unavailable");
         const data = await response.json();
         session.token = data.session;
+        await preparing;
         await connect(session, data);
         if (live !== session) return;
+        t.listening = now();
         setState("listening");
         stopAfterSilence(session);
         announce("Ascult… Vorbește normal. Textul apare pe măsură ce vorbești.");
@@ -367,6 +500,7 @@
         live = null;
         closeConnection(session);
         sendFinish(session, "connect_failed");
+        window.CorectVoice.lastTimings = timingsOf(session);
         unlockEditor();
         recordForFallback();
       }
@@ -394,7 +528,7 @@
       textarea.setRangeText(insert, start, end, "end");
       // The same handling as typing: updates the character counter.
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      announce("Am adăugat înregistrarea. Verific-o, apoi alege Corectare sau Traducere.");
+      announce(`Am adăugat înregistrarea. Verific-o, apoi apasă „${ACTION}”.`);
     }
 
     async function upload(blob) {
@@ -482,13 +616,17 @@
       else releaseMicrophone();
     }
 
+    mic.addEventListener("pointerdown", preconnect);
+    mic.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") preconnect();
+    });
     mic.addEventListener("click", () => {
       if (state === "listening") stopLive("completed");
       else if (state === "recording") stopRecording();
       else if (state === "idle") (liveAvailable() ? startLive() : startRecording());
     });
 
-    // No microphone while Corectare or Traducere is being processed.
+    // No microphone while "Vreau să sune natural!" is being processed.
     document.body.addEventListener("htmx:beforeRequest", (event) => {
       if (event.defaultPrevented || !textarea.form?.contains(event.detail.elt)) return;
       formBusy = true;

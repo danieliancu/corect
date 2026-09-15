@@ -1,5 +1,5 @@
 {% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Greșeli: {{ category|category_label }} — Corect.uk{% endblock %}{% block learning_content %}
-<section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← Greșelile mele</a><h1>{{ category|category_label }}</h1><p>{{ page_obj.paginator.count|recorded_mistakes }} în această categorie</p></section>
+<section class="page-heading"><a class="text-link" href="{% url 'mistakes' %}">← Greșeli</a><h1>{{ category|category_label }}</h1>{% if pair %}<p>{{ page_obj.paginator.count|recorded_mistakes }} de tipul <span lang="en-GB">„{{ pair.original }} → {{ pair.replacement }}”</span> · <a class="text-link" href="{% url 'mistake_category' category %}">Toate greșelile din categorie</a></p>{% else %}<p>{{ page_obj.paginator.count|recorded_mistakes }} în această categorie</p>{% endif %}</section>
 <div class="mistake-list">
   {% for item in page_obj %}
     <article class="card mistake-item">
@@ -8,12 +8,11 @@
         <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:'j M Y' }}</time>
       </div>
       <p class="muted" lang="ro">{{ item.explanation_ro }}</p>
-      <a class="text-link" href="{% url 'history_detail' item.request_id %}">Vezi corectura completă →</a>
+      <a class="text-link" href="{% url 'history_detail' item.request_id %}">Vezi textul complet →</a>
     </article>
   {% empty %}
-    <div class="card empty-page"><h2>Încă nu sunt greșeli aici.</h2><p>Când o corectură găsește acest tip de greșeală, o vei vedea aici.</p></div>
+    <div class="card empty-page"><h2>Încă nu sunt greșeli aici.</h2><p>Când găsim acest tip de greșeală într-un text în engleză, o vei vedea aici.</p></div>
   {% endfor %}
 </div>
-{% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Paginile cu greșeli">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← Înapoi</a>{% endif %}<span>Pagina {{ page_obj.number }} din {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Înainte →</a>{% endif %}</nav>{% endif %}
-<a class="button" href="{% url 'practice' %}">Exersează</a>
+{% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Paginile cu greșeli">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if pair %}&amp;{{ pair.query }}{% endif %}">← Înapoi</a>{% endif %}<span>Pagina {{ page_obj.number }} din {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if pair %}&amp;{{ pair.query }}{% endif %}">Înainte →</a>{% endif %}</nav>{% endif %}
 {% endblock %}

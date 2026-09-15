@@ -7,11 +7,16 @@ import base64
 import json
 from dataclasses import dataclass
 from decimal import Decimal
+from time import perf_counter
 
 import httpx
 from django.conf import settings
 from django.core import signing
-from openai import APITimeoutError, OpenAI, OpenAIError
+from openai import APITimeoutError, OpenAIError
+
+from apps.assistant.languages import transcription_prompt
+from .provider import ProviderNotConfigured, openai_client
+from .timing import since, timed
 
 # The single source of the accent requirement: every speech request sends exactly these instructions.
 BRITISH_TTS_INSTRUCTIONS = (
@@ -21,7 +26,7 @@ BRITISH_TTS_INSTRUCTIONS = (
     "Speak at a normal, learner-friendly conversational pace without sounding slow, theatrical or robotic. "
     "Read exactly the supplied English sentence and add no commentary."
 )
-TRANSCRIPTION_PROMPT = "The speaker may use British English, Romanian, or both in the same recording."
+TRANSCRIPTION_PROMPT = transcription_prompt()  # Every supported source language (apps/assistant/languages.py).
 SPEECH_TARGETS = ("correction", "native", "translation")
 SPEECH_TOKEN_SALT = "corect.speech.v1"
 MAX_SPEECH_CHARACTERS = 4096
@@ -31,7 +36,6 @@ TOO_SLOW = "A durat prea mult. Încearcă din nou."
 # Live transcription: the browser posts its WebRTC offer here with the client secret; audio never passes through Django.
 REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
 REALTIME_SECRET_SECONDS = 30  # Only limits starting a session, so just long enough to connect.
-REALTIME_DELAY = "low"  # Words appear about a second after they are spoken, with better accuracy than "minimal".
 # Sniffed container -> (extension sent to the provider, MIME sent to the provider, accepted declared content types).
 AUDIO_FORMATS = {
     "webm": ("webm", "audio/webm", ("audio/webm", "video/webm")),
@@ -60,6 +64,7 @@ class AudioUsage:
     output_tokens: int | None = None
     total_tokens: int | None = None
     audio_seconds: Decimal | None = None
+    duration_ms: int | None = None  # Wall time of the provider call, measured by the server.
 
 
 def _count(value):
@@ -84,12 +89,14 @@ def declared_type_matches(audio_format: str, content_type: str) -> bool:
 
 
 def _client():
-    if not settings.OPENAI_API_KEY:
-        raise VoiceError("voice_not_configured")
-    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=settings.OPENAI_TIMEOUT, max_retries=0)
+    """The shared provider client (apps/assistant/services/provider.py). Never used as a context manager."""
+    try:
+        return openai_client()
+    except ProviderNotConfigured:
+        raise VoiceError("voice_not_configured") from None
 
 
-def transcription_usage(response) -> AudioUsage:
+def transcription_usage(response, duration_ms=None) -> AudioUsage:
     usage = getattr(response, "usage", None)
     seconds = getattr(usage, "seconds", None)
     return AudioUsage(
@@ -99,25 +106,27 @@ def transcription_usage(response) -> AudioUsage:
         total_tokens=_count(getattr(usage, "total_tokens", None)),
         audio_seconds=(Decimal(str(seconds)).quantize(Decimal("0.01"))
                        if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) else None),
+        duration_ms=duration_ms,
     )
 
 
 def transcribe(data: bytes, audio_format: str) -> tuple[str, AudioUsage]:
     extension, mime, _ = AUDIO_FORMATS[audio_format]
     languages = settings.VOICE_TRANSCRIBE_LANGUAGES
+    client = _client()
+    started = perf_counter()
     try:
-        with _client() as client:
-            response = client.audio.transcriptions.create(
-                model=settings.OPENAI_TRANSCRIBE_MODEL, file=(f"recording.{extension}", data, mime),
-                response_format="json", prompt=TRANSCRIPTION_PROMPT,
-                # English and Romanian hints without forcing one language, so mixed speech still works.
-                extra_body={"languages": languages} if languages else None,
-            )
+        response = client.audio.transcriptions.create(
+            model=settings.OPENAI_TRANSCRIBE_MODEL, file=(f"recording.{extension}", data, mime),
+            response_format="json", prompt=TRANSCRIPTION_PROMPT,
+            # English and Romanian hints without forcing one language, so mixed speech still works.
+            extra_body={"languages": languages} if languages else None,
+        )
     except APITimeoutError:
         raise VoiceError("transcription_timeout", TOO_SLOW) from None
     except (OpenAIError, httpx.HTTPError, ValueError):
         raise VoiceError("transcription_failed") from None
-    usage = transcription_usage(response)
+    usage = transcription_usage(response, since(started))
     text = " ".join(str(getattr(response, "text", "") or "").split())
     if not text:
         raise VoiceError("transcription_empty", "Nu am înțeles înregistrarea. Încearcă din nou.", 422, usage)
@@ -126,8 +135,10 @@ def transcribe(data: bytes, audio_format: str) -> tuple[str, AudioUsage]:
 
 def realtime_session_config() -> dict:
     """The only live transcription session Corect.uk creates: text out, no assistant responses, never client-chosen."""
-    transcription = {"model": settings.OPENAI_LIVE_TRANSCRIBE_MODEL, "prompt": TRANSCRIPTION_PROMPT,
-                     "delay": REALTIME_DELAY}
+    transcription = {"model": settings.OPENAI_LIVE_TRANSCRIBE_MODEL, "prompt": TRANSCRIPTION_PROMPT}
+    if settings.VOICE_REALTIME_DELAY:
+        # How long the provider waits before emitting text: lower is faster, higher can be more accurate.
+        transcription["delay"] = settings.VOICE_REALTIME_DELAY
     if settings.VOICE_TRANSCRIBE_LANGUAGES:
         # English and Romanian hints without forcing one language, so mixed speech is written as spoken.
         transcription["languages"] = list(settings.VOICE_TRANSCRIBE_LANGUAGES)
@@ -138,8 +149,9 @@ def realtime_session_config() -> dict:
 
 def create_realtime_secret() -> tuple[str, int | None]:
     """A short-lived client secret the browser uses to open one live transcription session over WebRTC."""
+    client = _client()
     try:
-        with _client() as client:
+        with timed("openai"):
             secret = client.realtime.client_secrets.create(
                 expires_after={"anchor": "created_at", "seconds": REALTIME_SECRET_SECONDS},
                 session=realtime_session_config())
@@ -166,8 +178,10 @@ def synthesize_speech(text: str) -> tuple[bytes, AudioUsage]:
     """MP3 audio for one approved English sentence, with usage from the provider's speech.audio.done event."""
     model, voice = settings.OPENAI_TTS_MODEL, settings.OPENAI_TTS_VOICE
     audio, reported = bytearray(), None
+    client = _client()
+    started = perf_counter()
     try:
-        with _client() as client, client.audio.speech.with_streaming_response.create(
+        with client.audio.speech.with_streaming_response.create(
                 model=model, voice=voice, input=text, instructions=BRITISH_TTS_INSTRUCTIONS, response_format="mp3",
                 speed=settings.OPENAI_TTS_SPEED, stream_format="sse") as response:
             for event in _sse_payloads(response.iter_lines()):
@@ -181,7 +195,8 @@ def synthesize_speech(text: str) -> tuple[bytes, AudioUsage]:
         raise VoiceError("tts_failed") from None
     reported = reported or {}
     usage = AudioUsage(model=model, voice=voice, input_tokens=_count(reported.get("input_tokens")),
-                       output_tokens=_count(reported.get("output_tokens")), total_tokens=_count(reported.get("total_tokens")))
+                       output_tokens=_count(reported.get("output_tokens")), total_tokens=_count(reported.get("total_tokens")),
+                       duration_ms=since(started))
     if not audio:
         raise VoiceError("tts_failed", usage=usage)
     return bytes(audio), usage

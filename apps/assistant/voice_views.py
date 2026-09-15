@@ -2,6 +2,7 @@
 that Corect.uk generated."""
 import io
 import logging
+from time import perf_counter
 
 from django.conf import settings
 from django.core.files.uploadedfile import InMemoryUploadedFile
@@ -18,7 +19,9 @@ from apps.analytics.services.visitors import attach_visitor_cookie, existing_vis
 from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
 from .services.limits import actor_key, claim_voice
 from .services.openai_client import AssistantError
-from .services.realtime import OUTCOMES, finish_session, parse_seconds, read_session_token, start_session
+from .services.realtime import (OUTCOMES, finish_session, parse_seconds, parse_timings, read_session_token,
+                                start_session)
+from .services.timing import collect_timings, server_timing_header, since, timed
 from .services.voice import (REALTIME_CALLS_URL, SPEECH_UNAVAILABLE, VOICE_UNAVAILABLE, VoiceError, create_realtime_secret,
                              declared_type_matches, read_speech_token, sniff_audio, synthesize_speech, transcribe)
 
@@ -94,12 +97,25 @@ def claim_or_reject(request, operation, visitor, **event):
 @never_cache
 def start_realtime_transcription(request):
     """Mints a short-lived client secret for one live transcription session. The session configuration is fixed on the
-    server: nothing in the request body is read, and the normal API key never leaves the server."""
+    server: nothing in the request body is read, and the normal API key never leaves the server.
+
+    Order matters for abuse control: the quota is claimed before the provider is called, and the session row is only
+    written once a secret exists. A Server-Timing header shows the database and provider time of the start-up path."""
     if not settings.VOICE_REALTIME_ENABLED:
         raise Http404
-    visitor = resolve_visitor(request)
-    live = {"stt_mode": AudioUsageEvent.SttMode.REALTIME, "model": settings.OPENAI_LIVE_TRANSCRIBE_MODEL}
-    rejected = claim_or_reject(request, Operation.TRANSCRIPTION, visitor, **live)
+    started = perf_counter()
+    with collect_timings() as timings:
+        response = _start_realtime_session(request)
+    timings["total"] = since(started)
+    response["Server-Timing"] = server_timing_header(timings)
+    return response
+
+
+def _start_realtime_session(request):
+    with timed("db"):
+        visitor = resolve_visitor(request)
+        live = {"stt_mode": AudioUsageEvent.SttMode.REALTIME, "model": settings.OPENAI_LIVE_TRANSCRIBE_MODEL}
+        rejected = claim_or_reject(request, Operation.TRANSCRIPTION, visitor, **live)
     if rejected:
         return finish(request, rejected, visitor)
     try:
@@ -110,7 +126,8 @@ def start_realtime_transcription(request):
         logger.warning("voice_failed code=%s operation=realtime", exc.code)
         return finish(request, error_response(exc), visitor)
     try:
-        session = start_session(request, visitor)
+        with timed("db"):
+            session = start_session(request, visitor)
     except DatabaseError:
         logger.error("voice_database_unavailable operation=realtime")
         return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
@@ -123,8 +140,8 @@ def start_realtime_transcription(request):
 @csrf_protect
 @never_cache
 def finish_realtime_transcription(request):
-    """Accounts for a live session exactly once. Receives only the signed session, how it ended and the provider's
-    reported duration: never transcript text."""
+    """Accounts for a live session exactly once. Receives only the signed session, how it ended, the provider's reported
+    duration and bounded browser timings: never transcript text."""
     outcome = request.POST.get("outcome", "")
     try:
         if outcome not in OUTCOMES:
@@ -134,7 +151,8 @@ def finish_realtime_transcription(request):
         logger.warning("voice_failed code=%s operation=realtime", exc.code)
         return error_response(exc)
     try:
-        finish_session(session_id, outcome=outcome, reported_seconds=parse_seconds(request.POST.get("provider_seconds")))
+        finish_session(session_id, outcome=outcome, reported_seconds=parse_seconds(request.POST.get("provider_seconds")),
+                       timings=parse_timings(request.POST))
     except DatabaseError:
         logger.error("voice_database_unavailable operation=realtime")
         return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))

@@ -1,6 +1,7 @@
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.auth.models import Group, User
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -9,18 +10,18 @@ from django.utils.html import escape
 from apps.accounts.models import LegalAcceptance
 from apps.analytics.models import AnonymousVisitor, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
-from apps.assistant.tests.examples import correction_result
+from apps.assistant.tests.examples import correction_result, naturalized_english
 from apps.core.checks import legal_identity_configured
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.core.plans import PRO_GROUP, display_plans
 
 FEATURES = {
-    "Corectare inteligentă": "Corectează greșelile reale fără să schimbe inutil felul în care te exprimi.",
-    "Versiune nativă": "Vezi cum ar formula aceeași idee, natural, un vorbitor din UK.",
-    "Traducere RO ↔ EN": "Traduce rapid și clar între română și engleză.",
-    "Scrii sau dictezi": "Vorbești natural, iar textul e pregătit instant pentru corectare sau traducere.",
-    "Pronunție britanică": "Ascultă corectarea și varianta nativă cu pronunție britanică.",
-    "Istoric": "Revii oricând la corectările și traducerile tale.",
+    "Engleză corectă": "Repară greșelile reale fără să schimbe inutil felul în care te exprimi.",
+    "Sună natural": "Vezi cum ar spune același lucru, natural, un vorbitor din UK.",
+    "Scrii și în română": "Primești direct engleza britanică naturală, fără să alegi nimic.",
+    "Scrii sau dictezi": "Vorbești în română sau engleză, iar textul apare pe loc în casetă.",
+    "Pronunție britanică": "Ascultă rezultatul cu pronunție britanică.",
+    "Istoric": "Revii oricând la textele tale.",
     "Categorii de greșeli": "Vezi unde greșești cel mai des.",
     "Progres": "Urmărești cum evoluează engleza ta în timp.",
     "Practice": "Exersezi exact zonele în care ai nevoie de ajutor.",
@@ -63,7 +64,7 @@ class AboutPageTests(TestCase):
         User.objects.create_user(username="ana", password="test-password")
         self.client.login(username="ana", password="test-password")
         html = self.client.get("/despre/").content.decode()
-        self.assertIn('<a class="button cta-button" href="/#text">Începe o corectare</a>', html)
+        self.assertIn('<a class="button cta-button" href="/#text">Scrie primul text</a>', html)
         self.assertIn('<a class="button secondary plan-button" href="/#text">Mergi la editor</a>', html)
 
     def test_header_help_icon_and_menu_link_lead_to_the_about_page(self):
@@ -146,7 +147,7 @@ class LandingPageTests(TestCase):
         html = self.client.get("/").content.decode()
         cta = section(html, 'class="landing-cta"')
         self.assertNotIn("Creează cont", cta)
-        self.assertIn('<a class="button cta-button" href="#text">Începe o corectare</a>', cta)
+        self.assertIn('<a class="button cta-button" href="#text">Scrie primul text</a>', cta)
         self.assertIn('href="#text">Mergi la editor</a>', html)
         self.assertIn('<a href="/history/">Istoric</a>', section(html, 'class="site-footer"', "</footer>"))
 
@@ -157,28 +158,28 @@ class LandingPageTests(TestCase):
         self.client.force_login(user)
         plans = section(self.client.get("/").content.decode(), 'class="landing-section landing-plans')
         self.assertIn('<h2 id="plans-title">Ești în planul potrivit.</h2>', plans)
-        for hidden in ("Alege planul potrivit", 'class="plan-card', "<button", "Corectări limitate", "£"):
+        for hidden in ("Alege planul potrivit", 'class="plan-card', "<button", "Engleză naturală limitată", "£"):
             self.assertNotIn(hidden, plans)
         pro_features = [label for label, included in display_plans()[1]["features"] if included]
         self.assertEqual(plans.count('<li class="is-included">'), len(pro_features))
         self.assertIn(FAIR_USE, plans)
 
     def test_no_javascript_result_page_keeps_the_sections(self):
-        with patch("apps.assistant.views.CorrectionService.correct", return_value=correction_result()):
-            response = self.client.post("/assistant/correct/", {"text": correction_result().original_text,
-                                                                "submission_token": uuid4()})
+        with patch("apps.assistant.views.NaturalizeService.naturalize", return_value=naturalized_english()):
+            response = self.client.post("/naturalize/", {"text": correction_result().original_text,
+                                                         "submission_token": uuid4()})
         self.assertContains(response, "</span>£4.99</strong>")
         self.assertContains(response, 'class="feature-card', count=12)
 
 
 class ConsentTests(TestCase):
     def setUp(self):
-        patch("apps.assistant.views.CorrectionService.correct", return_value=correction_result()).start()
+        patch("apps.assistant.views.NaturalizeService.naturalize", return_value=naturalized_english()).start()
         self.addCleanup(patch.stopall)
 
     def correct(self):
-        return self.client.post("/assistant/correct/", {"text": correction_result().original_text,
-                                                        "submission_token": uuid4()})
+        return self.client.post("/naturalize/", {"text": correction_result().original_text,
+                                                 "submission_token": uuid4()})
 
     def html(self, path="/"):
         return self.client.get(path).content.decode()
@@ -249,7 +250,7 @@ class ConsentTests(TestCase):
         self.assertNotIn('class="consent-bar"', self.html())
         with override_settings(TERMS_VERSION="2099-01-01"):
             self.assertIn('class="consent-bar"', self.html())
-            self.assertEqual(self.acknowledge().cookies[CONSENT_COOKIE].value, "2099-01-01|2026-09-14.2|0")
+            self.assertEqual(self.acknowledge().cookies[CONSENT_COOKIE].value, f"2099-01-01|{settings.PRIVACY_VERSION}|0")
 
     def test_signed_in_users_are_recorded_against_their_account(self):
         user = User.objects.create_user("ana", password="test-password")
@@ -260,7 +261,7 @@ class ConsentTests(TestCase):
         self.acknowledge()
         acceptance = LegalAcceptance.objects.get(user=user)
         self.assertEqual((acceptance.terms_version, acceptance.privacy_version, acceptance.source),
-                         ("2026-09-14", "2026-09-14.2", "visit"))
+                         (settings.TERMS_VERSION, settings.PRIVACY_VERSION, "visit"))
         self.assertNotIn('class="consent-bar"', self.html())
         with override_settings(PRIVACY_VERSION="2099-01-01"):
             self.assertIn('class="consent-bar"', self.html())
@@ -339,7 +340,7 @@ class FooterAndPageTests(TestCase):
                        "availability", "changes", "consumer-rights", "law", "complaints"):
             self.assertContains(response, f'<h2 id="{anchor}">')
         for text in ("cel puțin 16 ani", "nu garantează rezultate la examene, angajare, rezultate în proceduri de imigrare",
-                     "legea din Anglia și Țara Galilor", "Versiunea 2026-09-14"):
+                     "legea din Anglia și Țara Galilor", f"Versiunea {settings.TERMS_VERSION}"):
             self.assertContains(response, text)
 
 

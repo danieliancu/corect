@@ -31,7 +31,7 @@ class LearningPageTests(TestCase):
             response = self.client.get("/learn/")
         ai.assert_not_called()
         for text in ("Pentru tine azi", "5 exerciții alese din greșelile tale recente", "Since / for",
-                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", "Progresul tău", '<span class="learn-plan-pill">Free</span>', "1 tip urmărit"):
+                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", '<h3 id="activity-title">Progres</h3>','<span class="learn-plan-pill">Free</span>', "1 tip urmărit"):
             self.assertContains(response, text)
         for text in ("Situați", "Obiectivele tale", "Următoarele", "Continuăm de unde ai rămas", "learn-rail",
                      'aria-label="Exersează: Since / for"', "Vezi tot", 'value="today"', 'href="/practice/"'):
@@ -116,12 +116,25 @@ class CorrectionLoopTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("ana", password="pass")
         self.client.force_login(self.user)
-        patch("apps.assistant.views.CorrectionService.correct", return_value=correction_result()).start()
+        from apps.assistant.tests.examples import naturalized_english
+        self.naturalize = patch("apps.assistant.views.NaturalizeService.naturalize",
+                                return_value=naturalized_english()).start()
         self.addCleanup(patch.stopall)
 
     def correct(self):
-        return self.client.post("/assistant/correct/", {"text": correction_result().original_text,
-                                                        "submission_token": uuid4()}, HTTP_HX_REQUEST="true")
+        return self.client.post("/naturalize/", {"text": correction_result().original_text,
+                                                 "submission_token": uuid4()}, HTTP_HX_REQUEST="true")
+
+    def test_romanian_text_creates_no_mistakes_or_practice(self):
+        from apps.assistant.models import GrammarCorrection
+        from apps.assistant.tests.examples import naturalized_romanian
+        self.naturalize.return_value = naturalized_romanian()
+        for _ in range(3):
+            response = self.correct()
+            self.assertContains(response, "În engleză britanică")
+            self.assertNotContains(response, "Exersează acum")
+        self.assertFalse(GrammarCorrection.objects.exists())
+        self.assertFalse(UserMistakePattern.objects.exists())
 
     def test_a_repeated_mistake_offers_practice_from_the_correction(self):
         first = self.correct()

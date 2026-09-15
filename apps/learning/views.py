@@ -1,6 +1,7 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from typing import get_args
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -16,7 +17,9 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from apps.accounts.suspension import SUSPENDED_MESSAGE
+from apps.assistant.languages import CORRECTION, TRANSLATION, translation_codes
 from apps.assistant.models import AssistantRequest, GrammarCorrection
+from apps.assistant.presentation import history_group
 from apps.assistant.schemas import Category
 from apps.core.entitlements import has_feature
 from .models import Exercise, PracticeSession
@@ -33,7 +36,7 @@ INSTRUCTIONS = {"multiple_choice": "Alege varianta corectă.", "choose_phrase": 
                 "fill_blank": "Completează spațiul liber.", "rewrite": "Rescrie propoziția.",
                 "short_correction": "Corectează propoziția."}
 GENERATION_FAILED = "Nu am putut pregăti exerciții noi acum. Încearcă din nou în câteva minute."
-NO_EXERCISES = "Încă nu avem exerciții pentru tine. Corectează câteva texte în engleză și revino."
+NO_EXERCISES = "Încă nu avem exerciții pentru tine. Scrie câteva texte în engleză și revino."
 
 
 def genuine_mistakes(user):
@@ -155,8 +158,8 @@ def history(request):
         grouped = {day.date(): [] for day in day_starts}
         for entry in entries.filter(created_at__gte=start, created_at__lt=end):
             grouped[timezone.localdate(entry.created_at)].append(entry)
-        days = [{"date": day, "entries": items, "corrections": sum(e.request_type == "correction" for e in items),
-                 "translations": sum(e.request_type == "translation" for e in items)} for day, items in grouped.items()]
+        days = [{"date": day, "entries": items, "groups": Counter(history_group(entry) for entry in items)}
+                for day, items in grouped.items()]
     return render(request, "learning/history.html", {"learning_section": "history", "page_obj": page_obj, "days": days})
 
 
@@ -171,10 +174,16 @@ def history_detail(request, pk):
 @login_required
 @never_cache
 def mistakes(request):
-    counts = Counter((" ".join(c.original.lower().split()), " ".join(c.replacement.lower().split()))
-                     for c in genuine_mistakes(request.user).iterator())
-    repeated = [{"original": key[0], "replacement": key[1], "total": total}
-                for key, total in counts.most_common(10) if total > 1]
+    counts, where = Counter(), defaultdict(Counter)
+    for correction in genuine_mistakes(request.user).iterator():
+        key = (" ".join(correction.original.lower().split()), " ".join(correction.replacement.lower().split()))
+        counts[key] += 1
+        where[key][correction.category] += 1
+    # Each repeated mistake links to its examples: its (most common) category page, filtered to that exact change.
+    repeated = [{"original": original, "replacement": replacement, "total": total,
+                 "category": where[(original, replacement)].most_common(1)[0][0],
+                 "query": urlencode({"original": original, "replacement": replacement})}
+                for (original, replacement), total in counts.most_common(10) if total > 1]
     refresh_if_stale(request.user)
     return render(request, "learning/mistakes.html", {"learning_section": "mistakes", "categories": categories(request.user),
                                                       "repeated": repeated, "patterns": list(ranked_patterns(request.user))})
@@ -186,8 +195,14 @@ def mistake_category(request, category):
     if category not in get_args(Category) or category == "british_english":
         raise Http404
     items = genuine_mistakes(request.user).filter(category=category).select_related("request").order_by("-created_at")
+    original, replacement = (" ".join(request.GET.get(name, "").split()) for name in ("original", "replacement"))
+    pair = None
+    if original and replacement:  # From "Tipuri de revăzut": only the examples of that one change.
+        items = items.filter(original__iexact=original, replacement__iexact=replacement)
+        pair = {"original": original, "replacement": replacement,
+                "query": urlencode({"original": original, "replacement": replacement})}
     return render(request, "learning/mistake_category.html", {"learning_section": "mistakes", "category": category,
-        "page_obj": Paginator(items, 20).get_page(request.GET.get("page"))})
+        "pair": pair, "page_obj": Paginator(items, 20).get_page(request.GET.get("page"))})
 
 
 @login_required
@@ -205,8 +220,8 @@ def progress(request):
                   for day in trend]
     patterns = list(ranked_patterns(user))
     return render(request, "learning/progress.html", {"learning_section": "progress", "trend_data": trend_data,
-        "correction_count": entries.filter(request_type="correction").count(),
-        "translation_count": entries.filter(request_type="translation").count(),
+        "english_count": entries.filter(request_type=CORRECTION).count(),
+        "into_english_count": entries.filter(request_type=TRANSLATION, detected_language__in=translation_codes()).count(),
         "mistake_count": genuine_mistakes(user).count(), "categories": categories(user), "trend": trend,
         "overview": learning_overview(user, patterns), "cards": what_changed(user, patterns)})
 

@@ -33,15 +33,16 @@ class AnonymousVisitor(models.Model):
 
 
 class UsageEvent(models.Model):
-    """Append-only ledger: one row per validated Correct/Translate submission. Holds no submitted or generated text."""
+    """Append-only ledger: one row per validated "Vreau să sune natural!" submission. Holds no submitted or generated text."""
 
     class Audience(models.TextChoices):
         REGISTERED = "registered", "Registered"
         ANONYMOUS = "anonymous", "Anonymous"
 
     class Kind(models.TextChoices):
-        CORRECTION = "correction", "Correction"
-        TRANSLATION = "translation", "Translation"
+        CORRECTION = "correction", "English correction"
+        TRANSLATION = "translation", "Translation into British English"
+        UNCLASSIFIED = "unclassified", "Unclassified"
 
     class Status(models.TextChoices):
         SUCCESS = "success", "Success"
@@ -53,8 +54,14 @@ class UsageEvent(models.Model):
                              related_name="usage_events")
     visitor = models.ForeignKey(AnonymousVisitor, null=True, blank=True, on_delete=models.SET_NULL,
                                 related_name="usage_events")
-    request_type = models.CharField(max_length=12, choices=Kind.choices, help_text="The action the visitor chose.")
-    auto_translated = models.BooleanField(default=False, help_text="Romanian sent to Correct and translated instead.")
+    request_type = models.CharField(
+        max_length=12, choices=Kind.choices,
+        help_text="Effective operation: correction (English input) or translation (e.g. Romanian into British English); "
+                  "unclassified when the request failed before its language was known.")
+    source_language = models.CharField(max_length=12, blank=True,
+                                       help_text="Language the input was classified as (en, ro, other...); empty if unknown.")
+    auto_translated = models.BooleanField(default=False, help_text="Legacy, before the single action: Romanian sent to "
+                                                                   "Correct and translated instead.")
     model = models.CharField(max_length=100, blank=True, help_text="Configured OPENAI_MODEL.")
     response_model = models.CharField(max_length=100, blank=True, help_text="Model name reported by the provider.")
     prompt_version = models.CharField(max_length=30, blank=True)
@@ -68,6 +75,12 @@ class UsageEvent(models.Model):
     total_tokens = models.PositiveIntegerField(null=True, blank=True)
     estimated_cost = models.DecimalField(max_digits=14, decimal_places=8, null=True, blank=True,
                                          help_text="USD at recording time; empty when pricing or tokens are unknown.")
+    duration_ms = models.PositiveIntegerField(null=True, blank=True,
+                                              help_text="Server time from receiving the request to recording it.")
+    provider_duration_ms = models.PositiveIntegerField(null=True, blank=True,
+                                                       help_text="Time spent in the generative provider call.")
+    moderation_duration_ms = models.PositiveIntegerField(null=True, blank=True,
+                                                         help_text="Moderation check, run alongside the provider call.")
     assistant_request = models.OneToOneField("assistant.AssistantRequest", null=True, blank=True,
                                              on_delete=models.SET_NULL, related_name="usage_event")
     is_backfilled = models.BooleanField(default=False, help_text="Created from history saved before usage tracking.")
@@ -135,6 +148,18 @@ class AudioUsageEvent(models.Model):
                                        help_text="Where the audio duration came from.")
     estimated_cost = models.DecimalField(max_digits=14, decimal_places=8, null=True, blank=True,
                                          help_text="USD at recording time; empty when pricing or usage is unknown.")
+    provider_duration_ms = models.PositiveIntegerField(null=True, blank=True,
+                                                       help_text="Server-measured provider call (file transcription, speech).")
+    # Live transcription timings reported by the browser (bounded 0-600000 ms, numbers only).
+    mic_ms = models.PositiveIntegerField(null=True, blank=True, help_text="Microphone press to microphone ready.")
+    session_ms = models.PositiveIntegerField(null=True, blank=True, help_text="Session request to Corect.uk.")
+    connect_ms = models.PositiveIntegerField(null=True, blank=True, help_text="WebRTC connection to the provider.")
+    startup_ms = models.PositiveIntegerField(null=True, blank=True, help_text="Microphone press to listening.")
+    first_word_ms = models.PositiveIntegerField(null=True, blank=True,
+                                                      help_text="Listening to the first transcribed words.")
+    finalise_ms = models.PositiveIntegerField(null=True, blank=True, help_text="Stop to final transcript.")
+    final_received = models.BooleanField(null=True, blank=True,
+                                         help_text="Whether the final transcript arrived before the safety timeout.")
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:

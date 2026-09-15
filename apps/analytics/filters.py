@@ -8,7 +8,9 @@ from django.utils import timezone
 PERIODS = {"today": "Today", "7d": "Last 7 days", "30d": "Last 30 days", "90d": "Last 90 days", "all": "All time"}
 PERIOD_DAYS = {"today": 1, "7d": 7, "30d": 30, "90d": 90}
 AUDIENCES = {"all": "All", "registered": "Registered", "anonymous": "Anonymous"}
-TYPES = {"all": "All", "correction": "Correct", "translation": "Translate"}
+# Effective operation of a "Vreau să sune natural!" request (apps/assistant/languages.py), not a button.
+TYPES = {"all": "All", "correction": "English correction", "translation": "Into British English",
+         "unclassified": "Unclassified"}
 
 
 def day_start(days_back=0):

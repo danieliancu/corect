@@ -21,12 +21,17 @@
 | Example corrections                 |                 ✅ 100% | Greșeala tăiată roșu → corecția verde                                 |
 | Fake example isolation              |                 ✅ 100% | Overlay decorativ; nu intră în `textarea.value` și nu poate fi trimis |
 | Reduced motion                      |                 ✅ 100% | Exemplu static, fără typing animation                                 |
-| Correct                             |                 ✅ 100% | Live                                                                  |
+| **„Vreau să sune natural!”**        |                 ✅ 100% | Un singur buton; fără Corectare/Traducere                             |
+| Un singur apel AI per cerere        |                 ✅ 100% | EN și RO: 1 `responses.parse` + moderare în paralel                   |
+| Registru de limbi                   |                 ✅ 100% | `apps/assistant/languages.py`; pregătit pentru alte limbi            |
+| EN → corectat + natural             |                 ✅ 100% | Greșeli explicate; varianta naturală doar când ajută                 |
 | British English                     |                 ✅ 100% | Prompt dedicat                                                        |
-| Native version                      |                 ✅ 100% | Inclusiv propoziții corecte dar nenaturale                            |
+| Natural version                     |                 ✅ 100% | Inclusiv propoziții corecte dar nenaturale                            |
 | Silent punctuation/capitalisation   |                 ✅ 100% | Nu sunt raportate ca greșeli                                          |
-| RO → Correct → EN                   |                 ✅ 100% | Auto-translation                                                      |
-| Translate RO ↔ EN                   |                 ✅ 100% | Live                                                                  |
+| RO → engleză britanică naturală     |                 ✅ 100% | Direct, fără al doilea apel                                           |
+| EN → RO                             |              ⚪ Retras | Istoricul vechi rămâne vizibil                                        |
+| Eval calitate limbă (live)          |                 ✅ 100% | 236 cazuri, `eval_naturalize --live`                                  |
+| Măsurare latență                    |                 ✅ 100% | Server-Timing, ledger, `latency_report`, benchmark text/voce         |
 | OpenAI text                         |                 ✅ 100% | `gpt-5.6-luna`, verificat live                                        |
 | Structured Outputs                  |                 ✅ 100% | Pydantic                                                              |
 | `store=False`                       |                 ✅ 100% | Păstrat                                                               |
@@ -88,12 +93,13 @@
 | Admin Total AI                      |                 ✅ 100% | Text + Audio                                                          |
 | User audio cost                     |                 ✅ 100% | Per user                                                              |
 | Anonymous audio cost                |                 ✅ 100% | Per visitor                                                           |
-| **Tests backend**                   |             ✅ **100%** | **138 teste trecute**                                                 |
-| **Browser workflows**               |             ✅ **100%** | **9 workflows trecute**                                               |
+| **Tests backend**                   |             ✅ **100%** | **278 teste trecute**                                                 |
+| **Browser workflows**               |             ✅ **100%** | **26 workflows trecute** (inclusiv axe)                               |
 | Live text smoke test                |                 ✅ 100% | Luna                                                                  |
 | Live realtime OpenAI test           |                 ✅ 100% | WebRTC + real provider                                                |
 | Real physical mic test              |                     🟡 | Desktop/iPhone/Android încă de făcut                                  |
-| Accessibility                       |                 🟡 85% | Axe vechi OK; trebuie rerulat după UI nou                             |
+| Accessibility                       |                 ✅ 95% | Axe 4.11 rerulat: fără probleme serious/critical (home, 4 rezultate, Despre) |
+| Latență voce                        |                 ✅ 100% | Pornire p50 3.0 s → 1.9 s; stop → text final 1.5 s → 0.9 s           |
 | Deployment public                   |                  🔴 0% | Următorul pas major                                                   |
 | Production monitoring               |                  🔴 0% | La deployment                                                         |
 | Beta users                          |                  🔴 0% | După deploy                                                           |

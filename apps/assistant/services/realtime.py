@@ -3,6 +3,7 @@
 The browser streams audio straight to OpenAI, so Django only sees the session start and its end. The provider's
 duration reaches us through the browser, so it is accepted only within the window the server observed itself.
 """
+import re
 import uuid
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -15,6 +16,7 @@ from django.utils import timezone
 from apps.analytics.models import AudioUsageEvent, UsageEvent
 from apps.analytics.services.recording import record_audio_event
 from ..models import RealtimeTranscriptionSession
+from .timing import MAX_MS
 from .voice import VOICE_UNAVAILABLE, AudioUsage, VoiceError
 
 SESSION_SALT = "corect.realtime.v1"
@@ -32,6 +34,9 @@ OUTCOMES = {
 }
 LIVE = AudioUsageEvent.SttMode.REALTIME
 Session = RealtimeTranscriptionSession
+# Browser-measured live transcription timings (static/js/voice.js). Numbers only: they never affect billing.
+TIMING_FIELDS = ("mic_ms", "session_ms", "connect_ms", "startup_ms", "first_word_ms", "finalise_ms")
+_WHOLE_MS = re.compile(r"^\d{1,6}$")
 
 
 def session_lifetime() -> int:
@@ -66,6 +71,19 @@ def parse_seconds(raw) -> Decimal | None:
     return value.quantize(SECONDS) if value.is_finite() and value > 0 else None
 
 
+def parse_timings(data) -> dict:
+    """The timings a browser reported when finishing a session: whole milliseconds up to MAX_MS; anything else is
+    dropped silently, as is every unknown field."""
+    timings = {}
+    for field in TIMING_FIELDS:
+        raw = data.get(field)
+        if isinstance(raw, str) and _WHOLE_MS.match(raw) and int(raw) <= MAX_MS:
+            timings[field] = int(raw)
+    if data.get("final_received") in ("0", "1"):
+        timings["final_received"] = data.get("final_received") == "1"
+    return timings
+
+
 def metered_seconds(session, reported: Decimal | None, now) -> tuple[Decimal, str]:
     """The provider's duration when it fits what the server saw; otherwise the server-observed session window."""
     elapsed = Decimal(str(max((now - session.created_at).total_seconds(), 0)))
@@ -75,8 +93,9 @@ def metered_seconds(session, reported: Decimal | None, now) -> tuple[Decimal, st
     return window, AudioUsageEvent.MeteringSource.STREAM_DURATION
 
 
-def finish_session(session_id, *, outcome: str, reported_seconds: Decimal | None):
-    """Closes a session exactly once and writes its single ledger row; later calls for the same session do nothing."""
+def finish_session(session_id, *, outcome: str, reported_seconds: Decimal | None, timings: dict | None = None):
+    """Closes a session exactly once and writes its single ledger row, with the browser's timings; later calls for the
+    same session do nothing."""
     status, error_code = OUTCOMES[outcome]
     now = timezone.now()
     with transaction.atomic():
@@ -93,7 +112,7 @@ def finish_session(session_id, *, outcome: str, reported_seconds: Decimal | None
             user=session.user, audience=session.audience, visitor=session.visitor,
             operation=AudioUsageEvent.Operation.TRANSCRIPTION, status=status, error_code=error_code,
             usage=AudioUsage(model=session.model, audio_seconds=seconds), stt_mode=LIVE, metering_source=source,
-            provider_called=True)
+            provider_called=True, timings=timings)
 
 
 def abandon_expired_sessions(now=None) -> int:

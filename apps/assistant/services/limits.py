@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models import F
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
@@ -10,7 +11,7 @@ from .openai_client import AssistantError
 
 RATE_LIMIT_MESSAGE = "Ai atins limita de cereri. Încearcă din nou mai târziu."
 VOICE_LIMIT_MESSAGE = "Ai atins limita pentru voce deocamdată. Încearcă din nou mai târziu."
-# Voice operations count in their own namespaced buckets, so they never use up Correct/Translate quotas.
+# Voice operations count in their own namespaced buckets, so they never use up the text quota.
 VOICE_QUOTAS = {
     "transcription": ("voice-stt", "VOICE_TRANSCRIBE_LIMIT_MINUTE", "VOICE_TRANSCRIBE_LIMIT_DAY"),
     "speech": ("voice-tts", "VOICE_TTS_LIMIT_MINUTE", "VOICE_TTS_LIMIT_DAY"),
@@ -30,13 +31,15 @@ def consume_quota(key_prefix: str, windows, code: str, message: str) -> None:
     for seconds, limit in windows:
         window = int(now.timestamp()) // seconds
         key = f"{key_prefix}:{seconds}:{window}"
+        # One conditional UPDATE counts the request only while the window has room. The database locks and re-checks
+        # the row, so concurrent requests can never pass the limit; the enclosing transaction rolls every window back
+        # when a later one is full.
+        if RateBucket.objects.filter(key=key, count__lt=limit).update(count=F("count") + 1):
+            continue
         bucket, _ = RateBucket.objects.get_or_create(key=key, defaults={"expires_at": now + timedelta(seconds=seconds)})
-        bucket = RateBucket.objects.select_for_update().get(pk=bucket.pk)
-        if bucket.count >= limit:
+        if not RateBucket.objects.filter(pk=bucket.pk, count__lt=limit).update(count=F("count") + 1):
             retry_after = max(1, (window + 1) * seconds - int(now.timestamp()))
             raise AssistantError(code, message, retry_after=retry_after)
-        bucket.count += 1
-        bucket.save(update_fields=["count"])
 
 
 @transaction.atomic

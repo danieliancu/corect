@@ -160,16 +160,17 @@
   background: var(--blue);
   color: #fff;
 }
-.native-version .spoken-sentence {
-  align-items: center;
+/* The natural version's speaker beside its title: the same round button as the correction's, in its box's violet. */
+.native-version .speak-button--heading {
+  border-color: #ebe4ff;
+  background: linear-gradient(135deg, #8b6ff2, #5b3fc4);
+  color: #fff;
 }
-.native-version .speak-button {
-  margin-top: 0;
-  background: #e2d9ff;
-  color: #5b3fc4;
+.native-version .speak-button--heading:hover {
+  background: linear-gradient(135deg, #7b5fe6, #4c33ad);
 }
-.native-version .speak-button.is-playing {
-  background: #6a4ee0;
+.native-version .speak-button--heading.is-playing {
+  background: #4c33ad;
   color: #fff;
 }
 /* The correction's speaker takes the place of the icon beside the "Corectură" heading. */

@@ -20,6 +20,7 @@ from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.models import AssistantRequest, RateBucket, RealtimeTranscriptionSession
 from apps.assistant.services.pricing import parse_audio_pricing
 from apps.assistant.services.voice import REALTIME_CALLS_URL, TRANSCRIPTION_PROMPT
+from .provider import ProviderMock
 
 SESSION_URL, FINISH_URL = "/assistant/realtime-transcription/session/", "/assistant/realtime-transcription/finish/"
 API_KEY = "sk-server-only-sentinel-key"
@@ -33,11 +34,9 @@ Session = RealtimeTranscriptionSession
 @override_settings(OPENAI_API_KEY=API_KEY, OPENAI_AUDIO_PRICING=PRICING, VOICE_REALTIME_ENABLED=True,
                    OPENAI_LIVE_TRANSCRIBE_MODEL="gpt-live-transcribe", VOICE_TRANSCRIBE_LANGUAGES=["en", "ro"],
                    VOICE_MAX_SECONDS=60, VOICE_TRANSCRIBE_LIMIT_MINUTE=100)
-class RealtimeCase(TestCase):
+class RealtimeCase(ProviderMock, TestCase):
     def setUp(self):
-        self.sdk = patch("apps.assistant.services.voice.OpenAI").start()
-        self.addCleanup(patch.stopall)
-        self.api = self.sdk.return_value.__enter__.return_value
+        super().setUp()
         self.api.realtime.client_secrets.create.return_value = SimpleNamespace(
             value=SECRET, expires_at=1789336312, session=SimpleNamespace(id="sess_provider_id"))
 
@@ -77,7 +76,24 @@ class RealtimeSessionEndpointTests(RealtimeCase):
             "transcription": {"model": "gpt-live-transcribe", "prompt": TRANSCRIPTION_PROMPT, "delay": "low",
                               "languages": ["en", "ro"]},
             "turn_detection": None, "noise_reduction": {"type": "near_field"}}}})
-        self.assertIn("British English, Romanian, or both", TRANSCRIPTION_PROMPT)
+        self.assertIn("English or Romanian, or mix them", TRANSCRIPTION_PROMPT)
+
+    def test_transcription_delay_follows_the_setting(self):
+        for delay, expected in (("minimal", {"delay": "minimal"}), ("", {})):
+            with self.subTest(delay=delay), self.settings(VOICE_REALTIME_DELAY=delay):
+                self.start()
+                transcription = self.api.realtime.client_secrets.create.call_args.kwargs["session"]["audio"]["input"][
+                    "transcription"]
+                self.assertEqual({key: value for key, value in transcription.items() if key == "delay"}, expected)
+
+    def test_sessions_reuse_one_provider_client_and_report_server_timing(self):
+        responses = [self.start() for _ in range(3)]
+        self.sdk.assert_called_once()
+        for response in responses:
+            header = response["Server-Timing"]
+            for name in ("db;dur=", "openai;dur=", "total;dur="):
+                self.assertIn(name, header)
+            self.assertRegex(header, r"^[a-z_]+;dur=\d+(, [a-z_]+;dur=\d+)*$")
 
     def test_only_post_with_csrf_is_accepted(self):
         self.assertEqual(self.client.get(SESSION_URL, REMOTE_ADDR=CLIENT_IP).status_code, 405)
@@ -213,7 +229,7 @@ class RealtimeFinishTests(RealtimeCase):
         self.finish(token, provider_seconds="7", transcript=SPOKEN, text=SPOKEN)
         event = AudioUsageEvent.objects.get()
         self.assertEqual((event.user, event.audience, event.visitor), (learner, "registered", None))
-        self.assertFalse(AssistantRequest.objects.exists())  # Speech is not history until Corectare or Traducere.
+        self.assertFalse(AssistantRequest.objects.exists())  # Speech is not history until it is sent to be made natural.
         stored = serializers.serialize("json", [*Session.objects.all(), *AudioUsageEvent.objects.all()])
         for secret in (SPOKEN, SECRET, API_KEY, CLIENT_IP, "sess_provider_id"):
             self.assertNotIn(secret, stored)
@@ -226,6 +242,40 @@ class RealtimeFinishTests(RealtimeCase):
         event = AudioUsageEvent.objects.get()
         self.assertEqual((event.stt_mode, event.metering_source, event.model, event.estimated_cost),
                          ("file", "provider", "gpt-transcribe", Decimal("0.00033750")))
+
+
+class RealtimeTimingTests(RealtimeCase):
+    TIMINGS = {"mic_ms": "120", "session_ms": "910", "connect_ms": "640", "startup_ms": "1850",
+               "first_word_ms": "1400", "finalise_ms": "930", "final_received": "1"}
+
+    def test_browser_timings_are_stored_as_bounded_numbers_on_the_session_row(self):
+        self.finish(self.started(age_seconds=10), provider_seconds="9", **self.TIMINGS)
+        event = AudioUsageEvent.objects.get()
+        self.assertEqual((event.mic_ms, event.session_ms, event.connect_ms, event.startup_ms, event.first_word_ms,
+                          event.finalise_ms, event.final_received), (120, 910, 640, 1850, 1400, 930, True))
+
+    def test_junk_timings_are_dropped_and_only_the_first_finish_counts(self):
+        junk = {"mic_ms": "-1", "session_ms": "NaN", "connect_ms": "1e9", "startup_ms": "700000",
+                "first_word_ms": "12.5", "finalise_ms": "abc", "final_received": "maybe"}
+        token = self.started(age_seconds=10)
+        self.finish(token, provider_seconds="9", **junk)
+        self.finish(token, provider_seconds="9", **self.TIMINGS)
+        event = AudioUsageEvent.objects.get()
+        self.assertEqual((event.mic_ms, event.session_ms, event.connect_ms, event.startup_ms, event.first_word_ms,
+                          event.finalise_ms, event.final_received), (None,) * 7)
+
+    def test_a_failed_connection_keeps_its_start_up_timings_at_no_cost(self):
+        self.finish(self.started(age_seconds=5), outcome="connect_failed", mic_ms="80", session_ms="950")
+        event = AudioUsageEvent.objects.get()
+        self.assertEqual((event.error_code, event.estimated_cost, event.mic_ms, event.session_ms, event.startup_ms),
+                         ("realtime_connect_failed", Decimal("0"), 80, 950, None))
+
+    def test_file_transcription_records_the_server_measured_provider_time(self):
+        self.api.audio.transcriptions.create.return_value = SimpleNamespace(
+            text="Hello there.", usage=SimpleNamespace(type="duration", seconds=4.5))
+        upload = SimpleUploadedFile("a.webm", b"\x1a\x45\xdf\xa3" + b"\x00" * 64, content_type="audio/webm")
+        self.client.post("/assistant/transcribe/", {"audio": upload}, REMOTE_ADDR=CLIENT_IP)
+        self.assertIsInstance(AudioUsageEvent.objects.get().provider_duration_ms, int)
 
 
 class RealtimeCleanupTests(RealtimeCase):

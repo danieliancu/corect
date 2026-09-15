@@ -27,16 +27,15 @@ def display_plans():
     return (
         {"key": "free", "name": "Free", "subtitle": "Pentru testare și utilizare ocazională", "price": "£0",
          "original_price": "", "period": "", "icon": "icons/user.html", "recommended": False, "fair_use": False,
-         "features": (("Corectări limitate", True), ("Traduceri limitate", True), ("Voce în timp real limitată", True),
-                      ("British TTS limitat", True), ("Istoric limitat", True), ("Progres", False),
+         "features": (("Engleză naturală limitată", True), ("Voce în timp real limitată", True),
+                      ("British TextToSpeech limitat", True), ("Istoric limitat", True), ("Progres", False),
                       ("Categorii de greșeli", False), ("Practice", False), ("Exerciții bazate pe greșelile tale", False),
                       ("Statistici de evoluție", False))},
         # "Nelimitat" means no numeric cap on normal personal use; the Fair Use section of the Terms covers abuse only.
         {"key": "pro", "name": "Pro", "subtitle": "Pentru cei care vor să progreseze serios", "price": pro_price,
          "original_price": pro_original_price, "period": "/ lună", "icon": "icons/crown.html", "recommended": True,
          "fair_use": True,
-         "features": (("Corectări nelimitate", True), ("Traduceri nelimitate", True),
-                      ("Voce în timp real nelimitată", True), ("British TTS nelimitat", True),
+         "features": (("Engleză naturală nelimitată", True), ("Voce în timp real nelimitată", True), ("British TextToSpeech nelimitat", True),
                       ("Istoric complet", True), ("Progres", True), ("Categorii de greșeli", True), ("Practice", True),
                       ("Exerciții bazate pe greșelile tale", True), ("Statistici de evoluție", True))},
     )

@@ -56,6 +56,13 @@ LOGOUT_REDIRECT_URL = "/"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "")
 OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "60"))
+# The OpenAI client is shared by the whole process (apps/assistant/services/provider.py). Idle provider connections are
+# kept this long so the next request skips DNS, TCP and TLS set-up; httpx's own default is 5 seconds.
+OPENAI_KEEPALIVE_SECONDS = float(os.getenv("OPENAI_KEEPALIVE_SECONDS", "20"))
+# Optional reasoning effort for the Naturalise call; empty sends nothing and keeps the model's own default.
+OPENAI_REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", "").strip().lower()
+if OPENAI_REASONING_EFFORT not in ("", "none", "minimal", "low", "medium", "high", "xhigh", "max"):
+    raise ImproperlyConfigured("OPENAI_REASONING_EFFORT must be empty or none, minimal, low, medium, high, xhigh or max.")
 # USD per 1M tokens, OpenAI standard tier, from https://developers.openai.com/api/docs/pricing (checked 13 September 2026).
 # OPENAI_PRICING (JSON) replaces this table entirely; "{}" disables cost estimates while tokens are still recorded.
 DEFAULT_OPENAI_PRICING = {"gpt-5.6-luna": {"input_per_1m": "0.20", "cached_input_per_1m": "0.02", "output_per_1m": "1.20"}}
@@ -101,6 +108,26 @@ except InvalidOperation:
     ANALYTICS_GBP_PER_USD = Decimal(-1)
 if not ANALYTICS_GBP_PER_USD.is_finite() or ANALYTICS_GBP_PER_USD <= 0:
     raise ImproperlyConfigured("ANALYTICS_GBP_PER_USD must be a positive number.")
+def _int_setting(name, default, low, high):
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        value = low - 1
+    if not low <= value <= high:
+        raise ImproperlyConfigured(f"{name} must be a whole number from {low} to {high}.")
+    return value
+
+
+# Live transcription timing. The delay is how long the provider waits before emitting words ("" leaves it out).
+# When the learner presses Stop, the microphone keeps sending for VOICE_TRAILING_AUDIO_MS so the last word is not cut,
+# then the audio is committed; the final transcript event ends the wait at once, VOICE_FINAL_TRANSCRIPT_MS is only a
+# safety limit. Values chosen with `manage.py benchmark_voice_latency` (README, Latency): 200 ms was the smallest trailing
+# window that kept the last spoken word in 20 of 20 English and 20 of 20 Romanian runs (0 ms lost it once).
+VOICE_REALTIME_DELAY = os.getenv("VOICE_REALTIME_DELAY", "low").strip().lower()
+if VOICE_REALTIME_DELAY not in ("", "minimal", "low", "medium", "high", "xhigh"):
+    raise ImproperlyConfigured("VOICE_REALTIME_DELAY must be empty or minimal, low, medium, high or xhigh.")
+VOICE_TRAILING_AUDIO_MS = _int_setting("VOICE_TRAILING_AUDIO_MS", 200, 0, 1500)
+VOICE_FINAL_TRANSCRIPT_MS = _int_setting("VOICE_FINAL_TRANSCRIPT_MS", 2500, 500, 4000)
 VOICE_MAX_SECONDS = int(os.getenv("VOICE_MAX_SECONDS", "60"))
 VOICE_MAX_BYTES = int(os.getenv("VOICE_MAX_BYTES", "5000000"))
 VOICE_TRANSCRIBE_LANGUAGES = [code.strip() for code in os.getenv("VOICE_TRANSCRIBE_LANGUAGES", "en,ro").split(",")
@@ -113,8 +140,8 @@ VOICE_SPEECH_TOKEN_MAX_AGE = int(os.getenv("VOICE_SPEECH_TOKEN_MAX_AGE", "2700")
 ASSISTANT_MAX_CHARACTERS = int(os.getenv("ASSISTANT_MAX_CHARACTERS", "2000"))
 RATE_LIMIT_MINUTE = int(os.getenv("RATE_LIMIT_MINUTE", "10"))
 RATE_LIMIT_DAY = int(os.getenv("RATE_LIMIT_DAY", "100"))
-# Abuse guardrails. Text sent to Correct/Translate is checked with OpenAI's free moderation endpoint, in parallel with
-# the correction so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
+# Abuse guardrails. Text sent to "Vreau să sune natural!" is checked with OpenAI's free moderation endpoint, in parallel
+# with the model call so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
 CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"
 # Learning engine (apps/learning/services). Python decides what to practise; AI only creates or evaluates content, which
 # is stored and reused. Every learning AI call is recorded in analytics.LearningUsageEvent.
@@ -145,8 +172,8 @@ VAT_NUMBER = os.getenv("VAT_NUMBER", "").strip()
 LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
 # Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
 # privacy.html: everyone (including signed-in users) is then asked to accept the new version.
-TERMS_VERSION = "2026-09-14"
-PRIVACY_VERSION = "2026-09-14.2"
+TERMS_VERSION = "2026-09-15"  # Single "Vreau să sune natural!" action (no English-to-Romanian translation).
+PRIVACY_VERSION = "2026-09-15"  # Also: source language and processing durations in usage statistics.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

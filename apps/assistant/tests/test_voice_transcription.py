@@ -15,6 +15,7 @@ from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
 from apps.assistant.services.voice import TRANSCRIPTION_PROMPT
+from .provider import ProviderMock
 
 WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 64
 MP4 = b"\x00\x00\x00\x18ftypM4A " + b"\x00" * 64
@@ -29,11 +30,9 @@ def recording(data=WEBM, content_type="audio/webm;codecs=opus", name="my-private
     return SimpleUploadedFile(name, data, content_type=content_type)
 
 
-class TranscriptionEndpointTests(TestCase):
+class TranscriptionEndpointTests(ProviderMock, TestCase):
     def setUp(self):
-        self.sdk = patch("apps.assistant.services.voice.OpenAI").start()
-        self.addCleanup(patch.stopall)
-        self.api = self.sdk.return_value.__enter__.return_value
+        super().setUp()
         self.respond(ENGLISH)
 
     def respond(self, text, seconds=4.5):
@@ -84,6 +83,7 @@ class TranscriptionEndpointTests(TestCase):
                          ("transcription", "anonymous", "success", "gpt-transcribe", 1))
         # 4.5 seconds ÷ 60 × $0.0045 per minute
         self.assertEqual((event.audio_seconds, event.estimated_cost), (Decimal("4.50"), Decimal("0.00033750")))
+        self.assertIsInstance(event.provider_duration_ms, int)
         self.assertEqual(event.visitor, AnonymousVisitor.objects.get())
         self.assertEqual(response.cookies[VISITOR_COOKIE].value, str(event.visitor_id))
 

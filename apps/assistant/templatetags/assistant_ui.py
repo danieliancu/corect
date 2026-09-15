@@ -4,12 +4,19 @@ from difflib import SequenceMatcher
 
 from django import template
 
+from apps.assistant import presentation
 from apps.assistant.services.voice import make_speech_token
 
 register = template.Library()
-SPEECH_LABELS = {"correction": "Ascultă corectura în engleză britanică",
-                 "native": "Ascultă versiunea nativă în engleză britanică",
-                 "translation": "Ascultă traducerea în engleză britanică"}
+SPEECH_LABELS = {"correction": "Ascultă varianta corectă în engleză britanică",
+                 "native": "Ascultă varianta naturală în engleză britanică",
+                 "translation": "Ascultă în engleză britanică"}
+
+
+@register.simple_tag
+def result_outcome(kind, result):
+    """errors | unnatural | natural | translated | legacy_to_romanian (see apps/assistant/presentation.py)."""
+    return presentation.result_outcome(kind, result)
 
 
 @register.inclusion_tag("assistant/speech_button.html", takes_context=True)

@@ -8,14 +8,14 @@
   <div class="analytics-card"><span>Registered users</span><strong>{{ users.total|number }}</strong><small>{{ users.new|number }} joined in this period</small></div>
   <div class="analytics-card"><span>Anonymous visitors</span><strong>{{ visitors.all_time|number }}</strong><small>{{ visitors.active|number }} active in this period</small></div>
   <div class="analytics-card"><span>Signup conversion</span><strong>{{ signup_rate|percent }}</strong><small>{{ visitors.signed_up|number }} of {{ visitors.total|number }} visitors{% if filters.start %} first seen in this period{% endif %} signed up · {{ visitors.signed_in|number }} signed in to an existing account</small></div>
-  <div class="analytics-card"><span>Text requests</span><strong>{{ totals.requests|number }}</strong><small>Correct and Translate in this period</small></div>
+  <div class="analytics-card"><span>Text requests</span><strong>{{ totals.requests|number }}</strong><small>"Vreau să sune natural!" in this period</small></div>
   <div class="analytics-card"><span>Today</span><strong>{{ windows.today|number }}</strong><small>Text requests since midnight</small></div>
   <div class="analytics-card"><span>Last 7 days</span><strong>{{ windows.last_7|number }}</strong><small>Text requests</small></div>
   <div class="analytics-card"><span>Last 30 days</span><strong>{{ windows.last_30|number }}</strong><small>Text requests</small></div>
   <div class="analytics-card"><span>Successful</span><strong>{{ totals.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
   <div class="analytics-card"><span>Failed</span><strong>{{ totals.failures|number }}</strong><small>{{ totals.rejections|number }} rejected (rate limit or duplicate)</small></div>
-  <div class="analytics-card"><span>Corrections</span><strong>{{ totals.corrections|number }}</strong><small>Correct chosen</small></div>
-  <div class="analytics-card"><span>Translations</span><strong>{{ totals.translations|number }}</strong><small>Translate chosen</small></div>
+  <div class="analytics-card"><span>English corrections</span><strong>{{ totals.corrections|number }}</strong><small>Written or spoken in English</small></div>
+  <div class="analytics-card"><span>Into British English</span><strong>{{ totals.translations|number }}</strong><small>Written or spoken in Romanian</small></div>
   <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio</small></div>
   <div class="analytics-card"><span>British TTS plays</span><strong>{{ audio_totals.speech_plays|number }}</strong><small>{{ audio_totals.speech_correction|number }} correction · {{ audio_totals.speech_native|number }} native · {{ audio_totals.speech_translation|number }} translation</small></div>
   <div class="analytics-card"><span>Text input tokens</span><strong>{{ totals.tokens_in|number }}</strong><small>{{ totals.tokens_cached|number }} served from cache</small></div>

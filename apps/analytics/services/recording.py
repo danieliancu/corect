@@ -8,9 +8,11 @@ from django.db import DatabaseError
 from apps.analytics.models import AudioUsageEvent, LearningUsageEvent, UsageEvent
 from apps.assistant.services.pricing import estimate_cost, estimate_speech_cost, estimate_transcription_cost
 from apps.assistant.services.prompts import PROMPT_VERSION
+from apps.assistant.services.timing import bounded_ms
 
 logger = logging.getLogger("apps.analytics")
 TOKEN_FIELDS = ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens")
+VOICE_TIMING_FIELDS = ("mic_ms", "session_ms", "connect_ms", "startup_ms", "first_word_ms", "finalise_ms")
 
 
 def _total(values):
@@ -28,16 +30,19 @@ def _usage_totals(calls, status):
 
 
 def record_usage_event(*, request, kind, status, calls=(), error_code="", visitor=None, assistant_request=None,
-                       auto_translated=False):
+                       source_language="", duration_ms=None, moderation_ms=None):
+    """`kind` is the effective operation (correction, translation or unclassified), never the public action."""
     user = request.user if request.user.is_authenticated else None
     tokens, cost = _usage_totals(calls, status)
     try:
         return UsageEvent.objects.create(
             audience=UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS,
-            user=user, visitor=visitor, request_type=kind, auto_translated=auto_translated,
+            user=user, visitor=visitor, request_type=kind, source_language=(source_language or "")[:12],
             model=settings.OPENAI_MODEL[:100], response_model=next((c.response_model for c in calls if c.response_model), ""),
             prompt_version=PROMPT_VERSION, status=status, error_code=error_code, provider_calls=len(calls),
-            estimated_cost=cost, assistant_request=assistant_request, **tokens)
+            estimated_cost=cost, assistant_request=assistant_request, duration_ms=bounded_ms(duration_ms),
+            provider_duration_ms=bounded_ms(_total([getattr(call, "duration_ms", None) for call in calls])),
+            moderation_duration_ms=bounded_ms(moderation_ms), **tokens)
     except DatabaseError:
         logger.error("usage_event_unavailable")
         return None
@@ -59,11 +64,21 @@ def record_learning_event(*, user, feature, status, calls=(), error_code="", pro
         return None
 
 
+def _voice_timings(timings) -> dict:
+    """Only the known live-transcription timing fields, each a bounded whole number (or a boolean for final_received)."""
+    if not timings:
+        return {}
+    values = {field: bounded_ms(timings.get(field)) for field in VOICE_TIMING_FIELDS if field in timings}
+    if isinstance(timings.get("final_received"), bool):
+        values["final_received"] = timings["final_received"]
+    return {field: value for field, value in values.items() if value is not None}
+
+
 def record_audio_event(*, operation, status, request=None, user=None, audience="", usage=None, error_code="",
                        visitor=None, speech_target="", usage_event_id=None, provider_called=False, model="", stt_mode="",
-                       metering_source=""):
-    """One audio ledger row per transcription or speech request (or live transcription session): usage, cost and
-    identity only, never content. `request` identifies the user; without one (cleanup) pass `user` and `audience`."""
+                       metering_source="", timings=None):
+    """One audio ledger row per transcription or speech request (or live transcription session): usage, cost, identity
+    and timings only, never content. `request` identifies the user; without one (cleanup) pass `user` and `audience`."""
     if request is not None:
         user = request.user if request.user.is_authenticated else None
     speech = operation == AudioUsageEvent.Operation.SPEECH
@@ -73,11 +88,13 @@ def record_audio_event(*, operation, status, request=None, user=None, audience="
     if status == AudioUsageEvent.Status.REJECTED:
         # Rejected before any provider call, so nothing was consumed.
         tokens, seconds, cost = dict.fromkeys(("input_tokens", "output_tokens", "total_tokens"), 0), None, Decimal(0)
+        provider_ms = None
     else:
         tokens = {field: getattr(usage, field) if usage else None
                   for field in ("input_tokens", "output_tokens", "total_tokens")}
         seconds = usage.audio_seconds if usage else None
         cost = (estimate_speech_cost(usage) if speech else estimate_transcription_cost(usage)) if usage else None
+        provider_ms = bounded_ms(getattr(usage, "duration_ms", None)) if usage else None
     if seconds is None:
         metering_source = ""
     elif not metering_source:
@@ -89,7 +106,8 @@ def record_audio_event(*, operation, status, request=None, user=None, audience="
             user=user, visitor=visitor, usage_event_id=linked, speech_target=speech_target if speech else "",
             model=model[:100], voice=voice[:40], status=status, error_code=error_code, stt_mode=stt_mode,
             provider_calls=1 if provider_called and status != AudioUsageEvent.Status.REJECTED else 0,
-            audio_seconds=seconds, metering_source=metering_source, estimated_cost=cost, **tokens)
+            audio_seconds=seconds, metering_source=metering_source, estimated_cost=cost, provider_duration_ms=provider_ms,
+            **_voice_timings(timings), **tokens)
     except DatabaseError:
         logger.error("audio_usage_event_unavailable")
         return None

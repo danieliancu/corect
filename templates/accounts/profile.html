@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}Profilul tău — Corect.uk{% endblock %}{% block content %}
 <section class="auth-container profile-page">
-  <div class="page-heading"><p class="eyebrow">URMĂTORUL TĂU PAS</p><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p></div>
+  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p></div>
   <form method="post" class="card account-form profile-details">{% csrf_token %}
     <input type="hidden" name="action" value="profile">
     <h2>Datele contului</h2>
@@ -16,7 +16,7 @@
   <form method="post" class="card account-form delete-account">{% csrf_token %}
     <input type="hidden" name="action" value="delete">
     <h2>Șterge contul</h2>
-    <p class="muted">Ștergem definitiv contul, istoricul corecturilor și traducerilor, greșelile înregistrate și confirmările Termenilor. Statisticile de utilizare (fără text, audio sau adresă IP) rămân, fără legătură cu contul tău. Acțiunea nu poate fi anulată.</p>
+    <p class="muted">Ștergem definitiv contul, istoricul textelor, greșelile înregistrate și confirmările Termenilor. Statisticile de utilizare (fără text, audio sau adresă IP) rămân, fără legătură cu contul tău. Acțiunea nu poate fi anulată.</p>
     {{ delete_form.as_p }}
     <button class="button danger-button" type="submit">Șterge contul definitiv</button>
   </form>

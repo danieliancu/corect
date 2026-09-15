@@ -1,3 +1,4 @@
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from django.conf import settings
@@ -9,15 +10,20 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from apps.analytics.services.visitors import delete_visitor_cookie
+from apps.assistant.services.voice import REALTIME_CALLS_URL
 from .consent import acceptance_required, analytics_chosen, record_acceptance, set_consent_cookie
 from .legal import retention_facts
 from .plans import display_plans
 
+# The browser opens its connection to this origin only once the learner reaches for the microphone, never on page load.
+REALTIME_ORIGIN = "{0.scheme}://{0.netloc}".format(urlsplit(REALTIME_CALLS_URL))
+
 
 def home_context(**kwargs):
     return {"max_characters": settings.ASSISTANT_MAX_CHARACTERS, "voice_max_seconds": settings.VOICE_MAX_SECONDS,
-            "voice_realtime_enabled": settings.VOICE_REALTIME_ENABLED, "submission_token": str(uuid4()),
-            "plans": display_plans(), **kwargs}
+            "voice_realtime_enabled": settings.VOICE_REALTIME_ENABLED, "voice_realtime_origin": REALTIME_ORIGIN,
+            "voice_trailing_ms": settings.VOICE_TRAILING_AUDIO_MS, "voice_final_ms": settings.VOICE_FINAL_TRANSCRIPT_MS,
+            "submission_token": str(uuid4()), "plans": display_plans(), **kwargs}
 
 
 @never_cache

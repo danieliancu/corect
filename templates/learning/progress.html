@@ -1,7 +1,7 @@
 {% extends 'learning/layout.html' %}{% load static %}{% block title %}Progres — Corect.uk{% endblock %}
 {% block scripts %}<script src="{% static 'vendor/chart.umd.min.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/progress.js' %}{{ asset_query }}" defer></script>{% endblock %}
 {% block learning_content %}
-<section class="page-heading"><h1>Progresul tău</h1></section>
+<section class="page-heading"><h1>Progres</h1></section>
 {% if overview.stage == 'empty' %}
 <section class="learn-card"><p class="learn-empty">Începe să scrii sau să vorbești în engleză. Pe măsură ce folosești Corect, vom identifica ce merită să exersezi.</p><a class="button" href="{% url 'home' %}">Scrie primul text</a></section>
 {% else %}
@@ -13,11 +13,11 @@
     <div class="learn-stat is-yellow"><p><strong>{{ overview.to_practise }}</strong><span>Zone de exersat</span></p></div>
     <div class="learn-stat is-lilac"><p><strong>{{ overview.exercises_30 }}</strong><span>Exerciții finalizate</span></p></div>
   </div>
-  {% if overview.stage == 'early' %}<p class="learn-muted">Începem să vedem câteva tipuri. Tendințele apar după mai multe corecturi, în câteva săptămâni.</p>{% elif overview.repeated_change is None %}<p class="learn-muted">Comparația cu perioada anterioară apare când există destule greșeli repetate în ambele perioade.</p>{% endif %}
+  {% if overview.stage == 'early' %}<p class="learn-muted">Începem să vedem câteva tipuri. Tendințele apar după mai multe texte în engleză, în câteva săptămâni.</p>{% elif overview.repeated_change is None %}<p class="learn-muted">Comparația cu perioada anterioară apare când există destule greșeli repetate în ambele perioade.</p>{% endif %}
 </section>
 {% if cards %}{% include 'learning/_changes.html' %}{% endif %}
 {% endif %}
-<div class="stat-grid"><div class="card stat"><strong>{{ correction_count }}</strong><span>Corecturi</span></div><div class="card stat"><strong>{{ translation_count }}</strong><span>Traduceri</span></div><div class="card stat"><strong>{{ mistake_count }}</strong><span>Greșeli</span></div></div>
+<div class="stat-grid"><div class="card stat"><strong>{{ english_count }}</strong><span>Texte în engleză</span></div><div class="card stat"><strong>{{ into_english_count }}</strong><span>Texte din română</span></div><div class="card stat"><strong>{{ mistake_count }}</strong><span>Greșeli</span></div></div>
 <div class="learning-grid">
   <section class="card trend-card">
     <div class="chart-heading">

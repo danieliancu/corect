@@ -117,7 +117,7 @@
   border: 1px solid var(--learn-line);
   border-radius: var(--learn-radius);
 }
-/* Three heading sizes on every learning page, as on "Greșelile mele": the page title (h1, as .page-heading h1),
+/* Three heading sizes on every learning page, as on "Greșeli": the page title (h1, as .page-heading h1),
    section titles (h2, like "În ultimele 30 de zile") and item titles (h3, like a pattern row's name). */
 .learn-card h2,
 .learning-page .card > h2,
@@ -136,7 +136,7 @@
 .learn-card-heading h2 {
   margin: 0;
 }
-/* "Ce trebuie exersat": the whole heading leads to "Greșelile mele", the arrow shows it. */
+/* "Ce trebuie exersat": the whole heading leads to "Greșeli", the arrow shows it. */
 .learn-heading-link {
   display: inline-flex;
   flex-wrap: nowrap;
@@ -321,6 +321,66 @@
 }
 .learn-list.is-compact .learn-row {
   grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) auto;
+}
+/* Greșeli: the status pill sits beside the pattern name, the details stay on one line and an arrow on the
+   right starts the exercises for that pattern. */
+.learn-list.is-listing .learn-row {
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) auto;
+}
+.learn-list.is-listing .learn-row-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.learn-list.is-listing .learn-row .learn-row-go {
+  margin: 0;
+}
+.learn-row-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--learn-blue-ink);
+  cursor: pointer;
+}
+.learn-row-arrow svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.15s ease;
+}
+.learn-row-arrow:hover svg {
+  transform: translateX(3px);
+}
+.learn-row-arrow:focus-visible {
+  outline: 3px solid #075cc9;
+  outline-offset: 1px;
+}
+/* The pill always stays on the name's line; a long name wraps within its own space instead. */
+.learn-row-title {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.learn-row-title strong {
+  min-width: 0;
+}
+/* More specific than the phone rule that pins a row's own status to the top of its grid cell. */
+.learn-list.is-listing .learn-row-title .learn-status {
+  align-self: center;
+}
+.learn-row-title .learn-status {
+  display: inline-block;
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--learn-blue-ink);
+  font-size: 12px;
 }
 .learn-row-main strong {
   display: block;
@@ -671,7 +731,7 @@
 .learn-change-copy h3 {
   margin: 0 0 8px;
   color: var(--learn-ink);
-  font-size: 15px; /* The same size as a pattern name in "Greșelile mele" (.learn-row-main strong). */
+  font-size: 15px; /* The same size as a pattern name in "Greșeli" (.learn-row-main strong). */
   line-height: 1.3;
   letter-spacing: 0;
 }
@@ -828,27 +888,6 @@
   }
 }
 
-/* The correction result: "Ai mai făcut această greșeală…". */
-.learning-hint {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
-  margin-top: 12px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: #efeaff;
-  color: #3d2c8f;
-}
-.learning-hint p {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 550;
-}
-.learning-hint form {
-  margin: 0;
-}
 
 @media (max-width: 1200px) {
   .learn-stats {
@@ -868,6 +907,18 @@
   .learn-row form {
     grid-column: 2;
     grid-row: 2;
+  }
+  .learn-list.is-listing .learn-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .learn-list.is-listing .learn-row-main,
+  .learn-list.is-listing .learn-row-progress {
+    grid-column: 1;
+  }
+  .learn-list.is-listing .learn-row .learn-row-go {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
   }
 }
 @media (max-width: 1023px) {
@@ -943,6 +994,24 @@
   .learn-list.is-compact .learn-row-progress {
     grid-column: 1 / -1;
   }
+  .learn-list.is-listing .learn-row-meta {
+    font-size: 12.5px;
+  }
+  /* Phones: the name, its status and the details use the whole card width (details on one line); progress and the
+     arrow share the second line. */
+  .learn-list.is-listing .learn-row-main {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .learn-list.is-listing .learn-row-progress {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .learn-list.is-listing .learn-row .learn-row-go {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
   .learn-row-progress .learn-progress-label {
     flex-shrink: 0;
     margin: 0;
@@ -964,10 +1033,6 @@
   }
   .learn-card-heading {
     flex-wrap: wrap;
-  }
-  .learning-hint {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 @media (prefers-reduced-motion: no-preference) {

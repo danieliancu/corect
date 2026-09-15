@@ -10,6 +10,7 @@ from django.test import TestCase, override_settings
 from apps.analytics.models import AnonymousVisitor, UsageEvent
 from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
+from apps.assistant.services.naturalize import Naturalized
 from apps.assistant.tests.examples import correction_result
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from .test_recording import provider_usage, replying
@@ -25,13 +26,14 @@ class VisitorPrivacyTests(TestCase):
         result = correction_result()
         result.original_text = SUBMITTED_TEXT
         result.corrected_text = RESPONSE_TEXT
-        patch("apps.assistant.views.CorrectionService.correct", side_effect=replying(result, provider_usage())).start()
+        patch("apps.assistant.views.NaturalizeService.naturalize",
+              side_effect=replying(Naturalized("correction", "en", result), provider_usage())).start()
         self.addCleanup(patch.stopall)
         # These tests cover a visitor who allowed anonymous analytics; without that choice no visitor exists at all.
         self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)
 
     def post(self):
-        return self.client.post("/assistant/correct/", {"text": SUBMITTED_TEXT, "submission_token": uuid4()},
+        return self.client.post("/naturalize/", {"text": SUBMITTED_TEXT, "submission_token": uuid4()},
                                 REMOTE_ADDR=CLIENT_IP)
 
     def test_anonymous_text_response_and_ip_are_never_persisted(self):

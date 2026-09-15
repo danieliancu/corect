@@ -20,6 +20,7 @@ class ProviderUsage:
     output_tokens: int | None
     reasoning_tokens: int | None
     total_tokens: int | None
+    duration_ms: int | None = None  # Wall time of the provider call, measured by the server.
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,7 @@ _collected: ContextVar[list[ProviderUsage] | None] = ContextVar("provider_usage"
 
 @contextmanager
 def collect_provider_usage():
-    """Collects the usage of every provider call made inside the block, e.g. a correction followed by a translation."""
+    """Collects the usage of every provider call made inside the block (a Naturalise request makes exactly one)."""
     calls: list[ProviderUsage] = []
     token = _collected.set(calls)
     try:
@@ -52,11 +53,12 @@ def _count(value):
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
-def usage_from_response(response, model: str) -> ProviderUsage | None:
+def usage_from_response(response, model: str, duration_ms: int | None = None) -> ProviderUsage | None:
     usage = getattr(response, "usage", None)
     if usage is None:
         return None
     return ProviderUsage(
+        duration_ms=duration_ms,
         model=model,
         response_model=str(getattr(response, "model", "") or "")[:100],
         input_tokens=_count(getattr(usage, "input_tokens", None)),

@@ -7,8 +7,8 @@
   <h2 id="summary">2. Pe scurt</h2>
   <ul>
     <li>Fără cont, textul pe care îl scrii sau îl dictezi și rezultatele nu sunt salvate.</li>
-    <li>Cu cont, corecturile și traducerile reușite sunt salvate în istoricul tău, până le ștergi împreună cu contul.</li>
-    <li>Pentru corectare, traducere, transcriere și pronunție, textul sau sunetul este trimis către OpenAI.</li>
+    <li>Cu cont, textele trimise și rezultatele reușite sunt salvate în istoricul tău, până le ștergi împreună cu contul.</li>
+    <li>Ca să primești engleza britanică naturală, pentru transcriere și pentru pronunție, textul sau sunetul este trimis către OpenAI.</li>
     <li>Nu salvăm înregistrări audio și nu salvăm adresa ta IP în baza de date.</li>
     {% if visitor_cookie %}<li>Folosim un identificator anonim de analytics, pe care îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>.</li>{% endif %}
   </ul>
@@ -16,10 +16,10 @@
   <h2 id="data">3. Ce date prelucrăm</h2>
   <h3>Contul</h3>
   <p>Numele de utilizator, adresa de email (opțională și neverificată), parola (păstrată doar sub formă criptată, ca hash), data creării contului și data ultimei autentificări. Păstrăm și confirmarea Termenilor și a Politicii de confidențialitate: versiunile și data.</p>
-  <h3>Corecturi, traduceri, greșeli și progres</h3>
-  <p>Dacă ai cont, pentru fiecare corectură sau traducere reușită păstrăm textul trimis, rezultatul (inclusiv explicațiile și versiunea nativă) și greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, un cod de eroare și data, fără text. Fără cont, textul și rezultatele nu sunt salvate.</p>
+  <h3>Texte, rezultate, greșeli și progres</h3>
+  <p>Dacă ai cont, pentru fiecare cerere reușită păstrăm textul trimis, limba în care l-ai scris, rezultatul în engleză britanică (inclusiv explicațiile și varianta naturală) și, pentru textele scrise în engleză, greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, limba (dacă era deja cunoscută), un cod de eroare și data, fără text. Fără cont, textul și rezultatele nu sunt salvate.</p>
   <h3>Profilul tău de învățare</h3>
-  <p>Dacă ai cont, din corecturile tale salvate construim un profil de învățare privat: tipurile de greșeli pe care le faci (de exemplu „since / for”), de câte ori și când au apărut, prioritatea lor, cât de bine le stăpânești și când trebuie recapitulate. Păstrăm exercițiile pregătite pentru tine, sesiunile de exersare, răspunsurile tale la exerciții și dacă au fost corecte. Calculele (recurență, prioritate, recapitulare, progres) sunt făcute de aplicație, nu de AI. Aceste informații sunt vizibile doar pentru tine și pentru operator, atunci când e necesar pentru suport sau securitate.</p>
+  <p>Dacă ai cont, din textele tale în engleză salvate construim un profil de învățare privat: tipurile de greșeli pe care le faci (de exemplu „since / for”), de câte ori și când au apărut, prioritatea lor, cât de bine le stăpânești și când trebuie recapitulate. Păstrăm exercițiile pregătite pentru tine, sesiunile de exersare, răspunsurile tale la exerciții și dacă au fost corecte. Calculele (recurență, prioritate, recapitulare, progres) sunt făcute de aplicație, nu de AI. Aceste informații sunt vizibile doar pentru tine și pentru operator, atunci când e necesar pentru suport sau securitate.</p>
   <h3>Voce</h3>
   <ul>
     <li><strong>Transcriere în timp real:</strong> serverul nostru obține de la OpenAI o cheie temporară (valabilă 30 de secunde pentru pornire), iar browserul tău trimite sunetul direct către OpenAI. Sunetul nu trece prin serverele Corect.uk, iar textul transcris apare doar în pagina ta. Păstrăm o evidență tehnică a sesiunii (model, stare, orele de început și sfârșit și, dacă e cazul, contul sau identificatorul de analytics), fără sunet, text sau adresă IP.</li>
@@ -27,9 +27,9 @@
     <li><strong>Pronunție britanică:</strong> când apeși butonul de ascultare, propoziția în engleză este trimisă către OpenAI, care generează sunetul. Sunetul primit nu este salvat.</li>
   </ul>
   <h3>Statistici de utilizare</h3>
-  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
+  <p>Pentru fiecare cerere păstrăm o evidență tehnică: tipul cererii, limba textului (de exemplu engleză sau română), starea, codul de eroare, modelul folosit, numărul de tokenuri, durata audio, duratele de procesare (în milisecunde, inclusiv pornirea și finalizarea transcrierii în timp real), costul estimat și data. Evidența este legată de cont dacă ești autentificat și de identificatorul anonim de analytics, dacă nu l-ai oprit. Nu conține text, sunet sau adresă IP.</p>
   <h3>Identificatorul anonim de analytics</h3>
-  <p>{% if visitor_cookie %}La prima corectare, traducere sau folosire a vocii creăm un identificator aleator, păstrat în cookie-ul <code>corect_visitor_id</code>. Împreună cu el păstrăm prima și ultima dată a folosirii și, dacă îți creezi cont sau te autentifici, legătura cu contul. Identificatorul este activ implicit. Îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>: atunci ștergem cookie-ul din browser și nu îl mai folosim.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</p>
+  <p>{% if visitor_cookie %}La prima folosire a butonului „Vreau să sune natural!” sau a vocii creăm un identificator aleator, păstrat în cookie-ul <code>corect_visitor_id</code>. Împreună cu el păstrăm prima și ultima dată a folosirii și, dacă îți creezi cont sau te autentifici, legătura cu contul. Identificatorul este activ implicit. Îl poți opri oricând din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>: atunci ștergem cookie-ul din browser și nu îl mai folosim.{% else %}Cookie-ul de statistici pentru vizitatori este dezactivat.{% endif %}</p>
   <h3>Securitate și limite de utilizare</h3>
   <p>Ca să prevenim abuzul, numărăm cererile pe minut și pe zi. Pentru vizitatorii fără cont folosim o valoare criptografică derivată din adresa IP cu o cheie secretă, nu adresa IP în sine; pentru conturi folosim identificatorul contului. Păstrăm și un cod pentru fiecare cerere trimisă, ca aceeași cerere să nu fie procesată de două ori.</p>
   <h3>Jurnale</h3>
@@ -41,7 +41,7 @@
   <div class="legal-table-wrap"><table>
     <thead><tr><th scope="col">Scop</th><th scope="col">Bază legală</th></tr></thead>
     <tbody>
-      <tr><td>Contul, corectarea, traducerea, istoricul, vocea, pronunția și funcțiile de învățare (profilul de greșeli, exercițiile personalizate, recapitulările și progresul)</td><td>Executarea contractului cu tine (Termenii) sau pașii pe care ni-i ceri</td></tr>
+      <tr><td>Contul, engleza britanică naturală (greșelile reparate și varianta naturală), istoricul, vocea, pronunția și funcțiile de învățare (profilul de greșeli, exercițiile personalizate, recapitulările și progresul)</td><td>Executarea contractului cu tine (Termenii) sau pașii pe care ni-i ceri</td></tr>
       <tr><td>Securitate, prevenirea abuzului, limite de utilizare, protecția împotriva cererilor duplicate, jurnale necesare</td><td>Interes legitim: să protejăm serviciul și utilizatorii</td></tr>
       <tr><td>Statistici de utilizare fără text (evidența costurilor și a funcționării)</td><td>Interes legitim: să înțelegem costurile și să menținem serviciul</td></tr>
       <tr><td>Identificatorul anonim de analytics</td><td>Interes legitim: să înțelegem cum este folosit site-ul. Te poți opune oricând, oprindu-l din Setări cookie-uri</td></tr>
@@ -66,14 +66,14 @@
   <h2 id="openai">6. Inteligența artificială: OpenAI</h2>
   <p>Funcțiile AI nu pot funcționa fără ca o parte din conținutul tău să fie prelucrat de OpenAI, furnizorul modelelor pe care le folosim:</p>
   <ul>
-    <li>textul trimis pentru corectare sau traducere, care este verificat în același timp și de serviciul de moderare al OpenAI, ca să blocăm conținutul abuziv (păstrăm doar faptul că o cerere a fost refuzată și codul motivului, fără text);</li>
+    <li>textul trimis prin „Vreau să sune natural!”, care este verificat în același timp și de serviciul de moderare al OpenAI, ca să blocăm conținutul abuziv (păstrăm doar faptul că o cerere a fost refuzată și codul motivului, fără text);</li>
     <li>sunetul de la microfon, trimis direct din browser pentru transcrierea în timp real;</li>
     <li>înregistrarea trimisă pentru transcriere după înregistrare;</li>
     <li>propoziția în engleză pentru care ceri pronunția;</li>
     <li>pentru exercițiile personalizate: doar contextul minim necesar (tipul de greșeală, cel mult trei exemple recente scurte de greșeli și corecturi), niciodată tot istoricul tău; exercițiile rezultate sunt salvate și refolosite;</li>
     <li>răspunsul tău la un exercițiu cu mai multe variante corecte, doar când nu poate fi verificat automat.</li>
   </ul>
-  <p>Cheia noastră de acces la OpenAI rămâne pe server și nu ajunge în browser. Nu trimitem istoricul tău și nici numele contului. Cererile de corectare și traducere sunt trimise cu opțiunea <code>store=False</code>, prin care cerem ca răspunsurile să nu fie păstrate pentru a putea fi reluate ulterior. Asta nu înseamnă că OpenAI nu păstrează nimic: potrivit politicilor sale, OpenAI poate păstra datele primite prin API o perioadă limitată, de exemplu pentru prevenirea abuzurilor. Pentru transcriere și pronunție această opțiune nu se aplică.</p>
+  <p>Cheia noastră de acces la OpenAI rămâne pe server și nu ajunge în browser. Nu trimitem istoricul tău și nici numele contului. Cererile „Vreau să sune natural!” sunt trimise cu opțiunea <code>store=False</code>, prin care cerem ca răspunsurile să nu fie păstrate pentru a putea fi reluate ulterior. Asta nu înseamnă că OpenAI nu păstrează nimic: potrivit politicilor sale, OpenAI poate păstra datele primite prin API o perioadă limitată, de exemplu pentru prevenirea abuzurilor. Pentru transcriere și pronunție această opțiune nu se aplică.</p>
 
   <h2 id="recipients">7. Cine mai primește datele</h2>
   <ul>
@@ -91,7 +91,7 @@
     <thead><tr><th scope="col">Date</th><th scope="col">Cât timp</th></tr></thead>
     <tbody>
       <tr><td>Contul și confirmările Termenilor</td><td>Până ștergi contul</td></tr>
-      <tr><td>Istoricul corecturilor și traducerilor și greșelile găsite</td><td>Până ștergi contul</td></tr>
+      <tr><td>Istoricul textelor și greșelile găsite</td><td>Până ștergi contul</td></tr>
       <tr><td>Profilul de învățare: tipuri de greșeli, exerciții, sesiuni, răspunsuri</td><td>Până ștergi contul (exercițiile generate nefolosite sunt retrase după 90 de zile)</td></tr>
       <tr><td>Sesiunea de autentificare</td><td>{{ retention.login_session_days }} zile de la autentificare; sesiunile expirate sunt șterse la curățarea zilnică</td></tr>
       <tr><td>Contoarele pentru limitele de utilizare</td><td>Un minut sau o zi, apoi sunt șterse la curățarea zilnică</td></tr>

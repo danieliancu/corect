@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
@@ -33,7 +34,7 @@ class SignupAcceptanceTests(TestCase):
         self.assertRedirects(response, "/")
         acceptance = LegalAcceptance.objects.get()
         self.assertEqual((acceptance.user.username, acceptance.terms_version, acceptance.privacy_version, acceptance.source),
-                         ("new-learner", "2026-09-14", "2026-09-14.2", "signup"))
+                         ("new-learner", settings.TERMS_VERSION, settings.PRIVACY_VERSION, "signup"))
         self.assertLessEqual(acceptance.accepted_at, timezone.now())
         self.assertEqual(response.cookies[CONSENT_COOKIE].value, consent_cookie_value(True))  # Analytics on by default.
         self.assertNotContains(self.client.get("/"), 'class="consent-bar"')

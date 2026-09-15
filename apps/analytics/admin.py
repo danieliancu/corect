@@ -59,9 +59,10 @@ class LearningUsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
 
 @admin.register(UsageEvent)
 class UsageEventAdmin(LedgerIdentityMixin, LedgerAdmin):
-    list_display = ["created_at", "identity", "request_type", "auto_translated", "status", "error_code", "model",
+    list_display = ["created_at", "identity", "request_type", "source_language", "status", "error_code", "duration_ms", "model",
                     "input_tokens", "output_tokens", "total_tokens", "cost"]
-    list_filter = ["audience", "request_type", "status", "model", "auto_translated", "is_backfilled", "created_at"]
+    list_filter = ["audience", "request_type", "source_language", "status", "model", "auto_translated", "is_backfilled",
+                   "created_at"]
 
     @admin.display(description="Text AI cost (£)", ordering="estimated_cost")
     def cost(self, obj):

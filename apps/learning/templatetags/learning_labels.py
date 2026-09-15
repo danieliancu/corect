@@ -21,7 +21,6 @@ CATEGORY_LABELS = {
     "romanian_transfer": "Influența limbii române",
     "other": "Altele",
 }
-REQUEST_TYPE_LABELS = {"correction": "Corectură", "translation": "Traducere"}
 
 
 @register.filter
@@ -55,9 +54,8 @@ def history_day_label(day):
 
 @register.filter
 def history_day_summary(day):
-    parts = [romanian_count(day[key], one, many) for key, one, many in
-             (("corrections", "corectură", "corecturi"), ("translations", "traducere", "traduceri")) if day[key]]
-    return " · ".join(parts)
+    """"2 texte în engleză · 1 text din română": counts per kind of entry, in order of first appearance."""
+    return " · ".join(romanian_count(count, one, many) for (one, many), count in day["groups"].items())
 
 
 STATUS_LABELS = {"new": "De exersat", "recurring": "Se repetă", "improving": "Se îmbunătățește",
@@ -88,5 +86,7 @@ def times_phrase(count):
 
 
 @register.filter
-def request_type_label(value):
-    return REQUEST_TYPE_LABELS.get(str(value), str(value))
+def history_label(entry):
+    """"Engleză", "Română → engleză" (or "Engleză → română" for older history), for a saved request."""
+    from apps.assistant.presentation import history_label as label
+    return label(entry)
