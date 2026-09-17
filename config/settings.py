@@ -111,7 +111,8 @@ except InvalidOperation:
 if not ANALYTICS_GBP_PER_USD.is_finite() or ANALYTICS_GBP_PER_USD <= 0:
     raise ImproperlyConfigured("ANALYTICS_GBP_PER_USD must be a positive number.")
 from config.env_settings import (  # noqa: E402
-    client_ip_settings, decimal_setting, int_setting as _int_setting, naturalize_limits, tier_limits)
+    client_ip_settings, decimal_setting, int_setting as _int_setting, naturalize_limits, signed_in_limits,
+    tier_limits)
 
 
 # Live transcription timing. The delay is how long the provider waits before emitting words ("" leaves it out).
@@ -152,6 +153,13 @@ VOICE_DAILY_GUARDRAILS = {
     "transcription": tier_limits("VOICE_TRANSCRIBE_DAY_LIMITS", (20, 80, 400)),
     "speech": tier_limits("VOICE_TTS_DAY_LIMITS", (30, 120, 600)),
 }
+# LEARNING AI GUARDRAILS (apps/learning/services/guardrails.py): exercise generation and open-answer checks. Per account:
+# calls per minute and per London day by plan; for the whole service: calls per day and AI spend per day (USD), so a bug,
+# a bot or a crowd cannot run up the bill. When a limit is reached, stored and editorial exercises keep working.
+LEARNING_AI_RATE_LIMIT_MINUTE = _int_setting("LEARNING_AI_RATE_LIMIT_MINUTE", 6, 1, 1000)
+LEARNING_AI_DAY_LIMITS = signed_in_limits("LEARNING_AI_DAY_LIMITS", (40, 200))
+LEARNING_AI_GLOBAL_DAY_CALLS = _int_setting("LEARNING_AI_GLOBAL_DAY_CALLS", 2000, 1, 10_000_000)
+LEARNING_AI_GLOBAL_DAY_COST_USD = decimal_setting("LEARNING_AI_GLOBAL_DAY_COST_USD", "10")
 # TEMPORARY: a Free account gets exactly what Pro gets — the same daily quota, the same voice guardrails and every Pro
 # feature (apps/core/entitlements.py). Anonymous visitors are unchanged. Set FREE_HAS_PRO_FEATURES=false to end it; the
 # quota, the entitlements and the plan cards all read this one flag, so nothing else has to be undone.
@@ -160,6 +168,7 @@ if FREE_HAS_PRO_FEATURES:
     NATURALIZE_DAILY_LIMITS["free"] = NATURALIZE_DAILY_LIMITS["pro"]
     for _guardrail in VOICE_DAILY_GUARDRAILS.values():
         _guardrail["free"] = _guardrail["pro"]
+    LEARNING_AI_DAY_LIMITS["free"] = LEARNING_AI_DAY_LIMITS["pro"]
 # Abuse guardrails. Text sent to "Vreau să sune natural!" is checked with OpenAI's free moderation endpoint, in parallel
 # with the model call so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
 CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"

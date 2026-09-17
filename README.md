@@ -125,6 +125,9 @@ Without the trusted origin, forms and voice requests fail CSRF checks because HT
 | `OPENAI_LEARNING_MODEL` | Model for learning content (exercise batches, open-answer checks); defaults to `OPENAI_MODEL`. Priced from `OPENAI_PRICING`, so add a price row when it differs |
 | `LEARNING_REUSE_THRESHOLD` | Default 7: while a learner has at least this many (or enough for the session) unused stored exercises for a pattern, no new batch is generated |
 | `LEARNING_BATCH_SIZE` | Default 8 exercises per generation call |
+| `LEARNING_AI_RATE_LIMIT_MINUTE` | Learning AI calls (exercise generation, open-answer checks) per minute per account, default 6 |
+| `LEARNING_AI_DAY_LIMITS` | Learning AI calls per London day per account, `Free,Pro`, default `40,200` (Free gets Pro's while `FREE_HAS_PRO_FEATURES` is on) |
+| `LEARNING_AI_GLOBAL_DAY_CALLS`, `LEARNING_AI_GLOBAL_DAY_COST_USD` | Service-wide ceilings for learning AI per London day: 2000 calls and 10 USD of recorded spend by default. See [Learning AI cost guardrails](#learning-ai-cost-guardrails) |
 | `PRO_ENTITLEMENTS_ENFORCED` | `false` by default: every signed-in user gets the learning features. `true` limits the features in `apps/core/entitlements.py:PRO_FEATURES` to the "Pro" group |
 | `LOG_FORMAT`, `LOG_LEVEL` | `json` (one object per line, the default with `DJANGO_DEBUG=false`) or `text` (the default locally); level `INFO`. See [Monitoring](#monitoring) |
 | `SENTRY_DSN` | Optional error tracking; empty (the default) leaves Sentry off. Nothing personal is sent (see [Monitoring](#monitoring)) |
@@ -258,6 +261,17 @@ python manage.py rebuild_learning_profiles --user 42
 ```
 
 Older corrections without a stored pattern get one from `derive_pattern` (word-difference rules). The learning profile is deleted with the account, and the Privacy notice describes it.
+
+### Learning AI cost guardrails
+
+Every learning AI call goes through `apps/learning/services/guardrails.py` before the provider is contacted. Two levels protect the budget:
+
+- **Per account**: `LEARNING_AI_RATE_LIMIT_MINUTE` a minute and `LEARNING_AI_DAY_LIMITS` a day (by plan), against one account looping or scripting requests.
+- **Service-wide**: `LEARNING_AI_GLOBAL_DAY_CALLS` (an exact counter) and `LEARNING_AI_GLOBAL_DAY_COST_USD` (today's recorded learning spend), against a bug, a bot or a crowd. The spend cap is read from the usage ledger, so calls already running when it is reached can finish and pass it by those calls; the call counter cannot be passed.
+
+Counters live in the same database buckets as the other guardrails and are counted in one transaction. A call that later fails still counts, so a failing provider cannot be retried in a loop for free. If the counters cannot be read, no AI call is made. A prevented call is recorded as a refused `LearningUsageEvent` (`learning_rate_limit`, `learning_quota_exhausted` or `learning_budget_exhausted`, no tokens, no cost) and shown in the staff dashboard, which raises an alert when the service-wide budget is hit. Learners keep practising: generation falls back to stored and editorial exercises with a short explanation, and open answers stay unverified ("verificarea automată … este oprită pentru azi"). Limits are read from the environment at start-up; change them and restart, no deploy needed.
+
+Answering the same exercise twice in one session (double click, second tab) is graded and counted once: the first submission claims the answer atomically.
 
 ## Voice
 

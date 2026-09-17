@@ -22,7 +22,7 @@
   {% if error %}<p class="error-box" role="alert">{{ error }}</p>{% endif %}
   {% if attempt %}
   <div class="{% if attempt.is_correct %}success-note{% elif attempt.is_correct is None %}learn-note{% else %}error-box{% endif %}" role="status">
-    {% if attempt.is_correct %}Corect!{% elif attempt.is_correct is None %}Nu am putut verifica acum răspunsul tău. Compară-l cu varianta de mai jos.{% else %}Nu chiar.{% endif %}
+    {% if attempt.is_correct %}Corect!{% elif attempt.is_correct is None %}Nu am putut verifica acum răspunsul tău.{% if unverified_reason %} {{ unverified_reason }}{% endif %} Compară-l cu varianta de mai jos.{% else %}Nu chiar.{% endif %}
     {% if not attempt.is_correct %} Răspunsul corect: <span lang="en-GB">{{ exercise.correct_answer }}</span>{% endif %}
   </div>
   <p class="learn-muted">Răspunsul tău: <span lang="en-GB">{{ chosen|default:attempt.answer }}</span></p>

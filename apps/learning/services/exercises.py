@@ -2,11 +2,14 @@
 answer is deterministic, and fall back to the editorial bank when AI is unavailable."""
 import uuid
 from datetime import timedelta
+from typing import NamedTuple
 
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
 
+from apps.assistant.models import SubmissionClaim
 from apps.learning.models import Exercise, ExerciseAttempt, MistakeOccurrence
 from apps.learning.practice import QUESTIONS
 from apps.learning.schemas import ExerciseBatch, OpenAnswerEvaluation
@@ -132,32 +135,64 @@ def normalise(text):
     return " ".join((text or "").translate(QUOTES).lower().split()).strip(" .!?\"'")
 
 
+class Grading(NamedTuple):
+    is_correct: bool | None
+    graded_by: str
+    feedback_ro: str = ""
+    better_answer: str = ""
+    unavailable_code: str = ""  # Why AI could not check an open answer (e.g. a learning AI limit), else "".
+
+
 def grade(user, exercise, answer):
-    """(is_correct, graded_by, feedback_ro, better_answer). AI is used only for open-ended rewrites that do not match a
-    known answer; when it is unavailable the attempt is left unverified and not counted."""
+    """A Grading. AI is used only for open-ended rewrites that do not match a known answer; when it is unavailable the
+    attempt is left unverified and not counted."""
     if exercise.exercise_type in CHOICE_TYPES:
         try:
             chosen = exercise.options[int(answer)]
         except (TypeError, ValueError, IndexError):
             raise ValueError("invalid choice") from None
-        return normalise(chosen) == normalise(exercise.correct_answer), GradedBy.DETERMINISTIC, "", ""
+        return Grading(normalise(chosen) == normalise(exercise.correct_answer), GradedBy.DETERMINISTIC)
     if normalise(answer) in {normalise(value) for value in [exercise.correct_answer, *exercise.accepted_answers]}:
-        return True, GradedBy.DETERMINISTIC, "", ""
+        return Grading(True, GradedBy.DETERMINISTIC)
     if not exercise.open_ended:
-        return False, GradedBy.DETERMINISTIC, "", ""
+        return Grading(False, GradedBy.DETERMINISTIC)
     try:
         evaluation, _ = learning_call(
             user=user, feature=Feature.OPEN_ANSWER, prompt=OPEN_ANSWER_PROMPT, prompt_version=OPEN_ANSWER_PROMPT_VERSION,
             payload={"question": exercise.question, "model_answer": exercise.correct_answer,
                      "accepted_answers": exercise.accepted_answers, "learner_answer": answer[:400]},
             schema=OpenAnswerEvaluation, learner_text=answer[:400], max_output_tokens=800)
-    except LearningAIUnavailable:
-        return None, GradedBy.UNVERIFIED, "", ""
-    return evaluation.is_correct, GradedBy.AI, evaluation.feedback_ro, evaluation.better_answer
+    except LearningAIUnavailable as exc:
+        return Grading(None, GradedBy.UNVERIFIED, unavailable_code=exc.code)
+    return Grading(evaluation.is_correct, GradedBy.AI, evaluation.feedback_ro, evaluation.better_answer)
+
+
+ANSWER_CLAIM_NAMESPACE = uuid.UUID("5d0f3c3e-6f0b-4c61-9d7e-1b0c2f5a8e41")
+
+
+def _answer_claim(user, session, exercise):
+    return {"actor": f"learn-answer:{user.pk}",
+            "token": uuid.uuid5(ANSWER_CLAIM_NAMESPACE, f"{session.pk}:{exercise.pk}")}
+
+
+def claim_answer(user, session, exercise):
+    """True for the first submission of an answer to this exercise in this session, False for any repeat (a double
+    click, a second tab). The unique claim is atomic, so two concurrent requests are never both graded."""
+    try:
+        with transaction.atomic():
+            SubmissionClaim.objects.create(**_answer_claim(user, session, exercise))
+    except IntegrityError:
+        return False
+    return True
+
+
+def release_answer(user, session, exercise):
+    """The submission could not be graded (an invalid choice or an error): the learner may answer again."""
+    SubmissionClaim.objects.filter(**_answer_claim(user, session, exercise)).delete()
 
 
 def record_attempt(user, session, exercise, pattern_key, answer, grading):
-    is_correct, graded_by, feedback, _ = grading
+    is_correct, graded_by, feedback = grading[:3]
     attempt = ExerciseAttempt.objects.create(user=user, session=session, exercise=exercise, pattern_key=pattern_key,
                                              answer=answer[:1000], is_correct=is_correct, graded_by=graded_by,
                                              feedback_ro=feedback)

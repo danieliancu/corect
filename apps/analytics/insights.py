@@ -94,6 +94,16 @@ def dashboard_insights(*, totals, costs, audio_totals, learning_totals, plan_row
             detail += f" {plan_conversions} signed up or in after using up the anonymous quota."
         insights.append(_insight(level, "trend", f"Signup conversion {_percent(signup_rate)}", detail))
 
+    # Learning AI guardrails at work: a budget hit means every learner lost new exercises for the rest of the day.
+    limit_hits = learning_totals.get("learning_limit_hits") or 0
+    if limit_hits:
+        budget_hits = learning_totals.get("learning_budget_hits") or 0
+        insights.append(_insight(
+            "alert" if budget_hits else "watch", "book",
+            f"{limit_hits} learning AI call{'' if limit_hits == 1 else 's'} prevented by limits",
+            f"{budget_hits} by the service-wide daily budget (LEARNING_AI_GLOBAL_DAY_*), the rest by per-account "
+            "limits. Learners got stored exercises instead."))
+
     # Voice is the most variable cost, so its share is worth stating on its own.
     if audio_totals.get("audio_calls") and costs.get("audio_share") is not None:
         insights.append(_insight(

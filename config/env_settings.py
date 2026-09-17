@@ -85,3 +85,17 @@ def decimal_setting(name, default, low="0", env=None):
     if value is None or not value.is_finite() or value < Decimal(low):
         raise ImproperlyConfigured(f"{name} must be a number of at least {low}.")
     return value
+
+
+def signed_in_limits(name, defaults, env=None):
+    """Two whole numbers for Free and Pro, e.g. "40,200" (features for signed-in accounts only); anonymous gets 0."""
+    env = os.environ if env is None else env
+    raw = env.get(name)
+    try:
+        values = tuple(int(part) for part in raw.split(",")) if raw is not None else tuple(defaults)
+    except ValueError:
+        values = ()
+    if len(values) != 2 or min(values) < 1 or values[0] > values[1]:
+        raise ImproperlyConfigured(f"{name} must be two whole numbers of at least 1 for Free and Pro, Free not above "
+                                   f"Pro (for example {','.join(map(str, defaults))}).")
+    return {"anonymous": 0, "free": values[0], "pro": values[1]}

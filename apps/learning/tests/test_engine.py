@@ -220,11 +220,12 @@ class ExerciseTests(TestCase):
         with patch_ai(OpenAnswerEvaluation(is_correct=True, feedback_ro="Foarte bine.", better_answer="")) as ai:
             self.assertEqual(grade(self.user, rewrite, "I've lived here for two years")[:2], (True, "deterministic"))
             ai.assert_not_called()
-            self.assertEqual(grade(self.user, rewrite, "I have been living here for two years."),
+            self.assertEqual(grade(self.user, rewrite, "I have been living here for two years.")[:4],
                              (True, "ai", "Foarte bine.", ""))
         self.assertEqual(LearningUsageEvent.objects.get().feature, "open_answer")
         with patch_ai(error="timeout"):
             self.assertEqual(grade(self.user, rewrite, "Another answer.")[:2], (None, "unverified"))
+            self.assertEqual(grade(self.user, rewrite, "Another answer.").unavailable_code, "timeout")
 
 
 class DailyTests(TestCase):

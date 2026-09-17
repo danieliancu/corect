@@ -24,7 +24,8 @@ from apps.assistant.schemas import Category
 from apps.core.entitlements import has_feature
 from .models import Exercise, PracticeSession
 from .services.daily import complete_session, start_session, today_plan
-from .services.exercises import CHOICE_TYPES, grade, record_attempt
+from .services.exercises import CHOICE_TYPES, claim_answer, grade, record_attempt, release_answer
+from .services.guardrails import BUDGET_EXHAUSTED, LIMIT_CODES, QUOTA_EXHAUSTED, RATE_LIMIT
 from .services.insights import activity_days, change_cards, insight_cards, learning_overview
 from .services.priorities import ranked_patterns
 from .services.profile import refresh_if_stale
@@ -37,6 +38,16 @@ INSTRUCTIONS = {"multiple_choice": "Alege varianta corectă.", "choose_phrase": 
                 "short_correction": "Corectează propoziția."}
 GENERATION_FAILED = "Nu am putut pregăti exerciții noi acum. Încearcă din nou în câteva minute."
 NO_EXERCISES = "Încă nu avem exerciții pentru tine. Scrie câteva texte în engleză și revino."
+FALLBACK = "Nu am putut pregăti exerciții noi, așa că am folosit exerciții pregătite deja."
+# Learning AI limits (apps/learning/services/guardrails.py): what the learner is told, with and without stored exercises.
+LIMIT_MESSAGES = {
+    RATE_LIMIT: "Ai cerut multe exerciții noi într-un timp scurt. Încearcă din nou peste un minut.",
+    QUOTA_EXHAUSTED: "Ai folosit toate exercițiile noi generate pentru azi. Revino mâine pentru altele noi.",
+    BUDGET_EXHAUSTED: "Generarea de exerciții noi este oprită temporar. Încearcă din nou mai târziu.",
+}
+LIMIT_FALLBACK = "Nu mai putem genera exerciții noi azi, așa că am folosit exerciții pregătite deja."
+UNVERIFIED_LIMIT = "Verificarea automată a răspunsurilor libere este oprită pentru azi."
+ANSWER_IN_PROGRESS = "Răspunsul tău a fost deja trimis."
 
 
 def genuine_mistakes(user):
@@ -79,10 +90,10 @@ def practice_start(request):
     session, error = start_session(request.user, kind, pattern_key)
     if session is None:
         messages.error(request, SUSPENDED_MESSAGE if error == "account_suspended" else
-                       NO_EXERCISES if error == "no_exercises" else GENERATION_FAILED)
+                       NO_EXERCISES if error == "no_exercises" else LIMIT_MESSAGES.get(error, GENERATION_FAILED))
         return redirect("learn_dashboard")
     if error:
-        messages.info(request, "Nu am putut pregăti exerciții noi, așa că am folosit exerciții pregătite deja.")
+        messages.info(request, LIMIT_FALLBACK if error in LIMIT_CODES else FALLBACK)
     return redirect("learn_session", pk=session.pk)
 
 
@@ -126,17 +137,28 @@ def practice_session(request, pk):
             answer = request.POST.get("answer", "").strip()
             if not answer:
                 context["error"] = "Alege sau scrie mai întâi un răspuns."
+            elif not claim_answer(request.user, session, exercise):
+                # A double click or a second tab: the first submission is (being) graded; never grade or count twice.
+                attempt = session.attempts.filter(exercise=exercise).first()
+                if attempt is None:
+                    context["error"] = ANSWER_IN_PROGRESS
             else:
                 try:
                     grading = grade(request.user, exercise, answer)
-                except ValueError:
-                    context["error"] = "Alege unul dintre răspunsuri."
-                else:
                     attempt = record_attempt(request.user, session, exercise, target, answer, grading)
-                    if grading[0]:
+                except ValueError:
+                    release_answer(request.user, session, exercise)
+                    context["error"] = "Alege unul dintre răspunsuri."
+                except BaseException:
+                    release_answer(request.user, session, exercise)
+                    raise
+                else:
+                    if grading.is_correct:
                         session.correct_count += 1
                         session.save(update_fields=["correct_count"])
-                    context["better_answer"] = grading[3]
+                    if grading.is_correct is None and grading.unavailable_code in LIMIT_CODES:
+                        context["unverified_reason"] = UNVERIFIED_LIMIT
+                    context["better_answer"] = grading.better_answer
     if attempt and context["is_choice"] and attempt.answer.isdigit() and int(attempt.answer) < len(exercise.options):
         context["chosen"] = exercise.options[int(attempt.answer)]
     context["attempt"] = attempt

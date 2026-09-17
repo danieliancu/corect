@@ -16,6 +16,8 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from apps.assistant.services.quota import QUOTA_EXHAUSTED
+from apps.learning.services.guardrails import BUDGET_EXHAUSTED as LEARNING_BUDGET_EXHAUSTED
+from apps.learning.services.guardrails import LIMIT_CODES as LEARNING_LIMIT_CODES
 from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
 from .identifiers import visitor_lookup
@@ -106,6 +108,9 @@ def learning_aggregates():
         "learning_tokens_out": Sum("output_tokens"), "learning_tokens_total": Sum("total_tokens"),
         "learning_cost": Sum("estimated_cost"), "learning_without_cost": Count("id", filter=Q(estimated_cost__isnull=True)),
         "learning_users": Count("user", distinct=True),
+        # Calls the learning AI guardrails prevented (per-account quota, rate limit, service-wide budget).
+        "learning_limit_hits": Count("id", filter=Q(status="rejected", error_code__in=LEARNING_LIMIT_CODES)),
+        "learning_budget_hits": Count("id", filter=Q(status="rejected", error_code=LEARNING_BUDGET_EXHAUSTED)),
     }
     for feature in LearningUsageEvent.Feature.values:
         figures[f"{feature}_calls"] = Count("id", filter=Q(feature=feature))

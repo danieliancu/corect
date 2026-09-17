@@ -3,13 +3,15 @@ import json
 import logging
 
 from django.conf import settings
+from django.db import DatabaseError
 
 from apps.accounts.suspension import is_suspended
 from apps.analytics.models import LearningUsageEvent
 from apps.analytics.services.recording import record_learning_event
 from apps.assistant.services.openai_client import AssistantError, guarded_parse, parse_response
 from apps.assistant.services.usage import collect_provider_usage
-from apps.core.monitoring import log_failure
+from apps.core.monitoring import DATABASE, log_event, log_failure
+from .guardrails import LearningLimitReached, reserve_learning_call
 
 logger = logging.getLogger("apps.assistant")
 Feature = LearningUsageEvent.Feature
@@ -35,6 +37,18 @@ def learning_call(*, user, feature, prompt, prompt_version, payload, schema, val
     """
     if is_suspended(user):
         raise LearningAIUnavailable("account_suspended")
+    try:
+        reserve_learning_call(user)
+    except LearningLimitReached as exc:
+        # Recorded like any refusal (no tokens, no cost), so quota and budget hits show up in the staff analytics.
+        record_learning_event(user=user, feature=feature, status=Status.REJECTED, error_code=exc.code,
+                              prompt_version=prompt_version)
+        log_failure(logger, "learning_ai_failed", exc.code, feature=feature)
+        raise LearningAIUnavailable(exc.code) from None
+    except DatabaseError:
+        # Fail closed: without the counters there is no cost protection, so no provider call is made.
+        log_event(logger, logging.ERROR, "learning_guardrail_unavailable", DATABASE, feature=feature)
+        raise LearningAIUnavailable("database_unavailable") from None
     text = json.dumps(payload, ensure_ascii=False)
     options = {"model": settings.OPENAI_LEARNING_MODEL, "max_output_tokens": max_output_tokens}
     with collect_provider_usage() as calls:
