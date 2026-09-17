@@ -92,6 +92,9 @@ class UsageEvent(models.Model):
                                                          help_text="Moderation check, run alongside the provider call.")
     assistant_request = models.OneToOneField("assistant.AssistantRequest", null=True, blank=True,
                                              on_delete=models.SET_NULL, related_name="usage_event")
+    from_history = models.BooleanField(default=False, help_text="Answered from the learner's own saved result for the "
+                                                                 "same text: no provider call, and no use taken from "
+                                                                 "the daily quota.")
     is_backfilled = models.BooleanField(default=False, help_text="Created from history saved before usage tracking.")
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 

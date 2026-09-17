@@ -1,10 +1,9 @@
 {% extends "analytics/base.html" %}{% load analytics_format %}
-{% block crumbs %} &rsaquo; Anonymous visitors{% endblock %}
 {% block analytics %}
 {% include "analytics/filters.html" with show_converted=True search_placeholder="anon-xxxxxx or visitor UUID" %}
-<p class="analytics-note">{{ page_obj.paginator.count|number }} anonymous visitors with text or voice activity in {{ filters.period_label|lower }}. Only anonymous usage is counted here; no IP addresses, submitted text, transcripts or audio are stored. Total AI cost = text AI cost + voice input (realtime + file) + voice output. Costs in pounds at $1 = £{{ gbp_per_usd }}.</p>
-<div class="module analytics-table-wrap">
-  <table class="analytics-table">
+<p class="an-note">{{ page_obj.paginator.count|number }} anonymous visitors with text or voice activity in {{ filters.period_label|lower }}. Only anonymous usage is counted here; no IP addresses, submitted text, transcripts or audio are stored. Total AI cost = text AI cost + voice input (realtime + file) + voice output. Costs in pounds at $1 = £{{ gbp_per_usd }}.</p>
+<div class="an-card"><div class="an-table-wrap">
+  <table >
     <thead><tr>
       <th scope="col">Anonymous ID</th>
       <th scope="col"><a href="?{{ base_query }}&amp;sort=first_seen">First seen</a></th>
@@ -51,7 +50,7 @@
         <td>{% if visitor.converted_user %}Yes · <a href="{% url 'analytics:user' visitor.converted_user.pk %}">{{ visitor.converted_user.get_username }}</a>{% elif visitor.converted_at %}Yes · deleted user{% else %}No{% endif %}</td>
       </tr>{% empty %}<tr><td colspan="20">No anonymous visitors match.</td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </div>
 {% include "analytics/pagination.html" %}
 {% endblock %}

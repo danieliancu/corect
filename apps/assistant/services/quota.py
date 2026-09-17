@@ -17,7 +17,7 @@ from django.db.models.functions import Greatest
 from django.utils import timezone
 
 from apps.assistant.models import NaturalizeUsage
-from apps.core.plans import ANONYMOUS, FREE, PRO, daily_uses
+from apps.core.plans import ANONYMOUS, FREE, PRO
 from apps.core.text import romanian_count
 from .localday import local_day, seconds_until_reset
 from .openai_client import AssistantError
@@ -43,7 +43,7 @@ def exhausted_message(tier):
         return (f"Ai folosit cele {uses(daily_limit(ANONYMOUS))} gratuite de azi. Creează un cont gratuit și primești "
                 f"{daily_limit(FREE)} pe zi.")
     if tier == FREE:
-        return f"Ai folosit cele {uses(daily_limit(FREE))} de azi. Pro oferă până la {daily_uses(PRO)}, în regim Fair Use."
+        return f"Ai folosit cele {uses(daily_limit(FREE))} de azi. Cu Pro ai cereri nelimitate, în regim Fair Use."
     return f"Ai atins limita Fair Use de {uses(daily_limit(PRO))} pentru astăzi. {RESET}"
 
 

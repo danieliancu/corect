@@ -13,7 +13,7 @@
     <div class="learn-stat is-yellow"><p><strong>{{ overview.to_practise }}</strong><span>Zone de exersat</span></p></div>
     <div class="learn-stat is-lilac"><p><strong>{{ overview.exercises_30 }}</strong><span>Exerciții finalizate</span></p></div>
   </div>
-  {% if overview.stage == 'early' %}<p class="learn-muted">Începem să vedem câteva tipuri. Tendințele apar după mai multe texte în engleză, în câteva săptămâni.</p>{% elif overview.repeated_change is None %}<p class="learn-muted">Comparația cu perioada anterioară apare când există destule greșeli repetate în ambele perioade.</p>{% endif %}
+  {% if overview.stage == 'early' %}<p class="learn-muted">Începem să vedem câteva tipologii. Tendințele apar după mai multe texte în engleză, în câteva săptămâni.</p>{% elif overview.repeated_change is None %}<p class="learn-muted">Comparația cu perioada anterioară apare când există destule greșeli repetate în ambele perioade.</p>{% endif %}
 </section>
 {% if cards %}{% include 'learning/_changes.html' %}{% endif %}
 {% endif %}

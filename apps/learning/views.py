@@ -197,7 +197,7 @@ def mistake_category(request, category):
     items = genuine_mistakes(request.user).filter(category=category).select_related("request").order_by("-created_at")
     original, replacement = (" ".join(request.GET.get(name, "").split()) for name in ("original", "replacement"))
     pair = None
-    if original and replacement:  # From "Tipuri de revăzut": only the examples of that one change.
+    if original and replacement:  # From "Tipologii de revăzut": only the examples of that one change.
         items = items.filter(original__iexact=original, replacement__iexact=replacement)
         pair = {"original": original, "replacement": replacement,
                 "query": urlencode({"original": original, "replacement": replacement})}

@@ -14,6 +14,7 @@ from apps.assistant.models import AssistantRequest, GrammarCorrection, Naturaliz
 from apps.assistant.services.localday import local_day, seconds_until_reset
 from apps.assistant.services.openai_client import AssistantError
 from apps.assistant.services.prompts import POLITE_PROMPT_VERSION
+from apps.learning.models import MistakeOccurrence
 from .examples import (CORRECTION_CASES, ROMANIAN_CASES, correction_result, english_raw, naturalized_english,
                        naturalized_romanian, romanian_raw, translation_result)
 from .provider import USAGE, ProviderMock, moderation
@@ -149,7 +150,7 @@ class EndpointTests(TestCase):
         self.naturalize.assert_called_once()
         self.assertEqual(NaturalizeUsage.objects.get().used, 1)
 
-    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1000)
+    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1000, NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
     def test_anonymous_visitors_get_five_a_day_then_an_invitation_to_create_a_free_account(self):
         for number in range(1, 6):
             response = self.post(HTTP_HX_REQUEST="true")
@@ -166,13 +167,14 @@ class EndpointTests(TestCase):
         self.assertEqual((event.status, event.error_code, event.plan, event.total_tokens), ("rejected", "quota_exhausted",
                                                                                             "anonymous", 0))
 
-    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1000)
+    @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=1000, NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
     def test_free_accounts_get_twenty_a_day_then_a_truthful_pro_invitation(self):
         self.client.force_login(self.user)
-        for _ in range(20):
-            self.assertEqual(self.post().status_code, 200)
-        response = self.post(HTTP_HX_REQUEST="true")
-        self.assertContains(response, "Ai folosit cele 20 de utilizări de azi. Pro oferă până la 200 de naturalizări pe zi, "
+        # Each use is a different text: a repeat would be answered from history and cost nothing (test below).
+        for index in range(20):
+            self.assertEqual(self.post(f"Text number {index}.").status_code, 200)
+        response = self.post("One text too many.", HTTP_HX_REQUEST="true")
+        self.assertContains(response, "Ai folosit cele 20 de utilizări de azi. Cu Pro ai cereri nelimitate, "
                                       "în regim Fair Use.", status_code=429)
         self.assertContains(response, 'href="/about/#plans">Vezi planul Pro</a>', status_code=429)
         self.assertNotContains(response, "Creează cont gratuit", status_code=429)
@@ -183,10 +185,10 @@ class EndpointTests(TestCase):
         self.user.groups.add(Group.objects.get_or_create(name="Pro")[0])
         self.client.force_login(self.user)
         NaturalizeUsage.objects.create(actor=f"user:{self.user.pk}", day=local_day(), used=199)
-        response = self.post(HTTP_HX_REQUEST="true")
+        response = self.post("The two hundredth text.", HTTP_HX_REQUEST="true")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "rămase astăzi")  # Pro's allowance is not counted down.
-        response = self.post(HTTP_HX_REQUEST="true")
+        response = self.post("One text too many.", HTTP_HX_REQUEST="true")
         self.assertContains(response, "Ai atins limita Fair Use de 200 de utilizări pentru astăzi. Limita se resetează la "
                                       "miezul nopții (ora Regatului Unit).", status_code=429)
         for offer in ("Vezi planul Pro", "Creează cont gratuit"):
@@ -211,11 +213,56 @@ class EndpointTests(TestCase):
         event = UsageEvent.objects.get()
         self.assertEqual((event.polite, event.prompt_version), (True, POLITE_PROMPT_VERSION))
         self.assertEqual(NaturalizeUsage.objects.get().used, 1)  # The switch never changes what a request costs.
-        self.post()
+        self.post("A different text, with the switch off.")
         self.assertEqual(self.naturalize.call_args.kwargs, {"polite": False})
         self.assertFalse(UsageEvent.objects.latest("pk").polite)
         page = self.post(text="", data={"polite": "on"})  # Re-rendered without JavaScript, the switch stays on.
         self.assertContains(page, 'name="polite" role="switch" checked', status_code=400)
+
+    def test_a_repeated_text_is_answered_from_history_without_the_model_or_a_use(self):
+        """A learner's own saved result answers the same text again: no provider call, no use taken from the day."""
+        self.client.force_login(self.user)
+        text = correction_result().original_text
+        self.assertEqual(self.post(text, HTTP_HX_REQUEST="true").status_code, 200)
+        self.assertEqual(self.naturalize.call_count, 1)
+        self.assertEqual(NaturalizeUsage.objects.get(actor=f"user:{self.user.pk}").used, 1)
+        again = self.post(text, HTTP_HX_REQUEST="true")
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(self.naturalize.call_count, 1)  # The model was not asked a second time.
+        self.assertEqual(NaturalizeUsage.objects.get(actor=f"user:{self.user.pk}").used, 1)  # Nor did it cost a use.
+        self.assertContains(again, "Ai mai trimis acest text")
+        self.assertEqual(again.context["result"]["corrected_text"], correction_result().corrected_text)
+        self.assertEqual(AssistantRequest.objects.count(), 1)  # The saved result is reused, never duplicated.
+        events = list(UsageEvent.objects.order_by("pk"))
+        self.assertEqual([event.from_history for event in events], [False, True])
+        self.assertEqual([event.status for event in events], ["success", "success"])
+        self.assertEqual((events[1].provider_calls, events[1].total_tokens), (0, 0))
+        # The ledger row for the first submission owns the saved request; the reused one links to nothing.
+        self.assertIsNone(events[1].assistant_request)
+
+    def test_a_repeated_text_is_reused_only_for_its_own_learner_and_its_own_switch(self):
+        other = User.objects.create_user("bogdan", password="test-password")
+        text = correction_result().original_text
+        self.client.force_login(self.user)
+        self.post(text)
+        self.assertEqual(self.naturalize.call_count, 1)
+        # Another learner's identical text is its own request: saved results are never shared between accounts.
+        self.client.force_login(other)
+        self.post(text)
+        self.assertEqual(self.naturalize.call_count, 2)
+        # Anonymous visitors save nothing, so they have nothing to reuse.
+        self.client.logout()
+        self.post(text)
+        self.assertEqual(self.naturalize.call_count, 3)
+
+    def test_a_repeated_text_does_not_count_the_same_mistake_twice(self):
+        self.client.force_login(self.user)
+        text = correction_result().original_text
+        self.post(text, HTTP_HX_REQUEST="true")
+        before = MistakeOccurrence.objects.count()
+        self.assertGreater(before, 0)
+        self.post(text, HTTP_HX_REQUEST="true")
+        self.assertEqual(MistakeOccurrence.objects.count(), before)
 
     def test_failed_requests_give_the_reserved_use_back(self):
         unsupported = AssistantError("language", unsupported_message())
@@ -238,6 +285,7 @@ class EndpointTests(TestCase):
         self.assertEqual(set(UsageEvent.objects.exclude(status="success").values_list("error_code", flat=True)) &
                          {"quota_exhausted"}, set())
 
+    @override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
     def test_a_used_up_quota_never_blocks_history_progress_or_the_profile(self):
         self.client.force_login(self.user)
         NaturalizeUsage.objects.create(actor=f"user:{self.user.pk}", day=local_day(), used=20)
@@ -330,8 +378,8 @@ class EndpointTests(TestCase):
 
     def test_learning_pages_and_preferences_excluded(self):
         self.client.force_login(self.user)
-        self.post()
-        self.post()
+        self.post("First English text.")
+        self.post("Second English text.")
         entry = AssistantRequest.objects.first()
         GrammarCorrection.objects.create(request=entry, original="color", replacement="colour", category="british_english",
             severity="suggestion", explanation_ro="Preferință britanică", is_british_preference=True)

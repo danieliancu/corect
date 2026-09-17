@@ -1,0 +1,21 @@
+{# Step 3: a waveform with a headphones badge. The ids are prefixed sa3- because this partial renders once per page. #}
+<svg viewBox="0 0 88 88" fill="none">
+  <defs>
+    <linearGradient id="sa3-paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
+    <linearGradient id="sa3-wave" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ba2ff"/><stop offset="1" stop-color="#0860e8"/></linearGradient>
+    <linearGradient id="sa3-badge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc24d"/><stop offset="1" stop-color="#ee9a00"/></linearGradient>
+  </defs>
+  <rect x="10" y="24" width="62" height="46" rx="15" fill="#1b65b5" opacity=".07"/>
+  <rect x="10" y="20" width="62" height="46" rx="15" fill="url(#sa3-paper)" stroke="#d8e7fb" stroke-width="1.5"/>
+  {# Five bars, 6 wide on an 11 pitch, every one centred on y = 43. #}
+  <rect x="16" y="37" width="6" height="12" rx="3" fill="#cfe1f8"/>
+  <rect x="27" y="30" width="6" height="26" rx="3" fill="#9dc6ff"/>
+  <rect x="38" y="25" width="6" height="36" rx="3" fill="url(#sa3-wave)"/>
+  <rect x="49" y="32" width="6" height="22" rx="3" fill="#9dc6ff"/>
+  <rect x="60" y="36" width="6" height="14" rx="3" fill="#cfe1f8"/>
+  <circle cx="66" cy="62" r="17" fill="#ffffff"/>
+  <circle cx="66" cy="62" r="14" fill="url(#sa3-badge)"/>
+  <path d="M60 63v-2.5a6 6 0 0 1 12 0V63" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="58.5" y="61.5" width="4" height="7.5" rx="2" fill="#ffffff"/>
+  <rect x="69.5" y="61.5" width="4" height="7.5" rx="2" fill="#ffffff"/>
+</svg>

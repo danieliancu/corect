@@ -416,6 +416,7 @@ class PlanTierAndLimitSettingsTests(TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(replaced_limit_settings(None), [])
 
+    @override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
     def test_plan_copy_states_the_real_daily_limits_and_never_unlimited(self):
         free, pro = display_plans()
         self.assertIn(("20 de naturalizări pe zi", True), free["features"])
@@ -429,6 +430,7 @@ class PlanTierAndLimitSettingsTests(TestCase):
             self.assertIn("<strong>Începere rapidă</strong>", page)
         terms = self.client.get("/termeni/")
         self.assertContains(terms, "5 naturalizări pe zi fără cont și 20 de naturalizări pe zi cu un cont gratuit")
-        self.assertContains(terms, "utilizare extinsă, nu nelimitată: până la 200 de naturalizări pe zi")
+        self.assertContains(terms, "Planul Pro oferă cereri nelimitate pentru folosirea personală obișnuită")
+        self.assertContains(terms, "limită tehnică de 200 de naturalizări pe zi")  # The Fair Use ceiling stays stated.
         with self.settings(NATURALIZE_DAILY_LIMITS={"anonymous": 3, "free": 30, "pro": 150}):
-            self.assertContains(self.client.get("/termeni/"), "până la 150 de naturalizări pe zi")
+            self.assertContains(self.client.get("/termeni/"), "limită tehnică de 150 de naturalizări pe zi")

@@ -31,12 +31,15 @@ class LearningPageTests(TestCase):
             response = self.client.get("/learn/")
         ai.assert_not_called()
         for text in ("Pentru tine azi", "5 exerciții alese din greșelile tale recente", "Since / for",
-                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", '<h3 id="activity-title">Progres</h3>','<span class="learn-plan-pill">Free</span>', "1 tip urmărit"):
+                     '<span class="learn-topic-count" aria-hidden="true">5</span>',  # The pill states its share.
+                     'value="today"', "Începe cele 5 exerciții",  # The button that starts the day's session.
+                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", '<h3 id="activity-title">Progres</h3>','<span class="learn-plan-pill">Free</span>', "1 tipologie urmărită"):
             self.assertContains(response, text)
         for text in ("Situați", "Obiectivele tale", "Următoarele", "Continuăm de unde ai rămas", "learn-rail",
-                     'aria-label="Exersează: Since / for"', "Vezi tot", 'value="today"', 'href="/practice/"'):
-            self.assertNotContains(response, text)  # No start button, no per-row buttons, no practice tab.
-        self.assertContains(response, '<a class="learn-heading-link" href="/mistakes/">Ce trebuie exersat')
+                     'aria-label="Exersează: Since / for"', 'href="/practice/"'):
+            self.assertNotContains(response, text)  # No per-row buttons, no practice tab.
+        self.assertContains(response, '<h2 id="now-title">Ce trebuie exersat</h2>')
+        self.assertContains(response, '<a class="learn-heading-link" href="/mistakes/">Vezi toate')
         self.assertContains(self.client.get("/practice/"), 'aria-label="Exersează: Since / for"')
 
     def test_personalised_practice_flow_grades_in_python_and_schedules_review(self):
@@ -91,7 +94,7 @@ class LearningPageTests(TestCase):
         record_correction_occurrences(self.user, make_correction(self.user))
         response = self.client.get("/progress/")
         self.assertContains(response, "În ultimele 30 de zile")
-        self.assertContains(response, "Începem să vedem câteva tipuri.")
+        self.assertContains(response, "Începem să vedem câteva tipologii.")
         self.assertContains(response, 'id="trend-data"')
         self.assertNotContains(response, "Pe scurt")
         self.assertLess(response.content.decode().index("În ultimele 30 de zile"), response.content.decode().index("trend-chart"))
@@ -121,29 +124,31 @@ class CorrectionLoopTests(TestCase):
                                 return_value=naturalized_english()).start()
         self.addCleanup(patch.stopall)
 
-    def correct(self):
-        return self.client.post("/naturalize/", {"text": correction_result().original_text,
+    def correct(self, text=None):
+        return self.client.post("/naturalize/", {"text": text or correction_result().original_text,
                                                  "submission_token": uuid4()}, HTTP_HX_REQUEST="true")
 
     def test_romanian_text_creates_no_mistakes_or_practice(self):
         from apps.assistant.models import GrammarCorrection
         from apps.assistant.tests.examples import naturalized_romanian
         self.naturalize.return_value = naturalized_romanian()
-        for _ in range(3):
-            response = self.correct()
+        for index in range(3):
+            response = self.correct(f"Text în română {index}.")
             self.assertContains(response, "În engleză britanică")
             self.assertNotContains(response, "Exersează acum")
         self.assertFalse(GrammarCorrection.objects.exists())
         self.assertFalse(UserMistakePattern.objects.exists())
 
     def test_a_repeated_mistake_offers_practice_from_the_correction(self):
-        first = self.correct()
+        # Three different texts with the same mistake. Sending one text again is answered from the learner's own
+        # saved result (apps/assistant/services/persistence.py), so it would not count the mistake a second time.
+        first = self.correct("I didn't went to work on Monday.")
         self.assertNotContains(first, "Ai mai făcut această greșeală")
-        second = self.correct()
+        second = self.correct("I didn't went to work on Tuesday.")
         self.assertContains(second, "Ai mai făcut această greșeală o dată.")
         self.assertContains(second, 'name="pattern" value="base_form_after_did"')
         self.assertContains(second, "Exersează acum")
-        third = self.correct()
+        third = self.correct("I didn't went to work on Wednesday.")
         self.assertContains(third, "Ai mai făcut această greșeală de 2 ori.")
         self.assertContains(third, "Pare să fie una dintre greșelile pe care le repeți cel mai des.")
         self.assertEqual(UserMistakePattern.objects.get().occurrence_count, 3)

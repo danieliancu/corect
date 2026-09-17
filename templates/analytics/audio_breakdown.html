@@ -1,7 +1,7 @@
 {% load analytics_format %}
-<section class="module">
-  <h2>Audio usage</h2>
-  <table>
+<div class="an-card">
+  <div class="an-card-head"><h2>Audio usage</h2></div>
+  <div class="an-table-wrap"><table>
     <thead><tr><th scope="col">Source</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Audio</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Audio output tokens</th><th scope="col" class="num">Audio AI cost</th></tr></thead>
     <tbody>
       <tr><td>Realtime speech to text · live<br><small>{{ ai_models.live_stt }} sessions</small></td><td class="num">{{ audio_totals.stt_realtime|number }}</td><td class="num">{{ audio_totals.stt_realtime_seconds|duration }}</td><td class="num">—</td><td class="num">—</td><td class="num">{{ audio_totals.stt_realtime_cost|money }}</td></tr>
@@ -11,17 +11,17 @@
       <tr><th scope="row">Audio total</th><td class="num">{{ audio_totals.audio_calls|number }}</td><td></td><td></td><td></td><td class="num"><strong>{{ audio_totals.audio_cost|money }}</strong></td></tr>
       <tr><th scope="row">Grand total AI cost<br><small>text AI + learning AI + realtime + file speech to text + British TTS</small></th><td></td><td></td><td></td><td></td><td class="num"><strong>{{ costs.total|money }}</strong></td></tr>
     </tbody>
-  </table>
-  <p class="analytics-module-note">Audio is {{ costs.audio_share|percent }} of total AI cost · realtime speech to text is {{ costs.realtime_audio_share|percent }} of audio cost.</p>
-  <p class="analytics-module-note">{{ audio_totals.audio_failures|number }} failed · {{ audio_totals.audio_rejections|number }} rejected · {{ audio_totals.audio_without_cost|number }} without pricing or usage data · voice input durations: {{ audio_totals.stt_provider_metered|number }} provider-reported, {{ audio_totals.stt_window_metered|number }} server-observed session window</p>
-</section>
-<section class="module">
-  <h2>Audio models</h2>
-  <table><thead><tr><th scope="col">Source</th><th scope="col">Model</th><th scope="col">Voice</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Audio</th><th scope="col" class="num">Tokens in / out</th><th scope="col" class="num">Audio AI cost</th></tr></thead>
-    <tbody>{% for row in audio_by_model %}<tr><td>{{ row.operation|audio_operation }}</td><td>{{ row.model|default:"—" }}</td><td>{{ row.voice|default:"—" }}</td><td class="num">{{ row.calls|number }}</td><td class="num">{{ row.seconds|duration }}</td><td class="num">{{ row.tokens_in|number }} / {{ row.tokens_out|number }}</td><td class="num">{{ row.spend|money }}</td></tr>{% empty %}<tr><td colspan="7">No voice usage.</td></tr>{% endfor %}</tbody></table>
-</section>
-<section class="module">
-  <h2>Audio errors and rejections</h2>
-  <table><thead><tr><th scope="col">Source</th><th scope="col">Status</th><th scope="col">Error code</th><th scope="col" class="num">Calls</th></tr></thead>
-    <tbody>{% for row in audio_errors %}<tr><td>{{ row.operation|audio_operation }}</td><td>{{ row.status|capfirst }}</td><td><code>{{ row.error_code|default:"—" }}</code></td><td class="num">{{ row.total|number }}</td></tr>{% empty %}<tr><td colspan="4">No failed or rejected voice calls.</td></tr>{% endfor %}</tbody></table>
-</section>
+  </table></div>
+  <p class="an-note">Audio is {{ costs.audio_share|percent }} of total AI cost · realtime speech to text is {{ costs.realtime_audio_share|percent }} of audio cost.</p>
+  <p class="an-note">{{ audio_totals.audio_failures|number }} failed · {{ audio_totals.audio_rejections|number }} rejected · {{ audio_totals.audio_without_cost|number }} without pricing or usage data · voice input durations: {{ audio_totals.stt_provider_metered|number }} provider-reported, {{ audio_totals.stt_window_metered|number }} server-observed session window</p>
+</div>
+<div class="an-card">
+  <div class="an-card-head"><h2>Audio models</h2></div>
+  <div class="an-table-wrap"><table><thead><tr><th scope="col">Source</th><th scope="col">Model</th><th scope="col">Voice</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Audio</th><th scope="col" class="num">Tokens in / out</th><th scope="col" class="num">Audio AI cost</th></tr></thead>
+    <tbody>{% for row in audio_by_model %}<tr><td>{{ row.operation|audio_operation }}</td><td>{{ row.model|default:"—" }}</td><td>{{ row.voice|default:"—" }}</td><td class="num">{{ row.calls|number }}</td><td class="num">{{ row.seconds|duration }}</td><td class="num">{{ row.tokens_in|number }} / {{ row.tokens_out|number }}</td><td class="num">{{ row.spend|money }}</td></tr>{% empty %}<tr><td colspan="7">No voice usage.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+<div class="an-card">
+  <div class="an-card-head"><h2>Audio errors and rejections</h2></div>
+  <div class="an-table-wrap"><table><thead><tr><th scope="col">Source</th><th scope="col">Status</th><th scope="col">Error code</th><th scope="col" class="num">Calls</th></tr></thead>
+    <tbody>{% for row in audio_errors %}<tr><td>{{ row.operation|audio_operation }}</td><td>{{ row.status|capfirst }}</td><td><code>{{ row.error_code|default:"—" }}</code></td><td class="num">{{ row.total|number }}</td></tr>{% empty %}<tr><td colspan="4">No failed or rejected voice calls.</td></tr>{% endfor %}</tbody></table></div>
+</div>

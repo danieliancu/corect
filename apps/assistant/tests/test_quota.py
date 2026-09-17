@@ -12,6 +12,7 @@ from apps.assistant.services import quota
 from apps.assistant.services.limits import claim_voice
 from apps.assistant.services.localday import local_day, seconds_until_reset
 from apps.assistant.services.openai_client import AssistantError
+from config.env_settings import naturalize_limits
 
 
 def utc(*parts):
@@ -24,10 +25,17 @@ class PlanQuotaTests(TestCase):
             quota.commit(quota.reserve(actor, tier))
 
     def test_default_limits_are_five_twenty_and_two_hundred(self):
-        self.assertEqual(settings.NATURALIZE_DAILY_LIMITS, {"anonymous": 5, "free": 20, "pro": 200})
+        self.assertEqual(naturalize_limits({}), {"anonymous": 5, "free": 20, "pro": 200})
+
+    def test_free_temporarily_gets_the_pro_limits(self):
+        """TEMPORARY: delete this test with settings.FREE_HAS_PRO_FEATURES. The configured 5/20/200 above is unchanged."""
+        self.assertTrue(settings.FREE_HAS_PRO_FEATURES)
+        self.assertEqual(settings.NATURALIZE_DAILY_LIMITS, {"anonymous": 5, "free": 200, "pro": 200})
+        self.assertEqual(settings.VOICE_DAILY_GUARDRAILS["transcription"], {"anonymous": 20, "free": 400, "pro": 400})
+        self.assertEqual(settings.VOICE_DAILY_GUARDRAILS["speech"], {"anonymous": 30, "free": 600, "pro": 600})
 
     def test_each_plan_gets_its_daily_limit_then_is_refused(self):
-        for tier, limit in (("anonymous", 5), ("free", 20), ("pro", 200)):
+        for tier, limit in settings.NATURALIZE_DAILY_LIMITS.items():
             with self.subTest(tier=tier):
                 actor = f"test:{tier}"
                 self.use(actor, tier, limit)
@@ -61,6 +69,7 @@ class PlanQuotaTests(TestCase):
         quota.reserve("user:1", "free")
         self.assertEqual(NaturalizeUsage.objects.get().reserved, 1)
 
+    @override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
     def test_a_pro_upgrade_during_the_day_raises_the_limit_at_once(self):
         self.use("user:1", "free", 20)
         with self.assertRaises(AssistantError):
@@ -76,7 +85,7 @@ class PlanQuotaTests(TestCase):
         self.assertEqual(quota.exhausted_message("anonymous"),
                          "Ai folosit cele 7 utilizări gratuite de azi. Creează un cont gratuit și primești 30 pe zi.")
         self.assertEqual(quota.exhausted_message("free"),
-                         "Ai folosit cele 30 de utilizări de azi. Pro oferă până la 150 de naturalizări pe zi, în regim Fair Use.")
+                         "Ai folosit cele 30 de utilizări de azi. Cu Pro ai cereri nelimitate, în regim Fair Use.")
         self.assertEqual(quota.exhausted_message("pro"), "Ai atins limita Fair Use de 150 de utilizări pentru astăzi. "
                                                          "Limita se resetează la miezul nopții (ora Regatului Unit).")
         self.assertEqual(quota.QuotaStatus("anonymous", 7, 4).note, "3 din 7 utilizări rămase astăzi")

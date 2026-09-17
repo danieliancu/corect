@@ -55,3 +55,19 @@ def format_audio_operation(value):
 
 def rate(part, whole):
     return part / whole if whole else None
+
+
+def meter_width(share):
+    """A 0-1 share as a CSS width in per cent, for the small bars beside a figure. 0 when the share is unknown."""
+    if share is None:
+        return 0
+    return round(min(max(float(share), 0), 1) * 100, 1)
+
+
+# Only these glyphs may be named by an insight, so a bad name can never reach {% include %}.
+INSIGHT_ICONS = {"alert", "check", "coins", "info", "mic", "tag", "trend"}
+
+
+def insight_icon(name):
+    """The template path for an insight's glyph, falling back to the neutral one."""
+    return "analytics/partials/icons/%s.html" % (name if name in INSIGHT_ICONS else "info")

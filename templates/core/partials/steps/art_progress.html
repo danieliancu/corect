@@ -1,0 +1,18 @@
+{# Step 4: rising bars with a growth badge. The ids are prefixed sa4- because this partial renders once per page. #}
+<svg viewBox="0 0 88 88" fill="none">
+  <defs>
+    <linearGradient id="sa4-paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
+    <linearGradient id="sa4-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ba2ff"/><stop offset="1" stop-color="#0860e8"/></linearGradient>
+    <linearGradient id="sa4-badge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f8bff"/><stop offset="1" stop-color="#0a4fc0"/></linearGradient>
+  </defs>
+  <rect x="12" y="20" width="58" height="56" rx="14" fill="#1b65b5" opacity=".07"/>
+  <rect x="12" y="16" width="58" height="56" rx="14" fill="url(#sa4-paper)" stroke="#d8e7fb" stroke-width="1.5"/>
+  <path d="M21 60h40" stroke="#e2ecf9" stroke-width="2" stroke-linecap="round"/>
+  <rect x="22" y="46" width="8" height="14" rx="4" fill="#cfe1f8"/>
+  <rect x="33" y="40" width="8" height="20" rx="4" fill="#9dc6ff"/>
+  <rect x="44" y="32" width="8" height="28" rx="4" fill="url(#sa4-bar)"/>
+  <rect x="55" y="24" width="8" height="36" rx="4" fill="url(#sa4-bar)"/>
+  <circle cx="66" cy="64" r="17" fill="#ffffff"/>
+  <circle cx="66" cy="64" r="14" fill="url(#sa4-badge)"/>
+  <path d="M61 69 71 59M64.5 58.5H71.5V65.5" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

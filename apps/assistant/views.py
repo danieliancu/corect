@@ -19,7 +19,7 @@ from .services import quota
 from .services.limits import actor_key, claim_submission
 from .services.naturalize import NaturalizeService
 from .services.openai_client import AssistantError
-from .services.persistence import save_failure, save_result
+from .services.persistence import previous_result, save_failure, save_result
 from .services.timing import collect_timings, server_timing_header, since, timed
 from .services.usage import collect_provider_usage
 
@@ -66,30 +66,45 @@ def naturalize(request):
             polite = form.cleaned_data["polite"]
             context["tier"] = tier
             usage = {"status": UsageEvent.Status.SUCCESS, "error_code": "", "assistant_request": None,
-                     "kind": UNCLASSIFIED, "source_language": "", "plan": tier, "polite": polite}
-            reservation, committed = None, False
+                     "kind": UNCLASSIFIED, "source_language": "", "plan": tier, "polite": polite,
+                     "from_history": False}
+            reservation, committed, stored = None, False, None
             with collect_provider_usage() as calls:
                 try:
                     with timed("db"):
                         if is_suspended(request.user):
                             raise AssistantError("account_suspended", SUSPENDED_MESSAGE)
                         claim_submission(actor, form.cleaned_data["submission_token"])
-                        reservation = quota.reserve(actor, tier)
+                        # A text this learner has already sent is answered from their own saved result. It costs no
+                        # provider call, so it takes no use from the day's quota and reserves nothing.
+                        stored = previous_result(request.user, form.cleaned_data["text"], polite)
+                        if stored is None:
+                            reservation = quota.reserve(actor, tier)
                     accepted = True
-                    outcome = NaturalizeService().naturalize(form.cleaned_data["text"], polite=polite)
-                    usage.update(kind=outcome.operation, source_language=outcome.source_language)
-                    with timed("db"):
-                        usage["assistant_request"] = save_result(request.user, outcome)
-                        quota.commit(reservation)
-                        committed = True
-                    context.update(kind=outcome.operation, result=outcome.result.model_dump())
+                    if stored is not None:
+                        entry, kind, source_language = stored, stored.request_type, stored.detected_language
+                        result_data = stored.result_data
+                        context["from_history"] = True
+                    else:
+                        outcome = NaturalizeService().naturalize(form.cleaned_data["text"], polite=polite)
+                        entry, kind, source_language = None, outcome.operation, outcome.source_language
+                        result_data = outcome.result.model_dump()
+                        with timed("db"):
+                            entry = save_result(request.user, outcome)
+                            quota.commit(reservation)
+                            committed = True
+                    usage.update(kind=kind, source_language=source_language, from_history=stored is not None,
+                                 # The ledger row for the earlier submission already owns that request (one to one).
+                                 assistant_request=None if stored is not None else entry)
+                    context.update(kind=kind, result=result_data)
                     context["quota"] = quota_status(actor, tier)
-                    if outcome.operation == CORRECTION and usage["assistant_request"] is not None:
+                    if kind == CORRECTION and entry is not None:
                         try:
                             with timed("db"):
                                 # The learner's profile: "you have made this mistake N times" and "Exersează acum".
-                                context["learning_hints"] = record_correction_occurrences(
-                                    request.user, usage["assistant_request"])
+                                # Re-running it for a reused result adds nothing: an occurrence belongs to one stored
+                                # correction, so the same mistake is never counted twice.
+                                context["learning_hints"] = record_correction_occurrences(request.user, entry)
                         except DatabaseError:
                             logger.error("learning_profile_unavailable")
                 except AssistantError as exc:

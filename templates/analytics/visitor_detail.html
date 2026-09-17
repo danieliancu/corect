@@ -1,25 +1,24 @@
 {% extends "analytics/base.html" %}{% load analytics_format %}
-{% block crumbs %} &rsaquo; <a href="{% url 'analytics:visitors' %}">Anonymous visitors</a> &rsaquo; {{ visitor.short_id }}{% endblock %}
 {% block analytics %}
-<p class="analytics-note">Usage analytics only: submitted text, transcripts, generated speech and audio are never stored for anonymous visitors.</p>
+<p class="an-note">Usage analytics only: submitted text, transcripts, generated speech and audio are never stored for anonymous visitors.</p>
 {% include "analytics/cost_cards.html" %}
-<h2 class="analytics-heading">Activity</h2>
-<div class="analytics-cards">
-  <div class="analytics-card"><span>First seen</span><strong class="analytics-text">{{ visitor.first_seen_at|date:"j M Y" }}</strong><small>{{ visitor.first_seen_at|date:"H:i" }}</small></div>
-  <div class="analytics-card"><span>Last seen</span><strong class="analytics-text">{{ visitor.last_seen_at|date:"j M Y" }}</strong><small>{{ visitor.last_seen_at|date:"H:i" }}</small></div>
-  <div class="analytics-card"><span>Active days</span><strong>{{ summary.active_days|number }}</strong><small>Days with anonymous text requests</small></div>
-  <div class="analytics-card"><span>Anonymous text requests</span><strong>{{ summary.requests|number }}</strong><small>{{ summary.corrections|number }} corrections · {{ summary.translations|number }} translations</small></div>
-  <div class="analytics-card"><span>Successful</span><strong>{{ summary.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
-  <div class="analytics-card"><span>Failed</span><strong>{{ summary.failures|number }}</strong><small>{{ summary.rejections|number }} rejected</small></div>
-  <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio · {{ costs.stt|money }} voice input</small></div>
-  <div class="analytics-card"><span>Realtime transcription</span><strong>{{ audio_totals.stt_realtime|number }}</strong><small>{{ audio_totals.stt_realtime_seconds|duration }} · {{ costs.stt_realtime|money }} · file fallback {{ audio_totals.stt_file|number }} · {{ costs.stt_file|money }}</small></div>
-  <div class="analytics-card"><span>British TTS plays</span><strong>{{ audio_totals.speech_plays|number }}</strong><small>{{ audio_totals.speech_correction|number }} correction · {{ audio_totals.speech_native|number }} native · {{ audio_totals.speech_translation|number }} translation</small></div>
-  <div class="analytics-card"><span>Text total tokens</span><strong>{{ summary.tokens_total|number }}</strong><small>Input {{ summary.tokens_in|number }} · Output {{ summary.tokens_out|number }}</small></div>
-  <div class="analytics-card"><span>Converted</span>
-    {% if visitor.converted_at %}<strong class="analytics-text">{% if visitor.converted_user %}<a href="{% url 'analytics:user' visitor.converted_user.pk %}">{{ visitor.converted_user.get_username }}</a>{% else %}Deleted user{% endif %}</strong><small>{{ visitor.get_converted_via_display }} · {{ visitor.converted_at|date:"j M Y H:i" }}</small>
-    {% else %}<strong class="analytics-text">No</strong><small>Has not signed up or signed in from this browser</small>{% endif %}</div>
-  <div class="analytics-card"><span>Requests before conversion</span><strong>{% if visitor.converted_at %}{{ summary.before_conversion|number }}{% else %}—{% endif %}</strong><small>Anonymous text requests before signup or sign-in</small></div>
-  <div class="analytics-card"><span>Requests after conversion</span><strong>{% if after %}{{ after.requests|number }}{% else %}—{% endif %}</strong><small>{% if after %}As a registered user · {{ after.cost|money }} text AI cost{% else %}Not converted{% endif %}</small></div>
+<h2 class="an-section-title">Activity</h2>
+<div class="an-kpis an-kpis-auto">
+  <div class="an-kpi"><span>First seen</span><strong class="an-kpi-text">{{ visitor.first_seen_at|date:"j M Y" }}</strong><small>{{ visitor.first_seen_at|date:"H:i" }}</small></div>
+  <div class="an-kpi"><span>Last seen</span><strong class="an-kpi-text">{{ visitor.last_seen_at|date:"j M Y" }}</strong><small>{{ visitor.last_seen_at|date:"H:i" }}</small></div>
+  <div class="an-kpi"><span>Active days</span><strong>{{ summary.active_days|number }}</strong><small>Days with anonymous text requests</small></div>
+  <div class="an-kpi"><span>Anonymous text requests</span><strong>{{ summary.requests|number }}</strong><small>{{ summary.corrections|number }} corrections · {{ summary.translations|number }} translations</small></div>
+  <div class="an-kpi"><span>Successful</span><strong>{{ summary.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
+  <div class="an-kpi"><span>Failed</span><strong>{{ summary.failures|number }}</strong><small>{{ summary.rejections|number }} rejected</small></div>
+  <div class="an-kpi"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio · {{ costs.stt|money }} voice input</small></div>
+  <div class="an-kpi"><span>Realtime transcription</span><strong>{{ audio_totals.stt_realtime|number }}</strong><small>{{ audio_totals.stt_realtime_seconds|duration }} · {{ costs.stt_realtime|money }} · file fallback {{ audio_totals.stt_file|number }} · {{ costs.stt_file|money }}</small></div>
+  <div class="an-kpi"><span>British TTS plays</span><strong>{{ audio_totals.speech_plays|number }}</strong><small>{{ audio_totals.speech_correction|number }} correction · {{ audio_totals.speech_native|number }} native · {{ audio_totals.speech_translation|number }} translation</small></div>
+  <div class="an-kpi"><span>Text total tokens</span><strong>{{ summary.tokens_total|number }}</strong><small>Input {{ summary.tokens_in|number }} · Output {{ summary.tokens_out|number }}</small></div>
+  <div class="an-kpi"><span>Converted</span>
+    {% if visitor.converted_at %}<strong class="an-kpi-text">{% if visitor.converted_user %}<a href="{% url 'analytics:user' visitor.converted_user.pk %}">{{ visitor.converted_user.get_username }}</a>{% else %}Deleted user{% endif %}</strong><small>{{ visitor.get_converted_via_display }} · {{ visitor.converted_at|date:"j M Y H:i" }}</small>
+    {% else %}<strong class="an-kpi-text">No</strong><small>Has not signed up or signed in from this browser</small>{% endif %}</div>
+  <div class="an-kpi"><span>Requests before conversion</span><strong>{% if visitor.converted_at %}{{ summary.before_conversion|number }}{% else %}—{% endif %}</strong><small>Anonymous text requests before signup or sign-in</small></div>
+  <div class="an-kpi"><span>Requests after conversion</span><strong>{% if after %}{{ after.requests|number }}{% else %}—{% endif %}</strong><small>{% if after %}As a registered user · {{ after.cost|money }} text AI cost{% else %}Not converted{% endif %}</small></div>
 </div>
-<div class="analytics-columns">{% include "analytics/breakdowns.html" %}{% include "analytics/audio_breakdown.html" %}</div>
+<div class="an-stack">{% include "analytics/breakdowns.html" %}{% include "analytics/audio_breakdown.html" %}</div>
 {% endblock %}

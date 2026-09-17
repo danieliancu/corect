@@ -19,6 +19,7 @@ from apps.assistant.services.quota import QUOTA_EXHAUSTED
 from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
 from .identifiers import visitor_lookup
+from .insights import dashboard_insights
 from .models import AnonymousVisitor, AudioUsageEvent, LearningUsageEvent, UsageEvent
 
 User = get_user_model()
@@ -196,21 +197,27 @@ def windows():
             "last_30": Count("id", filter=Q(created_at__gte=day_start(29)))}
 
 
+def as_float(value):
+    """Money for the chart: json_script would write a Decimal as a string, which Chart.js cannot plot."""
+    return float(value) if value is not None else None
+
+
 def activity_series(events, start):
-    """Requests per local day from `start` (zero-filled), or per month when there is no start."""
+    """Requests, tokens and text AI cost per local day from `start` (zero-filled), or per month when there is no start."""
+    figures = {"requests": Count("id"), "tokens": Sum("total_tokens"), "cost": Sum("estimated_cost")}
     if start is None:
-        rows = (events.annotate(bucket=TruncMonth("created_at")).values("bucket")
-                .annotate(requests=Count("id"), tokens=Sum("total_tokens")).order_by("bucket"))
-        return [{"label": row["bucket"].strftime("%b %Y"), "requests": row["requests"], "tokens": row["tokens"]}
-                for row in rows]
+        rows = (events.annotate(bucket=TruncMonth("created_at")).values("bucket").annotate(**figures).order_by("bucket"))
+        return [{"label": row["bucket"].strftime("%b %Y"), "requests": row["requests"], "tokens": row["tokens"],
+                 "cost": as_float(row["cost"])} for row in rows]
     rows = {row["bucket"]: row for row in events.filter(created_at__gte=start).annotate(bucket=TruncDate("created_at"))
-            .values("bucket").annotate(requests=Count("id"), tokens=Sum("total_tokens"))}
+            .values("bucket").annotate(**figures)}
     first = timezone.localdate(start)
     series = []
     for offset in range((timezone.localdate() - first).days + 1):
         day = first + timedelta(days=offset)
         row = rows.get(day, {})
-        series.append({"label": day.strftime("%d %b"), "requests": row.get("requests", 0), "tokens": row.get("tokens")})
+        series.append({"label": day.strftime("%d %b"), "requests": row.get("requests", 0), "tokens": row.get("tokens"),
+                       "cost": as_float(row.get("cost"))})
     return series
 
 
@@ -314,15 +321,22 @@ def dashboard(request):
             **usage_aggregates("usage_events__", anonymous.events_q("usage_events__")),
             **audio_columns("visitor", anonymous.audio_q()),
             **learning_columns("visitor", anonymous.audio_q()))).filter(requests__gt=0), "requests")[:10]
+    plans = plan_summary(events)
+    costs = costs_with_audio(totals["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"])
+    success_rate = rate(totals["successes"], totals["successes"] + totals["failures"])
+    signup_rate = rate(visitors["signed_up"], visitors["total"])
     return render_report(request, "analytics/dashboard.html", "Usage analytics", "dashboard", {
-        **filter_context(filters, models), **breakdowns(events), **plan_summary(events), **audio, **learning,
-        "totals": totals,
-        "costs": costs_with_audio(totals["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"]),
+        **filter_context(filters, models), **breakdowns(events), **plans, **audio, **learning,
+        "totals": totals, "costs": costs,
         "windows": recent.aggregate(**windows()), "users": users, "visitors": visitors,
         "top_users": top_users, "top_visitors": top_visitors,
-        "success_rate": rate(totals["successes"], totals["successes"] + totals["failures"]),
-        "signup_rate": rate(visitors["signed_up"], visitors["total"]),
-        "series": activity_series(recent, start)})
+        "success_rate": success_rate, "signup_rate": signup_rate,
+        "series": activity_series(recent, start),
+        # Read off the aggregates above; no query of its own (apps/analytics/insights.py).
+        "insights": dashboard_insights(
+            totals=totals, costs=costs, audio_totals=audio["audio_totals"],
+            learning_totals=learning["learning_totals"], plan_rows=plans["plan_rows"], visitors=visitors,
+            signup_rate=signup_rate, success_rate=success_rate, plan_conversions=plans["plan_conversions"])})
 
 
 @staff_member_required

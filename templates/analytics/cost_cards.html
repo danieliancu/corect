@@ -1,11 +1,43 @@
 {% load analytics_format %}
-<h2 class="analytics-heading">AI cost by source</h2>
-<p class="analytics-note">Costs in pounds at $1 = £{{ gbp_per_usd }} (<code>ANALYTICS_GBP_PER_USD</code>). OpenAI bills in US dollars; the ledgers store USD.</p>
-<div class="analytics-cards analytics-cost-cards">
-  <div class="analytics-card analytics-card-total"><span>AI cost · all sources</span><strong>{{ costs.total|money }}</strong><small>Text AI + learning AI + voice input + voice output</small></div>
-  <div class="analytics-card"><span>Text AI cost</span><strong>{{ costs.text|money }}</strong><small>{{ costs.text_share|percent }} of AI cost · "Vreau să sune natural!" via {{ ai_models.text|default:"the text model" }}</small></div>
-  <div class="analytics-card"><span>Learning AI cost</span><strong>{{ costs.learning|money }}</strong><small>{{ costs.learning_share|percent }} of AI cost · {{ learning_totals.learning_calls|number }} calls (practice, answers) via {{ ai_models.learning }}</small></div>
-  <div class="analytics-card"><span>Audio cost</span><strong>{{ costs.audio|money }}</strong><small>{{ costs.audio_share|percent }} of AI cost · voice input + voice output</small></div>
-  <div class="analytics-card"><span>Voice input · speech to text</span><strong>{{ costs.stt|money }}</strong><small>{{ costs.stt_share|percent }} of AI cost · {{ audio_totals.transcriptions|number }} transcriptions<br>Realtime ({{ ai_models.live_stt }}): {{ audio_totals.stt_realtime|number }} sessions · {{ audio_totals.stt_realtime_seconds|duration }} · {{ costs.stt_realtime|money }}<br>File fallback ({{ ai_models.stt }}): {{ audio_totals.stt_file|number }} calls · {{ audio_totals.stt_file_seconds|duration }} · {{ costs.stt_file|money }}</small></div>
-  <div class="analytics-card"><span>Voice output · British TTS</span><strong>{{ costs.tts|money }}</strong><small>{{ costs.tts_share|percent }} of AI cost · {{ audio_totals.speech_plays|number }} plays via {{ ai_models.tts }} ({{ ai_models.voice }})</small></div>
+{# The AI bill split by source: every amount is followed on its own line by its share of the total, drawn as a pie. #}
+<div class="an-card">
+  <div class="an-card-head"><h2>AI cost by source</h2><p class="an-card-side">{{ filters.period_label }}</p></div>
+  <div class="an-kpis an-cost-grid">
+    <div class="an-kpi">
+      <p class="an-kpi-head"><span class="an-kpi-icon is-blue" aria-hidden="true">{% include 'analytics/partials/icons/coins.html' %}</span>AI cost · all sources</p>
+      <strong>{{ costs.total|money }}</strong>
+      <span class="an-pie"><span class="an-pie-disc is-full" aria-hidden="true"></span><span>The whole AI bill</span></span>
+      <small>Text AI + learning AI + voice input + voice output</small>
+    </div>
+    <div class="an-kpi">
+      <p class="an-kpi-head"><span class="an-kpi-icon is-blue" aria-hidden="true">{% include 'analytics/partials/icons/spark.html' %}</span>Text AI cost</p>
+      <strong>{{ costs.text|money }}</strong>
+      <span class="an-pie"><span class="an-pie-disc" style="--an-share: {{ costs.text_share|meter_width }}%" aria-hidden="true"></span><span>{{ costs.text_share|percent }} of AI cost</span></span>
+      <small>"Vreau să sune natural!" via {{ ai_models.text|default:"the text model" }}</small>
+    </div>
+    <div class="an-kpi">
+      <p class="an-kpi-head"><span class="an-kpi-icon" aria-hidden="true">{% include 'analytics/partials/icons/book.html' %}</span>Learning AI cost</p>
+      <strong>{{ costs.learning|money }}</strong>
+      <span class="an-pie"><span class="an-pie-disc" style="--an-share: {{ costs.learning_share|meter_width }}%" aria-hidden="true"></span><span>{{ costs.learning_share|percent }} of AI cost</span></span>
+      <small>{{ learning_totals.learning_calls|number }} calls (practice, answers) via {{ ai_models.learning }}</small>
+    </div>
+    <div class="an-kpi">
+      <p class="an-kpi-head"><span class="an-kpi-icon is-watch" aria-hidden="true">{% include 'analytics/partials/icons/mic.html' %}</span>Audio cost</p>
+      <strong>{{ costs.audio|money }}</strong>
+      <span class="an-pie"><span class="an-pie-disc" style="--an-share: {{ costs.audio_share|meter_width }}%" aria-hidden="true"></span><span>{{ costs.audio_share|percent }} of AI cost</span></span>
+      <small>Voice input + voice output</small>
+    </div>
+    <div class="an-kpi">
+      <p class="an-kpi-head"><span class="an-kpi-icon is-watch" aria-hidden="true">{% include 'analytics/partials/icons/mic.html' %}</span>Voice input · speech to text</p>
+      <strong>{{ costs.stt|money }}</strong>
+      <span class="an-pie"><span class="an-pie-disc" style="--an-share: {{ costs.stt_share|meter_width }}%" aria-hidden="true"></span><span>{{ costs.stt_share|percent }} of AI cost</span></span>
+      <small>{{ audio_totals.transcriptions|number }} transcriptions<br>Realtime ({{ ai_models.live_stt }}): {{ audio_totals.stt_realtime|number }} sessions · {{ audio_totals.stt_realtime_seconds|duration }} · {{ costs.stt_realtime|money }}<br>File fallback ({{ ai_models.stt }}): {{ audio_totals.stt_file|number }} calls · {{ audio_totals.stt_file_seconds|duration }} · {{ costs.stt_file|money }}</small>
+    </div>
+    <div class="an-kpi">
+      <p class="an-kpi-head"><span class="an-kpi-icon is-good" aria-hidden="true">{% include 'analytics/partials/icons/mic.html' %}</span>Voice output · British TTS</p>
+      <strong>{{ costs.tts|money }}</strong>
+      <span class="an-pie"><span class="an-pie-disc" style="--an-share: {{ costs.tts_share|meter_width }}%" aria-hidden="true"></span><span>{{ costs.tts_share|percent }} of AI cost</span></span>
+      <small>{{ audio_totals.speech_plays|number }} plays via {{ ai_models.tts }} ({{ ai_models.voice }})</small>
+    </div>
+  </div>
 </div>

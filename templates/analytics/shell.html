@@ -1,0 +1,25 @@
+{% load static %}<!doctype html>
+{% comment %} Staff analytics has its own shell instead of the Django admin chrome, so the sidebar carries what the admin header
+   used to: a way back to the admin, "View site" and Log out. Access is still staff_member_required on every view. {% endcomment %}
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ title }} · Corect.uk analytics</title>
+  <link rel="stylesheet" href="{% static 'css/analytics.css' %}{{ asset_query }}">
+  <script src="{% static 'vendor/chart.umd.min.js' %}" defer></script>
+  <script src="{% static 'js/analytics.js' %}{{ asset_query }}" defer></script>
+</head>
+<body class="an">
+<a class="an-skip" href="#an-content">Skip to content</a>
+<div class="an-shell">
+  {% include "analytics/partials/sidebar.html" %}
+  <div class="an-scrim" data-analytics-scrim hidden></div>
+  <main class="an-main" id="an-content">
+    {% include "analytics/partials/topbar.html" %}
+    {% block analytics %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

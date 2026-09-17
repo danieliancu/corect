@@ -19,11 +19,12 @@
 .mic-button[hidden] {
   display: none;
 }
-/* Live transcription writes into the box: readable and scrollable, not editable until the microphone stops. */
+/* Live transcription writes into the box: readable and scrollable, not editable until the microphone stops. The
+   cursor and the hidden caret say that on their own; the recording state is already obvious from the microphone
+   button, so the box itself stays plain. */
 .textarea-wrap textarea[aria-busy="true"] {
   cursor: default;
   caret-color: transparent;
-  box-shadow: inset 0 0 0 2px #e6374855;
 }
 .mic-button {
   position: absolute;

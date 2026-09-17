@@ -39,11 +39,17 @@ def pro_prices():
     return settings.PRO_DISPLAY_PRICE, ""
 
 
+# TEMPORARY, while settings.FREE_HAS_PRO_FEATURES is on: the card keeps its own list, so this states what the account
+# really gets. The crosses below stay deliberately — they describe the Free plan itself, which is unchanged.
+FREE_AS_PRO_NOTE = "(Temporar, contul Free are toate opțiunile Pro, inclusiv numărul de cereri.)"
+
+
 def display_plans():
     pro_price, pro_original_price = pro_prices()
     return (
         {"key": "free", "name": "Free", "subtitle": "Pentru testare și utilizare ocazională", "price": "£0",
          "original_price": "", "period": "", "icon": "icons/user.html", "recommended": False, "fair_use": False,
+         "note": FREE_AS_PRO_NOTE if settings.FREE_HAS_PRO_FEATURES else "",
          "daily": daily_uses(FREE),
          "features": ((daily_uses(FREE).capitalize(), True), ("Voce în timp real", True), ("British TextToSpeech", True),
                       ("Istoric limitat", True), ("Progres", False), ("Categorii de greșeli", False), ("Practice", False),

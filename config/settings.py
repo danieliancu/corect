@@ -144,6 +144,14 @@ VOICE_DAILY_GUARDRAILS = {
     "transcription": tier_limits("VOICE_TRANSCRIBE_DAY_LIMITS", (20, 80, 400)),
     "speech": tier_limits("VOICE_TTS_DAY_LIMITS", (30, 120, 600)),
 }
+# TEMPORARY: a Free account gets exactly what Pro gets — the same daily quota, the same voice guardrails and every Pro
+# feature (apps/core/entitlements.py). Anonymous visitors are unchanged. Set FREE_HAS_PRO_FEATURES=false to end it; the
+# quota, the entitlements and the plan cards all read this one flag, so nothing else has to be undone.
+FREE_HAS_PRO_FEATURES = os.getenv("FREE_HAS_PRO_FEATURES", "true").lower() == "true"
+if FREE_HAS_PRO_FEATURES:
+    NATURALIZE_DAILY_LIMITS["free"] = NATURALIZE_DAILY_LIMITS["pro"]
+    for _guardrail in VOICE_DAILY_GUARDRAILS.values():
+        _guardrail["free"] = _guardrail["pro"]
 # Abuse guardrails. Text sent to "Vreau să sune natural!" is checked with OpenAI's free moderation endpoint, in parallel
 # with the model call so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
 CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"
@@ -152,8 +160,10 @@ CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").low
 OPENAI_LEARNING_MODEL = os.getenv("OPENAI_LEARNING_MODEL", "").strip() or OPENAI_MODEL
 LEARNING_REUSE_THRESHOLD = int(os.getenv("LEARNING_REUSE_THRESHOLD", "7"))  # Unused stored exercises that avoid AI.
 LEARNING_BATCH_SIZE = int(os.getenv("LEARNING_BATCH_SIZE", "8"))  # Exercises per generation call.
-# Pro features stay open to every signed-in user until billing exists (apps/core/entitlements.py).
-PRO_ENTITLEMENTS_ENFORCED = os.getenv("PRO_ENTITLEMENTS_ENFORCED", "false").lower() == "true"
+# Pro features stay open to every signed-in user until billing exists (apps/core/entitlements.py). While
+# FREE_HAS_PRO_FEATURES is on they stay open whatever this is set to, so the two flags cannot contradict each other.
+PRO_ENTITLEMENTS_ENFORCED = (os.getenv("PRO_ENTITLEMENTS_ENFORCED", "false").lower() == "true"
+                             and not FREE_HAS_PRO_FEATURES)
 OPENAI_MODERATION_MODEL = os.getenv("OPENAI_MODERATION_MODEL", "omni-moderation-latest")
 # Public contact address; the Contact page and footer link appear only when it is set.
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
@@ -176,7 +186,7 @@ VAT_NUMBER = os.getenv("VAT_NUMBER", "").strip()
 LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
 # Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
 # privacy.html: everyone (including signed-in users) is then asked to accept the new version.
-TERMS_VERSION = "2026-09-16"  # Daily plan limits (5 without an account, 20 Free, Pro up to 200 under Fair Use).
+TERMS_VERSION = "2026-09-17"  # Pro: unlimited requests under Fair Use, with a stated technical ceiling (200 a day).
 PRIVACY_VERSION = "2026-09-17"  # Google Fonts on the homepage; Mod Politicos in usage statistics.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True

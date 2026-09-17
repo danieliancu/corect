@@ -329,11 +329,14 @@
   justify-content: center;
   width: 38px;
   height: 38px;
+  border-radius: 50%;
+  background: var(--surface-blue);
   color: var(--brand-blue-dark);
 }
+/* Smaller than the disc behind it, so the pale blue actually reads (the same proportion as .landing-icon). */
 .empty-benefit-icon svg {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
 }
 .benefit-text {
   display: block;
@@ -387,6 +390,24 @@
   /* The editor keeps the full width in the column (its default is to hug its content). */
   .home-page .workspace:has(> #result > .empty-result) > .editor-card {
     align-self: stretch;
+    /* Capped so the on-screen keyboard cannot cover "Vreau să sune natural!": the text box, which grows to fill the
+       card, gives up the height instead. Only tall phones reach the cap; smaller screens are already shorter. */
+    max-height: 45vh;
+    max-height: 45svh;
+  }
+  /* The benefit cards take the height the capped editor gave up, so the column keeps no gap in it. */
+  .home-page .workspace:has(> #result > .empty-result) > .result-card {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+  .home-page .workspace:has(> #result > .empty-result) .empty-result,
+  .home-page .workspace:has(> #result > .empty-result) .empty-benefits {
+    flex: 1;
+  }
+  /* Two rows of equal height, so all four cards grow together. */
+  .home-page .workspace:has(> #result > .empty-result) .empty-benefits {
+    grid-auto-rows: 1fr;
   }
 }
 
@@ -486,8 +507,6 @@
   .empty-benefit-icon {
     width: clamp(30px, 9vw, 38px);
     height: clamp(30px, 9vw, 38px);
-    border-radius: 50%;
-    background: var(--surface-blue);
   }
   .empty-benefit-icon svg {
     width: 18px;
@@ -578,6 +597,11 @@
   .home-page .mobile-count {
     font-size: clamp(11px, 3.3vw, 13px);
   }
+  /* A narrow screen cannot show three lines of the example sentences at 21px. Real typing follows the same size, so
+     the decorative layer still lines up with it (static/js/example-prompts.js copies the font from the box). */
+  .home-page .textarea-wrap textarea {
+    font-size: clamp(16px, 5.4vw, 21px);
+  }
   /* The main button stays on one line down to 320px. */
   .home-page .action-buttons .button {
     gap: clamp(8px, 2.6vw, 14px);
@@ -593,6 +617,12 @@
   .action-arrow svg {
     width: 18px;
     height: 18px;
+  }
+}
+/* The narrowest phones: the longest example takes four lines, which only fit a little smaller. */
+@media (max-width: 340px) {
+  .home-page .textarea-wrap textarea {
+    font-size: 15px;
   }
 }
 @media (prefers-reduced-motion: no-preference) {

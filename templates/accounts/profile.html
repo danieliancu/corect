@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}Profilul tău — Corect.uk{% endblock %}{% block content %}
 <section class="auth-container profile-page">
-  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p>{% if quota %}<p class="plan-status"><strong>Plan {% if quota.tier == 'pro' %}Pro{% else %}Free{% endif %}</strong> · {% if quota.tier == 'pro' %}Fair Use, până la {{ plan_limits.pro }}{% else %}{{ quota.note }}{% endif %}</p>{% endif %}</div>
+  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p>{% if quota %}<p class="plan-status"><strong>Plan {% if quota.tier == 'pro' %}Pro{% else %}Free{% endif %}</strong> · {% if quota.tier == 'pro' %}Cereri nelimitate (Fair Use){% else %}{{ quota.note }}{% endif %}</p>{% endif %}</div>
   <form method="post" class="card account-form profile-details">{% csrf_token %}
     <input type="hidden" name="action" value="profile">
     <h2>Datele contului</h2>

@@ -3,15 +3,19 @@
     <p class="learn-eyebrow">Pentru tine azi</p>
     {% if plan.items %}
     <h2 id="today-title">{{ plan.total }} exerciții alese din greșelile tale recente</h2>
-    <ul class="learn-hero-topics" role="list">{% for item in plan.items %}<li>{{ item.label }}</li>{% endfor %}</ul>
+    {# Each pill carries its share of plan.total, so the topics visibly add up to the day's exercises. #}
+    <ul class="learn-hero-topics" role="list">{% for item in plan.items %}<li>{{ item.label }}<span class="learn-topic-count" aria-hidden="true">{{ item.count }}</span><span class="sr-only">, {{ item.count }} {% if item.count == 1 %}exercițiu{% else %}exerciții{% endif %}</span></li>{% endfor %}</ul>
     <p class="learn-hero-reason">{{ plan.reason }} Durează cam {{ plan.minutes }} minute.</p>
     {% if plan.done_today %}<p class="learn-hero-reason">Ai terminat deja exercițiile de azi. Le poți relua oricând.</p>{% endif %}
+    {# An unfinished session from today is resumed; anything else starts a fresh one. Free accounts are turned back by the view. #}
+    {% if open_session and open_session.kind == 'today' %}<a class="button learn-hero-button" href="{% url 'learn_session' pk=open_session.pk %}">Continuă sesiunea</a>
+    {% else %}<form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="today"><button class="button learn-hero-button" type="submit">{% if plan.done_today %}Reia exercițiile de azi{% else %}Începe cele {{ plan.total }} exerciții{% endif %}</button></form>{% endif %}
     {% elif overview.stage == 'empty' %}
     <h2 id="today-title">Hai să începem.</h2>
     <p class="learn-hero-reason">Începe să scrii sau să vorbești în engleză. Pe măsură ce folosești Corect, vom identifica ce merită să exersezi.</p>
     <a class="button learn-hero-button" href="{% url 'home' %}">Scrie primul text</a>
     {% else %}
-    <h2 id="today-title">Începem să vedem câteva tipuri.</h2>
+    <h2 id="today-title">Începem să vedem câteva tipologii.</h2>
     <p class="learn-hero-reason">Nu ai greșeli de exersat acum. Mai scrie câteva texte în engleză și îți pregătim exerciții.</p>
     <a class="button learn-hero-button" href="{% url 'home' %}">Adaugă un text nou</a>
     {% endif %}

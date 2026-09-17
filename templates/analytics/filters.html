@@ -1,21 +1,32 @@
-<form method="get" class="analytics-filters">
-  <label>Period
-    <select name="period">{% for value, label in periods.items %}<option value="{{ value }}"{% if value == filters.period %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  </label>
-  {% if show_audience %}<label>Audience
+{% comment %} The same GET names and values as before (period, audience, type, model, converted, q), so ReportFilters is unchanged.
+   One plain form: without JavaScript the Apply button still works; with it, changing a control submits. {% endcomment %}
+<form method="get" class="an-filters" data-analytics-filters>
+  <div class="an-segment" role="group" aria-label="Period">
+    {% for value, label in periods.items %}
+    <label><input type="radio" name="period" value="{{ value }}"{% if value == filters.period %} checked{% endif %}><span>{{ label }}</span></label>
+    {% endfor %}
+  </div>
+
+  {% if show_audience %}<label class="an-field">Audience
     <select name="audience">{% for value, label in audiences.items %}<option value="{{ value }}"{% if value == filters.audience %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   </label>{% endif %}
-  <label>Request type
+
+  <label class="an-field">Request type
     <select name="type">{% for value, label in types.items %}<option value="{{ value }}"{% if value == filters.request_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   </label>
-  {% if models|length > 1 %}<label>Model
+
+  {% if models|length > 1 %}<label class="an-field">Model
     <select name="model"><option value="">All models</option>{% for model in models %}<option value="{{ model }}"{% if model == filters.model %} selected{% endif %}>{{ model }}</option>{% endfor %}</select>
   </label>{% endif %}
-  {% if show_converted %}<label>Converted
+
+  {% if show_converted %}<label class="an-field">Converted
     <select name="converted"><option value="">All</option><option value="yes"{% if converted == 'yes' %} selected{% endif %}>Yes</option><option value="no"{% if converted == 'no' %} selected{% endif %}>No</option></select>
   </label>{% endif %}
-  {% if search_placeholder %}<label>Search
-    <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}">
-  </label>{% endif %}
-  <input type="submit" value="Apply">
+
+  {% if search_placeholder %}<span class="an-field an-search">
+    {% include 'analytics/partials/icons/search.html' %}
+    <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}" aria-label="Search">
+  </span>{% endif %}
+
+  <button type="submit" class="an-apply">Apply</button>
 </form>

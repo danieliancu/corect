@@ -1,9 +1,21 @@
-<section class="landing-section" aria-labelledby="steps-title">
+<section class="landing-section landing-steps" aria-labelledby="steps-title">
   <div class="landing-heading"><h2 id="steps-title">Cum funcționează</h2><p>În doar câțiva pași, îți îmbunătățești engleza și vezi progres real.</p></div>
   <ol class="step-list" role="list">
-    <li class="step-card"><span class="step-number" aria-hidden="true">1</span><div><h3>Scrii sau vorbești</h3><p>În română sau engleză, cu tastatura sau cu microfonul.</p></div></li>
-    <li class="step-card"><span class="step-number" aria-hidden="true">2</span><div><h3>Primești engleza britanică naturală</h3><p>Vezi imediat greșelile reparate și explicațiile.</p></div></li>
-    <li class="step-card"><span class="step-number" aria-hidden="true">3</span><div><h3>Asculți pronunția britanică</h3><p>Auzi cum sună în engleza britanică.</p></div></li>
-    <li class="step-card"><span class="step-number" aria-hidden="true">4</span><div><h3>Îți urmărești progresul</h3><p>Vezi statistici, categorii de greșeli și evoluția ta.</p></div></li>
+    <li class="step-card">
+      <span class="step-art" aria-hidden="true">{% include 'core/partials/steps/art_write.html' %}</span>
+      <h3>Scrii sau vorbești</h3><p>greșelile reparate și explicate</p>
+    </li>
+    <li class="step-card">
+      <span class="step-art" aria-hidden="true">{% include 'core/partials/steps/art_correct.html' %}</span>
+      <h3>Primești engleza britanică naturală</h3><p>alternativa naturală în limba engleză</p>
+    </li>
+    <li class="step-card">
+      <span class="step-art" aria-hidden="true">{% include 'core/partials/steps/art_listen.html' %}</span>
+      <h3>Asculți pronunția britanică</h3><p>pronunție britanică cu un click</p>
+    </li>
+    <li class="step-card">
+      <span class="step-art" aria-hidden="true">{% include 'core/partials/steps/art_progress.html' %}</span>
+      <h3>Îți urmărești progresul</h3><p>progres, istoric și exerciții</p>
+    </li>
   </ol>
 </section>

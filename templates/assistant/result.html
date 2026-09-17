@@ -43,4 +43,5 @@
   </div>
 {% endif %}
 {% endif %}
+{% if from_history and result and not error %}<p class="quota-note history-note">Ai mai trimis acest text, așa că îți arătăm rezultatul salvat.</p>{% endif %}
 {% if quota and result and not error and quota.note %}<p class="quota-note">{{ quota.note }}</p>{% endif %}

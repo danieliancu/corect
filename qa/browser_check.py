@@ -179,6 +179,7 @@ class BrowserChecks(StaticLiveServerTestCase):
                 result.native_text, result.native_explanation = "Could you help me with something?", "Sună mai direct."
             return Naturalized("correction", "en", result)
         result = correction_result()
+        result.original_text = text  # As the real service does: the result carries the text that was sent.
         if text.startswith("Native example"):
             result.native_text = "I didn't make it to work yesterday."
         if text.startswith("Long example"):
@@ -627,11 +628,11 @@ class BrowserChecks(StaticLiveServerTestCase):
                 expect(self.page.locator(".learn-stat")).to_have_count(4)
                 expect(self.page.get_by_role("heading", name="Ce trebuie exersat")).to_be_visible()
                 expect(self.page.locator(".learn-card").filter(has_text="Ce trebuie exersat")).to_contain_text("Since / for")
-                expect(self.page.get_by_role("link", name="Ce trebuie exersat")).to_have_attribute("href", "/mistakes/")
+                expect(self.page.get_by_role("link", name="Vezi toate tipologiile de exersat")).to_have_attribute("href", "/mistakes/")
                 expect(self.page.get_by_role("link", name="Exersează")).to_have_count(0)
-                expect(self.page.locator(".learn-hero").get_by_role("button")).to_have_count(0)
+                expect(self.page.locator(".learn-hero").get_by_role("button", name="Începe cele 5 exerciții")).to_be_visible()
                 expect(self.page.locator(".learn-welcome .learn-plan-pill")).to_have_text("Free")
-                expect(self.page.locator(".learn-welcome")).to_contain_text("1 tip urmărit")
+                expect(self.page.locator(".learn-welcome")).to_contain_text("1 tipologie urmărită")
                 expect(self.page.locator(".learn-sidebar-editor")).to_contain_text("Adaugă un text nou")
                 expect(self.page.locator(".learn-rail")).to_have_count(0)
                 expect(self.page.get_by_role("heading", name="Următoarele")).to_have_count(0)
@@ -708,9 +709,11 @@ class BrowserChecks(StaticLiveServerTestCase):
         model = ai.enter_context(patch_ai(batch("base_form_after_did")))
         self.sign_in_learner("loop-learner")
         self.page.set_viewport_size({"width": 390, "height": 844})
-        for _ in range(2):
+        # The same mistake in two different texts: sending one text again would be answered from the learner's own
+        # saved result, which is deliberately not counted as making the mistake a second time.
+        for day in ("Monday", "Tuesday"):
             self.page.goto(self.live_server_url)
-            self.page.locator("#text").fill(correction_result().original_text)
+            self.page.locator("#text").fill(f"I didn't went to work on {day}.")
             self.submit()
             expect(self.page.locator(".result-text")).to_have_text(correction_result().corrected_text)
         hint = self.page.locator(".learning-hint")
@@ -910,17 +913,20 @@ class BrowserChecks(StaticLiveServerTestCase):
                 self.assertEqual(self.page.evaluate("navigator.clipboard.readText()"),
                                  natural.locator(".native-sentence").text_content().strip())
                 self.page.screenshot(path=str(self.artifacts / f"natural-boxes-{width}.png"), full_page=True)
+                # The details start closed, so the corrected sentence and the natural version are what is read first.
                 toggle = corrected.locator("[data-collapse-toggle]")
-                expect(toggle).to_have_attribute("aria-expanded", "true")
-                toggle.click()
                 expect(toggle).to_have_attribute("aria-expanded", "false")
+                expect(toggle.locator(".collapse-label")).to_have_text("Detalii")
                 expect(corrected.locator(".corrected-sentence")).to_be_visible()  # The sentence stays.
                 for hidden in (".correction-caption", ".correction-comparison", ".sentence-comparison"):
                     expect(corrected.locator(hidden)).to_be_hidden()  # Everything under it is collapsed.
                 expect(natural.locator(".native-sentence")).to_be_visible()
                 self.page.screenshot(path=str(self.artifacts / f"natural-boxes-collapsed-{width}.png"), full_page=True)
                 toggle.click()
+                expect(toggle).to_have_attribute("aria-expanded", "true")
                 expect(corrected.locator(".correction-comparison")).to_be_visible()
+                toggle.click()
+                expect(corrected.locator(".correction-comparison")).to_be_hidden()
         self.assertEqual(self.errors, [])
 
     # ----- Daily plan quota -----
@@ -976,11 +982,11 @@ class BrowserChecks(StaticLiveServerTestCase):
         actor = f"user:{user.pk}"
         self.page.set_viewport_size({"width": 1440, "height": 1000})
         self.set_usage(actor, 19)
-        self.naturalize_text()
+        self.naturalize_text("The twentieth text of the day.")
         expect(self.page.locator(".quota-note")).to_have_text("0 din 20 de utilizări rămase astăzi")
-        self.naturalize_text()
+        self.naturalize_text("One text too many.")
         alert = self.page.locator(".quota-box[role=alert]")
-        expect(alert).to_contain_text("Ai folosit cele 20 de utilizări de azi. Pro oferă până la 200 de naturalizări pe zi, "
+        expect(alert).to_contain_text("Ai folosit cele 20 de utilizări de azi. Cu Pro ai cereri nelimitate, "
                                       "în regim Fair Use.")
         expect(alert.get_by_role("link", name="Vezi planul Pro")).to_have_attribute("href", "/about/#plans")
         self.page.screenshot(path=str(self.artifacts / "quota-free-1440.png"))
@@ -992,16 +998,16 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.in_database_thread(lambda: user.groups.add(Group.objects.get_or_create(name="Pro")[0]))
         self.set_usage(actor, 199)
         self.page.goto(self.live_server_url)
-        self.naturalize_text()
+        self.naturalize_text("The two hundredth text of the day.")
         expect(self.page.locator(".result-text").first).to_be_visible()
         expect(self.page.locator(".quota-note")).to_have_count(0)  # Pro is not counted down.
-        self.naturalize_text()
+        self.naturalize_text("One Pro text too many.")
         alert = self.page.locator(".quota-box[role=alert]")
         expect(alert).to_contain_text("Ai atins limita Fair Use de 200 de utilizări pentru astăzi. Limita se resetează la "
                                       "miezul nopții (ora Regatului Unit).")
         expect(alert.get_by_role("link")).to_have_count(0)  # No plan to upgrade to.
         self.page.goto(self.live_server_url + "/accounts/profile/")
-        expect(self.page.locator(".plan-status")).to_have_text("Plan Pro · Fair Use, până la 200 de naturalizări pe zi")
+        expect(self.page.locator(".plan-status")).to_have_text("Plan Pro · Cereri nelimitate (Fair Use)")
         self.assertEqual(self.usage(actor), 200)
         self.assertEqual(self.errors, [])
 
@@ -1079,8 +1085,17 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertTrue(any(shown for _, shown in samples))
         self.assertTrue(all(TYPED[0].startswith(shown) for _, shown in samples))
         expect(self.page.locator(".mobile-count .count-hint")).to_have_text("Scrie în acest ecran sau vorbește aici")
-        expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
         expect(self.page.locator(".mobile-count .count-value")).to_be_hidden()
+        # The hint stays in the page for aria-describedby, but steps aside while an example is being typed, because on
+        # a short box its white background would sit over the sentence's last line.
+        opacity = "() => getComputedStyle(document.querySelector('.character-count')).opacity"
+        self.assertEqual(self.page.evaluate(opacity), "0")
+        text.focus()
+        expect(example).to_be_hidden()
+        expect(self.page.locator(".mobile-count .count-hint")).to_be_visible()
+        self.assertEqual(self.page.evaluate(opacity), "1")
+        self.page.locator("#result").click()
+        expect(example).to_be_visible(timeout=6000)
         # Typed with the mistake, then the mistake is struck through in red and the correction typed beside it in green.
         self.page.wait_for_function("s => document.querySelector('.example-prompt').textContent === s", arg=TYPED[0])
         self.page.wait_for_function("s => document.querySelector('.example-prompt').textContent === s", arg=CORRECTED[0])
@@ -1099,14 +1114,23 @@ class BrowserChecks(StaticLiveServerTestCase):
                 self.page.set_viewport_size({"width": width, "height": height})
                 expect(example).to_be_visible()
                 layout = self.page.evaluate("""() => {
+                    const example = document.querySelector('.example-prompt');
                     const r = s => document.querySelector(s).getBoundingClientRect().toJSON();
-                    return {example: r('.example-prompt'), mic: r('[data-voice-record]'), count: r('.mobile-count'),
+                    const box = example.getBoundingClientRect();
+                    return {example: box, mic: r('[data-voice-record]'), count: r('.mobile-count'),
+                            // How far the sentence itself may reach: the layer copies the box's right padding.
+                            textRight: box.right - parseFloat(getComputedStyle(example).paddingRight),
+                            countOpacity: getComputedStyle(document.querySelector('.character-count')).opacity,
                             box: r('#text'), scrollWidth: document.documentElement.scrollWidth};
                 }""")
-                self.assertLessEqual(layout["example"]["bottom"], layout["mic"]["top"])
-                self.assertLessEqual(layout["example"]["bottom"], layout["count"]["top"])
+                # The sentence never reaches the microphone: the text box's right padding, which the layer copies,
+                # keeps it clear whatever the height. On a short box the layer does take the counter's strip, so the
+                # counter fades while an example is showing (it returns the moment the box is focused).
+                self.assertLessEqual(layout["textRight"], layout["mic"]["left"])
+                self.assertEqual(layout["countOpacity"], "0")
                 self.assertGreaterEqual(layout["example"]["left"], layout["box"]["left"])
                 self.assertLessEqual(layout["example"]["right"], layout["box"]["right"])
+                self.assertLessEqual(layout["example"]["bottom"], layout["box"]["bottom"])
                 self.assertLessEqual(layout["scrollWidth"], width)
         self.page.set_viewport_size({"width": 390, "height": 844})
         text.click()

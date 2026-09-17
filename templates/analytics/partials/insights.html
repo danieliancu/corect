@@ -1,0 +1,14 @@
+{% load analytics_format %}{# Built in apps/analytics/insights.py from the figures already on the page. An empty period says so. #}
+<div class="an-card">
+  <div class="an-card-head"><h2>What this period says</h2></div>
+  <div class="an-insights">
+    {% for item in insights %}
+    <div class="an-insight is-{{ item.level }}">
+      <span class="an-insight-mark" aria-hidden="true">{% include item.icon|insight_icon %}</span>
+      <span class="an-insight-body"><strong>{{ item.title }}</strong><span class="an-insight-detail">{{ item.detail }}</span></span>
+    </div>
+    {% empty %}
+    <p class="an-empty">No usage recorded in this period, so there is nothing to read yet.</p>
+    {% endfor %}
+  </div>
+</div>

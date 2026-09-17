@@ -21,9 +21,12 @@ def _total(values):
     return None if not values or None in values else sum(values)
 
 
-def _usage_totals(calls, status):
-    """Token totals and USD cost of the reported provider calls (zero when rejected before any call)."""
-    if status == UsageEvent.Status.REJECTED:
+def _usage_totals(calls, status, no_call_made=False):
+    """Token totals and USD cost of the reported provider calls.
+
+    Zero, not unknown, when no call was ever made: rejected before one, or answered from the learner's own history.
+    """
+    if status == UsageEvent.Status.REJECTED or no_call_made:
         return dict.fromkeys(TOKEN_FIELDS, 0), Decimal(0)
     tokens = {field: _total([getattr(call, field) for call in calls]) for field in TOKEN_FIELDS}
     costs = [estimate_cost(call) for call in calls]
@@ -31,18 +34,20 @@ def _usage_totals(calls, status):
 
 
 def record_usage_event(*, request, kind, status, calls=(), error_code="", visitor=None, assistant_request=None,
-                       source_language="", duration_ms=None, moderation_ms=None, plan="", polite=False):
+                       source_language="", duration_ms=None, moderation_ms=None, plan="", polite=False,
+                       from_history=False):
     """`kind` is the effective operation (correction, translation or unclassified), never the public action. `plan` is the
     tier at request time (anonymous, free or pro), kept even if the account changes plan later."""
     user = request.user if request.user.is_authenticated else None
-    tokens, cost = _usage_totals(calls, status)
+    tokens, cost = _usage_totals(calls, status, no_call_made=from_history)
     try:
         return UsageEvent.objects.create(
             audience=UsageEvent.Audience.REGISTERED if user else UsageEvent.Audience.ANONYMOUS,
             plan=plan or tier_for(request.user), polite=polite,
             user=user, visitor=visitor, request_type=kind, source_language=(source_language or "")[:12],
             model=settings.OPENAI_MODEL[:100], response_model=next((c.response_model for c in calls if c.response_model), ""),
-            prompt_version=POLITE_PROMPT_VERSION if polite else PROMPT_VERSION, status=status, error_code=error_code, provider_calls=len(calls),
+            prompt_version=POLITE_PROMPT_VERSION if polite else PROMPT_VERSION, status=status, error_code=error_code,
+            provider_calls=len(calls), from_history=from_history,
             estimated_cost=cost, assistant_request=assistant_request, duration_ms=bounded_ms(duration_ms),
             provider_duration_ms=bounded_ms(_total([getattr(call, "duration_ms", None) for call in calls])),
             moderation_duration_ms=bounded_ms(moderation_ms), **tokens)

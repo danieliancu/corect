@@ -1,0 +1,37 @@
+{% load analytics_format %}
+{% comment %} Six figures that answer: what does it cost, how much is it used, is it healthy, is it growing.
+   A sparkline is drawn only where a real per-day series exists (requests and text AI cost). {% endcomment %}
+<div class="an-kpis">
+  <div class="an-kpi">
+    <p class="an-kpi-head"><span class="an-kpi-icon is-blue" aria-hidden="true">{% include 'analytics/partials/icons/coins.html' %}</span>Total AI cost</p>
+    <strong>{{ costs.total|money }}</strong>
+    <small>Text + learning + voice, {{ filters.period_label|lower }}</small>
+    <span class="an-spark" hidden><canvas data-analytics-spark="an-series" data-spark-key="cost" aria-hidden="true"></canvas></span>
+  </div>
+  <div class="an-kpi">
+    <p class="an-kpi-head"><span class="an-kpi-icon is-blue" aria-hidden="true">{% include 'analytics/partials/icons/spark.html' %}</span>Text requests</p>
+    <strong>{{ totals.requests|number }}</strong>
+    <small>{{ windows.today|number }} today · {{ windows.last_7|number }} in 7 days</small>
+    <span class="an-spark" hidden><canvas data-analytics-spark="an-series" data-spark-key="requests" aria-hidden="true"></canvas></span>
+  </div>
+  <div class="an-kpi">
+    <p class="an-kpi-head"><span class="an-kpi-icon is-good" aria-hidden="true">{% include 'analytics/partials/icons/check.html' %}</span>Success rate</p>
+    <strong>{{ success_rate|percent }}</strong>
+    <small>{{ totals.failures|number }} failed · {{ totals.rejections|number }} refused by a rule</small>
+  </div>
+  <div class="an-kpi">
+    <p class="an-kpi-head"><span class="an-kpi-icon" aria-hidden="true">{% include 'analytics/partials/icons/users.html' %}</span>Registered users</p>
+    <strong>{{ users.total|number }}</strong>
+    <small>{{ users.new|number }} joined in this period</small>
+  </div>
+  <div class="an-kpi">
+    <p class="an-kpi-head"><span class="an-kpi-icon" aria-hidden="true">{% include 'analytics/partials/icons/visitor.html' %}</span>Active visitors</p>
+    <strong>{{ visitors.active|number }}</strong>
+    <small>{{ visitors.all_time|number }} anonymous visitors all time</small>
+  </div>
+  <div class="an-kpi">
+    <p class="an-kpi-head"><span class="an-kpi-icon is-watch" aria-hidden="true">{% include 'analytics/partials/icons/trend.html' %}</span>Signup conversion</p>
+    <strong>{{ signup_rate|percent }}</strong>
+    <small>{{ visitors.signed_up|number }} of {{ visitors.total|number }} signed up{% if plan_conversions %} · {{ plan_conversions|number }} after the quota ran out{% endif %}</small>
+  </div>
+</div>

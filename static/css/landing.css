@@ -59,22 +59,19 @@
   margin: 0;
   padding: 0;
 }
-.feature-card,
-.step-card {
+.feature-card {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-.feature-card h3,
-.step-card h3 {
+.feature-card h3 {
   font-size: 16px;
   font-weight: 650;
   letter-spacing: -0.2px;
   margin: 0 0 5px;
 }
-.feature-card p,
-.step-card p {
+.feature-card p {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.45;
@@ -120,40 +117,98 @@
   box-shadow: 0 2px 6px #0860e833;
 }
 
-/* How it works: four steps with an arrow in each gap. */
+/* How it works: four illustrated steps on a pale band, joined by a dashed connector. */
+.landing-steps {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 64px;
+  padding: 44px 0 50px;
+}
+/* The pale band runs the full width of the window (the body clips horizontal overflow, as for the header). */
+.landing-steps::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(50% - 50vw);
+  z-index: -1;
+  background: linear-gradient(180deg, #f5f9ff 0%, #fdfeff 100%);
+}
 .step-list {
+  /* One place for the geometry: the gap, the card's top padding and the picture's size place the connector. */
+  --step-gap: 56px;
+  --step-pad-top: 26px;
+  --step-art: 84px;
+  --step-chip: 22px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 40px;
+  gap: var(--step-gap);
 }
-/* Large step number on the left, title and text beside it. */
 .step-card {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 22px 20px 24px;
-}
-.step-card + .step-card::before {
-  content: "→";
-  position: absolute;
-  top: 50%;
-  left: -40px;
-  width: 40px;
-  transform: translateY(-50%);
-  color: #93a8c6;
-  font-size: 18px;
+  flex-direction: column;
+  padding: var(--step-pad-top) 22px 28px;
+  background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+  border: 1px solid #e7eff9;
+  border-radius: 22px;
+  box-shadow:
+    0 1px 2px #1b65b50a,
+    0 14px 34px #1b65b50f;
+  align-items: center;
   text-align: center;
 }
-/* The step's number with a small icon under it. */
-.step-number {
+.step-art {
+  display: block;
   flex-shrink: 0;
-  margin-top: -2px;
-  color: var(--blue-dark);
-  font-size: 48px;
-  font-weight: 800;
-  letter-spacing: -2px;
-  line-height: 1;
+}
+/* Every svg is 28 x 28 by default (app.css), so the illustration sets its own size. */
+.step-art svg {
+  width: var(--step-art);
+  height: var(--step-art);
+}
+.step-card h3 {
+  /* Room for two lines everywhere, so all four descriptions start on the same line. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6em;
+  margin: 16px 0 6px;
+  color: var(--navy);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+}
+.step-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* In each gap: a dashed line with a round arrow chip, level with the middle of the pictures.
+   Both hang on the card to their left, so nothing is ever painted outside the grid. */
+.step-card:not(:last-child)::before,
+.step-card:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--step-pad-top) + var(--step-art) / 2);
+}
+.step-card:not(:last-child)::before {
+  right: calc(var(--step-gap) * -1);
+  width: var(--step-gap);
+  height: 2px;
+  margin-top: -1px;
+  background: repeating-linear-gradient(90deg, #c7dbf5 0 5px, transparent 5px 10px);
+}
+.step-card:not(:last-child)::after {
+  right: calc(var(--step-gap) / -2 - var(--step-chip) / 2);
+  width: var(--step-chip);
+  height: var(--step-chip);
+  margin-top: calc(var(--step-chip) / -2);
+  border-radius: 50%;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a93b8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h13M12.5 6l6 6-6 6'/%3E%3C/svg%3E") center / 11px no-repeat;
+  box-shadow:
+    0 0 0 1px #dde9f9,
+    0 4px 10px #1b65b514;
 }
 
 /* Plans: Free and Pro, presentation only. */
@@ -325,6 +380,18 @@
   cursor: not-allowed;
   opacity: 0.8;
 }
+/* While Free temporarily gets everything Pro gets (settings.FREE_HAS_PRO_FEATURES): in the flow, under the list. */
+.plan-temporary-note {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--pale);
+  color: var(--blue-dark);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
 /* Below the Pro button without making the cards unequal. */
 .plan-note {
   position: absolute;
@@ -433,18 +500,34 @@
 }
 
 @media (hover: hover) {
-  .feature-card:hover,
-  .step-card:hover {
+  .feature-card:hover {
     border-color: #c5dafb;
     box-shadow: 0 10px 28px #1b65b514;
   }
+  .step-card:hover {
+    border-color: #d4e5fb;
+    box-shadow:
+      0 2px 4px #1b65b50f,
+      0 18px 40px #1b65b51c;
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .feature-card,
-  .step-card {
+  .feature-card {
     transition:
       border-color 0.15s,
       box-shadow 0.15s;
+  }
+}
+/* The step cards lift on hover, so their transition is only worth having with a real pointer. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .step-card {
+    transition:
+      transform 0.18s,
+      border-color 0.18s,
+      box-shadow 0.18s;
+  }
+  .step-card:hover {
+    transform: translateY(-3px);
   }
 }
 @media (min-width: 1024px) and (max-width: 1200px) {
@@ -462,18 +545,20 @@
     height: 46px;
   }
   .step-list {
-    gap: 24px;
-  }
-  .step-card + .step-card::before {
-    left: -24px;
-    width: 24px;
+    --step-gap: 40px;
+    --step-pad-top: 22px;
+    --step-art: 72px;
+    --step-chip: 20px;
   }
   .step-card {
-    gap: 10px;
-    padding: 20px 14px;
+    padding: var(--step-pad-top) 15px 24px;
   }
-  .step-number {
-    font-size: 38px;
+  .step-card h3 {
+    margin-top: 13px;
+    font-size: 16px;
+  }
+  .step-card p {
+    font-size: 13.5px;
   }
   .plan-strip > div {
     gap: 12px;
@@ -507,13 +592,27 @@
   .landing-heading p {
     font-size: 16px;
   }
-  .feature-grid,
-  .step-list {
+  .feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
-  .step-card + .step-card::before {
+  .landing-steps {
+    margin-bottom: 44px;
+    padding: 30px 0 34px;
+  }
+  .step-list {
+    --step-gap: 16px;
+    --step-pad-top: 22px;
+    --step-art: 76px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Two columns: no connector, it would hang past the right-hand column. */
+  .step-card:not(:last-child)::before,
+  .step-card:not(:last-child)::after {
     content: none;
+  }
+  .step-card {
+    padding: var(--step-pad-top) 18px 24px;
   }
   .plan-grid {
     grid-template-columns: minmax(0, 480px);
@@ -562,13 +661,38 @@
     font-size: 24px;
   }
   .feature-grid,
-  .step-list,
   .plan-features.pro-benefits {
     grid-template-columns: minmax(0, 1fr);
   }
-  .feature-card,
-  .step-card {
+  .feature-card {
     padding: 18px 16px;
+  }
+  .step-list {
+    --step-gap: 12px;
+    --step-pad-top: 18px;
+    --step-art: 62px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* One card per row, so the picture moves beside the text instead of above it. */
+  .step-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 14px;
+    padding: var(--step-pad-top) 16px;
+    text-align: left;
+  }
+  .step-art {
+    grid-row: 1 / 3;
+  }
+  .step-card h3 {
+    display: block;
+    align-self: end;
+    min-height: 0;
+    margin: 0 0 4px;
+    font-size: 16px;
+  }
+  .step-card p {
+    align-self: start;
   }
   .feature-card.is-pro {
     padding-right: 40px;
@@ -576,9 +700,6 @@
   .landing-icon {
     width: 46px;
     height: 46px;
-  }
-  .step-number {
-    font-size: 38px;
   }
   .plan-card {
     padding: 24px 20px 56px;

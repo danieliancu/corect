@@ -312,19 +312,21 @@
   display: inline-flex;
   color: var(--success);
 }
+/* "Detalii" beside the arrow: the details under the corrected sentence start closed (static/js/navigation.js). */
 .collapse-toggle {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
+  gap: 4px;
+  min-height: 36px;
   margin-left: auto;
-  padding: 0;
+  padding: 0 4px 0 10px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 999px;
   background: transparent;
   color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
 }
 .collapse-toggle:hover {
   color: var(--navy);
@@ -491,8 +493,13 @@
     height: 40px;
   }
   .collapse-toggle {
-    width: 32px;
-    height: 32px;
+    min-height: 32px;
+    padding: 0 2px 0 8px;
+    font-size: 12px;
+  }
+  /* The label costs width the title needs, so the heading closes up beside it. */
+  .result-box .corrected-heading {
+    gap: 10px;
   }
   .native-sentence {
     font-size: 16px;
@@ -1106,6 +1113,12 @@ textarea:focus {
 .character-count:not(.is-empty) .count-hint {
   display: none;
 }
+/* While an example sentence is playing, the hint steps aside: its white background sits over the last line on a short
+   box, and the example itself is the invitation to write. Focusing the box hides the example, which brings it back.
+   Opacity rather than display, so the box keeps the description aria-describedby points at. */
+.example-prompt:not([hidden]) ~ .character-count.is-empty {
+  opacity: 0;
+}
 /* Request progress is announced to screen readers only; the buttons themselves show "Corectăm…" / "Traducem…". */
 .request-status {
   position: absolute;
@@ -1506,6 +1519,10 @@ a.pattern-link:hover .category-arrow {
   color: var(--muted);
   font-size: 13px;
   text-align: center;
+}
+/* Says why a repeated text came back instantly and cost nothing. */
+.history-note + .quota-note {
+  margin-top: 6px;
 }
 .plan-status {
   display: inline-block;

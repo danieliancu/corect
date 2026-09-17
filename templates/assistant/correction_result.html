@@ -5,7 +5,7 @@
   <div class="result-heading corrected-heading">
     {% speech_button result.corrected_text "correction" "heading" %}
     <h2 id="corrected-title">Engleza ta, corectată</h2>
-    {% if result.native_text %}<button type="button" class="collapse-toggle" data-collapse-toggle aria-controls="corrected-body" aria-expanded="true" aria-label="Arată sau ascunde explicațiile corecturii" hidden>{% include 'icons/chevron-right.html' %}</button>{% endif %}
+    {% if result.native_text %}<button type="button" class="collapse-toggle" data-collapse-toggle aria-controls="corrected-body" aria-expanded="true" aria-label="Detalii — arată sau ascunde explicațiile corecturii" hidden><span class="collapse-label">Detalii</span>{% include 'icons/chevron-right.html' %}</button>{% endif %}
   </div>
   {# The corrected sentence always stays visible; the arrow collapses only the explanations under it. #}
   <p class="result-text corrected-sentence has-copy" lang="en-GB">{{ result.corrected_text }}{% include 'assistant/copy_button.html' %}</p>

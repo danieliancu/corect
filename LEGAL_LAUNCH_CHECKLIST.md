@@ -79,7 +79,9 @@ professional actions that code cannot complete. None is done just because a conf
 - [ ] Publish pricing, billing, renewal, cancellation and refund terms, including the UK 14-day cancellation right for
       digital services and how it is waived or applied.
 - [ ] Review the daily plan limits with the legal review: 5 naturalisations a day without an account, 20 with a free
-      account and up to 200 for Pro under Fair Use (stated as "extinsă, nu nelimitată"), reset at midnight UK time and
-      not charged for failed requests. `TERMS_VERSION` and `PRIVACY_VERSION` were raised to `2026-09-16` for this.
+      account and, for Pro, "Cereri nelimitate (Fair Use)" with a technical ceiling of 200 a day stated in the Terms
+      (section 13), reset at midnight UK time and not charged for failed requests. Check the "nelimitate" wording against
+      the ASA/CAP guidance on "unlimited" claims while the 200 ceiling is enforced. `TERMS_VERSION` was raised to
+      `2026-09-17` for this.
 - [ ] Review the promotional price presentation (£9.99 struck through, £4.99/lună) against pricing rules: the normal
       price must be genuine.

@@ -1,20 +1,11 @@
 {% load analytics_format %}
-<section class="module">
-  <h2>Text activity</h2>
-  <div class="analytics-chart"><canvas data-usage-chart="activity-data" role="img" aria-label="Text requests over time; values are in the table below" hidden></canvas></div>
-  {{ series|json_script:"activity-data" }}
-  <details class="analytics-details"><summary>Show values</summary>
-    <table><thead><tr><th scope="col">Period</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Tokens</th></tr></thead>
-      <tbody>{% for row in series %}<tr><td>{{ row.label }}</td><td class="num">{{ row.requests|number }}</td><td class="num">{{ row.tokens|number }}</td></tr>{% empty %}<tr><td colspan="3">No activity yet.</td></tr>{% endfor %}</tbody></table>
-  </details>
-</section>
-<section class="module">
-  <h2>Text errors and rejections</h2>
-  <table><thead><tr><th scope="col">Status</th><th scope="col">Error code</th><th scope="col" class="num">Requests</th></tr></thead>
-    <tbody>{% for row in errors %}<tr><td>{{ row.status|capfirst }}</td><td><code>{{ row.error_code|default:"—" }}</code></td><td class="num">{{ row.total|number }}</td></tr>{% empty %}<tr><td colspan="3">No failed or rejected requests.</td></tr>{% endfor %}</tbody></table>
-</section>
-<section class="module">
-  <h2>Text models</h2>
-  <table><thead><tr><th scope="col">Model</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Total tokens</th><th scope="col" class="num">Text AI cost</th></tr></thead>
-    <tbody>{% for row in by_model %}<tr><td>{{ row.model|default:"—" }}</td><td class="num">{{ row.requests|number }}</td><td class="num">{{ row.tokens|number }}</td><td class="num">{{ row.cost|money }}</td></tr>{% empty %}<tr><td colspan="4">No requests.</td></tr>{% endfor %}</tbody></table>
-</section>
+<div class="an-card">
+  <div class="an-card-head"><h2>Text errors and rejections</h2></div>
+  <div class="an-table-wrap"><table><thead><tr><th scope="col">Status</th><th scope="col">Error code</th><th scope="col" class="num">Requests</th></tr></thead>
+    <tbody>{% for row in errors %}<tr><td>{{ row.status|capfirst }}</td><td><code>{{ row.error_code|default:"—" }}</code></td><td class="num">{{ row.total|number }}</td></tr>{% empty %}<tr><td colspan="3">No failed or rejected requests.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+<div class="an-card">
+  <div class="an-card-head"><h2>Text models</h2></div>
+  <div class="an-table-wrap"><table><thead><tr><th scope="col">Model</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Total tokens</th><th scope="col" class="num">Text AI cost</th></tr></thead>
+    <tbody>{% for row in by_model %}<tr><td>{{ row.model|default:"—" }}</td><td class="num">{{ row.requests|number }}</td><td class="num">{{ row.tokens|number }}</td><td class="num">{{ row.cost|money }}</td></tr>{% empty %}<tr><td colspan="4">No requests.</td></tr>{% endfor %}</tbody></table></div>
+</div>

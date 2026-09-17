@@ -1,47 +1,70 @@
 {% extends "analytics/base.html" %}{% load analytics_format %}
 {% block analytics %}
 {% include "analytics/filters.html" with show_audience=True %}
-<p class="analytics-note">Figures for <strong>{{ filters.period_label|lower }}</strong>{% if filters.audience != 'all' %}, {{ filters.audience }} audience{% endif %}{% if filters.request_type != 'all' %}, {{ filters.request_type }} requests (text figures only; voice figures ignore the request type){% endif %}{% if filters.model %}, model {{ filters.model }}{% endif %}. “—” means not recorded: pricing unavailable, or history saved before token tracking.</p>
-{% include "analytics/cost_cards.html" %}
-<h2 class="analytics-heading">Activity</h2>
-<div class="analytics-cards">
-  <div class="analytics-card"><span>Registered users</span><strong>{{ users.total|number }}</strong><small>{{ users.new|number }} joined in this period</small></div>
-  <div class="analytics-card"><span>Anonymous visitors</span><strong>{{ visitors.all_time|number }}</strong><small>{{ visitors.active|number }} active in this period</small></div>
-  <div class="analytics-card"><span>Signup conversion</span><strong>{{ signup_rate|percent }}</strong><small>{{ visitors.signed_up|number }} of {{ visitors.total|number }} visitors{% if filters.start %} first seen in this period{% endif %} signed up · {{ visitors.signed_in|number }} signed in to an existing account</small></div>
-  <div class="analytics-card"><span>Text requests</span><strong>{{ totals.requests|number }}</strong><small>"Vreau să sune natural!" in this period</small></div>
-  <div class="analytics-card"><span>Today</span><strong>{{ windows.today|number }}</strong><small>Text requests since midnight</small></div>
-  <div class="analytics-card"><span>Last 7 days</span><strong>{{ windows.last_7|number }}</strong><small>Text requests</small></div>
-  <div class="analytics-card"><span>Last 30 days</span><strong>{{ windows.last_30|number }}</strong><small>Text requests</small></div>
-  <div class="analytics-card"><span>Successful</span><strong>{{ totals.successes|number }}</strong><small>Success rate {{ success_rate|percent }}</small></div>
-  <div class="analytics-card"><span>Failed</span><strong>{{ totals.failures|number }}</strong><small>{{ totals.rejections|number }} rejected (daily quota, rate limit, duplicate or refused)</small></div>
-  <div class="analytics-card"><span>English corrections</span><strong>{{ totals.corrections|number }}</strong><small>Written or spoken in English</small></div>
-  <div class="analytics-card"><span>Into British English</span><strong>{{ totals.translations|number }}</strong><small>Written or spoken in Romanian</small></div>
-  <div class="analytics-card"><span>Mod Politicos</span><strong>{{ totals.polite_requests|number }}</strong><small>Requests sent with the polite switch on</small></div>
-  <div class="analytics-card"><span>Voice transcriptions</span><strong>{{ audio_totals.transcriptions|number }}</strong><small>{{ audio_totals.stt_seconds|duration }} of audio</small></div>
-  <div class="analytics-card"><span>British TTS plays</span><strong>{{ audio_totals.speech_plays|number }}</strong><small>{{ audio_totals.speech_correction|number }} correction · {{ audio_totals.speech_native|number }} native · {{ audio_totals.speech_translation|number }} translation</small></div>
-  <div class="analytics-card"><span>Text input tokens</span><strong>{{ totals.tokens_in|number }}</strong><small>{{ totals.tokens_cached|number }} served from cache</small></div>
-  <div class="analytics-card"><span>Text output tokens</span><strong>{{ totals.tokens_out|number }}</strong><small>Including reasoning</small></div>
-  <div class="analytics-card"><span>Text total tokens</span><strong>{{ totals.tokens_total|number }}</strong><small>{{ totals.without_tokens|number }} requests without token data · {{ totals.without_cost|number }} without text pricing</small></div>
+<p class="an-note">Figures for <strong>{{ filters.period_label|lower }}</strong>{% if filters.audience != 'all' %}, {{ filters.audience }} audience{% endif %}{% if filters.request_type != 'all' %}, {{ filters.request_type }} requests (text figures only; voice figures ignore the request type){% endif %}{% if filters.model %}, model {{ filters.model }}{% endif %}. Costs in pounds at $1 = £{{ gbp_per_usd }} (<code>ANALYTICS_GBP_PER_USD</code>); OpenAI bills in US dollars. “—” means not recorded: pricing unavailable, or history saved before token tracking.</p>
+
+{% include "analytics/partials/kpi_row.html" %}
+{{ series|json_script:"an-series" }}
+
+<div class="an-band">
+  <div class="an-card">
+    <div class="an-card-head">
+      <h2>Activity over time</h2>
+      <div class="an-card-side an-toggle" role="group" aria-label="What the chart shows">
+        <button type="button" data-analytics-metric="requests" aria-pressed="true">Requests</button>
+        <button type="button" data-analytics-metric="cost" aria-pressed="false">AI cost</button>
+      </div>
+    </div>
+    <div class="an-chart">
+      <canvas data-usage-chart="an-series" role="img" aria-label="Text requests and text AI cost over time; the values are in the table below" hidden></canvas>
+    </div>
+    <details class="an-values"><summary>Show values</summary>
+      <div class="an-table-wrap">
+        <table><thead><tr><th scope="col">Period</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Tokens</th><th scope="col" class="num">Text AI cost</th></tr></thead>
+          <tbody>{% for row in series %}<tr><td>{{ row.label }}</td><td class="num">{{ row.requests|number }}</td><td class="num">{{ row.tokens|number }}</td><td class="num">{{ row.cost|money }}</td></tr>{% empty %}<tr><td colspan="4">No activity yet.</td></tr>{% endfor %}</tbody></table>
+      </div>
+    </details>
+  </div>
+  {% include "analytics/partials/insights.html" %}
 </div>
-<div class="analytics-columns">
-  <section class="module">
-    <h2>Plans and daily quota</h2>
+
+<h2 class="an-section-title" id="an-costs">AI costs</h2>
+{% include "analytics/cost_cards.html" %}
+
+<h2 class="an-section-title" id="an-voice">Voice</h2>
+{% include "analytics/audio_breakdown.html" %}
+
+<h2 class="an-section-title" id="an-learning">Learning AI</h2>
+{% include "analytics/learning_breakdown.html" %}
+
+<h2 class="an-section-title" id="an-errors">Errors and models</h2>
+{% include "analytics/breakdowns.html" %}
+
+<h2 class="an-section-title" id="an-plans">Plans</h2>
+<div class="an-card">
+  <div class="an-card-head"><h2>Plans and daily quota</h2></div>
+  <div class="an-table-wrap">
     <table><thead><tr><th scope="col">Plan at request time</th><th scope="col" class="num">Successful</th><th scope="col" class="num">Quota rejections</th><th scope="col" class="num">Used up the daily quota</th><th scope="col" class="num">Active</th><th scope="col" class="num">Share who used it up</th></tr></thead>
       <tbody>{% for row in plan_rows %}<tr><td>{{ row.label }}</td><td class="num">{{ row.successes|number }}</td><td class="num">{{ row.quota_rejections|number }}</td><td class="num">{{ row.hit|number }}</td><td class="num">{{ row.active|number }}</td><td class="num">{{ row.hit_rate|percent }}</td></tr>{% endfor %}</tbody></table>
-    <p class="analytics-note">Free and Pro count accounts; anonymous counts visitors with analytics on (the anonymous quota is kept per network address). {{ plan_conversions|number }} anonymous visitor{{ plan_conversions|pluralize }} who used up the daily quota signed up or signed in afterwards. Rows recorded before plan quotas existed have no plan and are not shown here.</p>
-  </section>
-  {% include "analytics/breakdowns.html" %}
-  {% include "analytics/audio_breakdown.html" %}
-  {% include "analytics/learning_breakdown.html" %}
-  <section class="module">
-    <h2>Top registered users</h2>
-    <table><thead><tr><th scope="col">User</th><th scope="col" class="num">Text requests</th><th scope="col" class="num">Text AI cost</th><th scope="col" class="num">Learning AI cost</th><th scope="col" class="num">Audio cost</th><th scope="col" class="num">Total AI cost</th></tr></thead>
-      <tbody>{% for member in top_users %}<tr><td><a href="{% url 'analytics:user' member.pk %}">{{ member.get_username }}</a></td><td class="num">{{ member.requests|number }}</td><td class="num">{{ member.cost|money }}</td><td class="num">{{ member.learning_cost|money }}</td><td class="num">{{ member.audio_cost|money }}</td><td class="num">{{ member.total_cost|money }}</td></tr>{% empty %}<tr><td colspan="6">No registered usage.</td></tr>{% endfor %}</tbody></table>
-  </section>
-  <section class="module">
-    <h2>Top anonymous visitors</h2>
-    <table><thead><tr><th scope="col">Visitor</th><th scope="col" class="num">Text requests</th><th scope="col" class="num">Text AI cost</th><th scope="col" class="num">Audio cost</th><th scope="col" class="num">Total AI cost</th><th scope="col">Converted</th></tr></thead>
-      <tbody>{% for visitor in top_visitors %}<tr><td><a href="{% url 'analytics:visitor' visitor.pk %}">{{ visitor.short_id }}</a></td><td class="num">{{ visitor.requests|number }}</td><td class="num">{{ visitor.cost|money }}</td><td class="num">{{ visitor.audio_cost|money }}</td><td class="num">{{ visitor.total_cost|money }}</td><td>{{ visitor.converted_user|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6">No anonymous usage.</td></tr>{% endfor %}</tbody></table>
-  </section>
+  </div>
+  <p class="an-note" style="margin: 12px 0 0">Free and Pro count accounts; anonymous counts visitors with analytics on (the anonymous quota is kept per network address). {{ plan_conversions|number }} anonymous visitor{{ plan_conversions|pluralize }} who used up the daily quota signed up or signed in afterwards. Rows recorded before plan quotas existed have no plan and are not shown here.</p>
+</div>
+
+<h2 class="an-section-title" id="an-top">Top spenders</h2>
+<div class="an-grid">
+  <div class="an-card">
+    <div class="an-card-head"><h2>Top registered users</h2><p class="an-card-side"><a href="{% url 'analytics:users' %}?{{ base_query }}">All users</a></p></div>
+    <div class="an-table-wrap">
+      <table><thead><tr><th scope="col">User</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Text AI</th><th scope="col" class="num">Learning AI</th><th scope="col" class="num">Audio</th><th scope="col" class="num">Total AI cost</th></tr></thead>
+        <tbody>{% for member in top_users %}<tr><td><a href="{% url 'analytics:user' member.pk %}">{{ member.get_username }}</a></td><td class="num">{{ member.requests|number }}</td><td class="num">{{ member.cost|money }}</td><td class="num">{{ member.learning_cost|money }}</td><td class="num">{{ member.audio_cost|money }}</td><td class="num"><strong>{{ member.total_cost|money }}</strong></td></tr>{% empty %}<tr><td colspan="6">No registered usage.</td></tr>{% endfor %}</tbody></table>
+    </div>
+  </div>
+  <div class="an-card">
+    <div class="an-card-head"><h2>Top anonymous visitors</h2><p class="an-card-side"><a href="{% url 'analytics:visitors' %}?{{ base_query }}">All visitors</a></p></div>
+    <div class="an-table-wrap">
+      <table><thead><tr><th scope="col">Visitor</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Text AI</th><th scope="col" class="num">Audio</th><th scope="col" class="num">Total AI cost</th><th scope="col">Converted</th></tr></thead>
+        <tbody>{% for visitor in top_visitors %}<tr><td><a href="{% url 'analytics:visitor' visitor.pk %}">{{ visitor.short_id }}</a></td><td class="num">{{ visitor.requests|number }}</td><td class="num">{{ visitor.cost|money }}</td><td class="num">{{ visitor.audio_cost|money }}</td><td class="num"><strong>{{ visitor.total_cost|money }}</strong></td><td>{{ visitor.converted_user|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6">No anonymous usage.</td></tr>{% endfor %}</tbody></table>
+    </div>
+  </div>
 </div>
 {% endblock %}

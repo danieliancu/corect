@@ -39,15 +39,23 @@
     !formBusy;
 
   // The layer covers exactly the textarea's content box, so the sentence wraps like real input and stops above the
-  // bottom padding that holds the microphone and the counter.
+  // bottom padding that holds the microphone and the counter. On a short box that reservation would swallow most of
+  // the room, cutting a sentence off mid-line, so it is given up as far as needed to keep three lines visible.
+  // Enlarging the layer never moves the text, which stays at the top: it only lets more of it show.
+  const LINES_ALWAYS_VISIBLE = 4; // What the longest example needs on a narrow screen.
+
   function align() {
     const style = getComputedStyle(textarea);
     const px = (name) => parseFloat(style[name]) || 0;
+    const lineHeight = px("lineHeight") || px("fontSize") * 1.5;
+    const roomForLines = px("paddingTop") + LINES_ALWAYS_VISIBLE * lineHeight;
+    const reserved = Math.min(px("paddingBottom") + px("borderBottomWidth"),
+                              Math.max(0, textarea.clientHeight - roomForLines));
     Object.assign(layer.style, {
       top: `${px("borderTopWidth")}px`,
       left: `${px("borderLeftWidth")}px`,
       right: `${px("borderRightWidth")}px`,
-      bottom: `${px("paddingBottom") + px("borderBottomWidth")}px`,
+      bottom: `${reserved}px`,
       padding: `${style.paddingTop} ${style.paddingRight} 0 ${style.paddingLeft}`,
       fontFamily: style.fontFamily,
       fontSize: style.fontSize,

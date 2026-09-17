@@ -31,6 +31,26 @@ def save_result(user, outcome):
     return entry
 
 
+def previous_result(user, text, polite):
+    """The learner's own saved result for exactly this text, or None.
+
+    The same text with the same prompt and the same model can only produce the same answer, so a repeat is served from
+    here instead of calling the model again. The prompt version carries "Mod Politicos", so the two modes never share a
+    result, and a new prompt or model simply finds nothing and asks the model afresh.
+
+    The filter starts from the (user, -created_at) index and compares the text over that learner's own rows only, which
+    a single account cannot grow beyond its daily quota; a hashed column would only be worth it above that scale.
+    """
+    if not user.is_authenticated:
+        return None
+    return (AssistantRequest.objects
+            .filter(user=user, status="success", original_text=text, prompt_version=prompt_version(polite),
+                    model_used=settings.OPENAI_MODEL)
+            .exclude(result_data={})
+            .order_by("-created_at")
+            .first())
+
+
 def save_failure(user, kind, code, source_language="", polite=False):
     if user.is_authenticated:
         return AssistantRequest.objects.create(user=user, request_type=kind, status="failed", error_code=code,

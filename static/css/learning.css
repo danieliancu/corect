@@ -132,13 +132,16 @@
 .learn-card-heading h2 {
   margin: 0;
 }
-/* "Ce trebuie exersat": the whole heading leads to "Greșeli", the arrow shows it. */
+/* "Ce trebuie exersat": a smaller "Vezi toate" on the right of the heading leads to "Greșeli". */
 .learn-heading-link {
   display: inline-flex;
+  flex-shrink: 0;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 10px;
-  color: inherit;
+  gap: 4px;
+  color: var(--learn-blue-ink);
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
 }
 .learn-heading-arrow {
@@ -148,11 +151,11 @@
   justify-content: center;
 }
 .learn-heading-arrow svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 .learn-heading-link:hover {
-  color: inherit;
+  color: #07439e;
   text-decoration: none;
 }
 .learn-heading-link:hover .learn-heading-arrow {
@@ -193,11 +196,27 @@
   list-style: none;
 }
 .learn-hero-topics li {
-  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px 5px 12px;
   border-radius: 999px;
   background: #ffffff1f;
   font-size: 14px;
   font-weight: 600;
+}
+/* How many of the day's exercises this topic gets, so three pills read as one total. */
+.learn-topic-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ffffff2e;
+  font-size: 12px;
+  font-weight: 700;
 }
 .learn-hero-reason {
   margin: 0 0 16px;

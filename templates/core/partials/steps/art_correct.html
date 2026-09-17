@@ -1,0 +1,19 @@
+{# Step 2: the struck-out mistake above the natural version, with a tick badge. The ids are prefixed sa2- because this partial renders once per page. #}
+<svg viewBox="0 0 88 88" fill="none">
+  <defs>
+    <linearGradient id="sa2-paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eff6ff"/></linearGradient>
+    <linearGradient id="sa2-badge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ccf80"/><stop offset="1" stop-color="#0f9a52"/></linearGradient>
+  </defs>
+  <rect x="10" y="22" width="58" height="52" rx="14" fill="#1b65b5" opacity=".07"/>
+  {# Drawn before the card, so the card's top edge clips it into a chip peeking out from behind. #}
+  <rect x="50" y="8" width="30" height="15" rx="7.5" fill="#eaf3ff" stroke="#d8e7fb" stroke-width="1.5"/>
+  <rect x="56" y="13.5" width="18" height="3" rx="1.5" fill="#bcd8ff"/>
+  <rect x="10" y="18" width="58" height="52" rx="14" fill="url(#sa2-paper)" stroke="#d8e7fb" stroke-width="1.5"/>
+  <rect x="20" y="29" width="34" height="5" rx="2.5" fill="#e6edf7"/>
+  <path d="M18 31.5h38" stroke="#c6d6ea" stroke-width="1.6" stroke-linecap="round"/>
+  <rect x="20" y="42" width="38" height="5" rx="2.5" fill="#bcd8ff"/>
+  <rect x="20" y="53" width="22" height="5" rx="2.5" fill="#ddeaf9"/>
+  <circle cx="64" cy="62" r="17" fill="#ffffff"/>
+  <circle cx="64" cy="62" r="14" fill="url(#sa2-badge)"/>
+  <path d="m57.8 62.2 4.3 4.3 8.2-8.6" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

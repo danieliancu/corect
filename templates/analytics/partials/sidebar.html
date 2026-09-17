@@ -1,0 +1,46 @@
+{% comment %} Real routes only. The SECTIONS group is anchors into this page, so it shows on the overview alone: nothing here
+   leads anywhere that does not exist. {% endcomment %}
+<aside class="an-side" id="an-sidebar" data-analytics-sidebar>
+  <a class="an-brand" href="{% url 'analytics:dashboard' %}">
+    <span class="an-brand-mark" aria-hidden="true">{% include 'analytics/partials/icons/spark.html' %}</span>
+    <span><strong>Corect.uk</strong><span>Usage analytics</span></span>
+  </a>
+
+  <nav class="an-nav" aria-label="Reports">
+    <a href="{% url 'analytics:dashboard' %}"{% if section == 'dashboard' %} aria-current="page"{% endif %}>{% include 'analytics/partials/icons/grid.html' %}Overview</a>
+    <a href="{% url 'analytics:users' %}"{% if section == 'users' %} aria-current="page"{% endif %}>{% include 'analytics/partials/icons/users.html' %}Registered users</a>
+    <a href="{% url 'analytics:visitors' %}"{% if section == 'visitors' %} aria-current="page"{% endif %}>{% include 'analytics/partials/icons/visitor.html' %}Anonymous visitors</a>
+  </nav>
+
+  {% if section == 'dashboard' %}
+  <nav class="an-nav" aria-label="Sections on this page">
+    <p class="an-nav-title">Sections</p>
+    <a href="#an-costs" data-analytics-anchor>{% include 'analytics/partials/icons/coins.html' %}AI costs</a>
+    <a href="#an-voice" data-analytics-anchor>{% include 'analytics/partials/icons/mic.html' %}Voice</a>
+    <a href="#an-learning" data-analytics-anchor>{% include 'analytics/partials/icons/book.html' %}Learning AI</a>
+    <a href="#an-errors" data-analytics-anchor>{% include 'analytics/partials/icons/alert.html' %}Errors</a>
+    <a href="#an-plans" data-analytics-anchor>{% include 'analytics/partials/icons/tag.html' %}Plans</a>
+    <a href="#an-top" data-analytics-anchor>{% include 'analytics/partials/icons/trophy.html' %}Top spenders</a>
+  </nav>
+  {% endif %}
+
+  <nav class="an-nav" aria-label="Ledgers">
+    <p class="an-nav-title">Ledgers</p>
+    <a href="{% url 'admin:analytics_usageevent_changelist' %}">{% include 'analytics/partials/icons/rows.html' %}Text usage</a>
+    <a href="{% url 'admin:analytics_audiousageevent_changelist' %}">{% include 'analytics/partials/icons/rows.html' %}Audio usage</a>
+    <a href="{% url 'admin:analytics_learningusageevent_changelist' %}">{% include 'analytics/partials/icons/rows.html' %}Learning usage</a>
+  </nav>
+
+  <div class="an-side-foot">
+    <div class="an-whoami">
+      <span class="an-avatar" aria-hidden="true">{{ user.get_username|slice:":1"|upper }}</span>
+      <div><strong>{{ user.get_username }}</strong><span>{% if user.is_superuser %}Superuser{% else %}Staff{% endif %}</span></div>
+    </div>
+    <div class="an-side-links">
+      <a href="{% url 'admin:index' %}">Django admin</a>
+      <a href="{% url 'home' %}">View site</a>
+      {# The admin's logout is POST only. #}
+      <form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
+    </div>
+  </div>
+</aside>
