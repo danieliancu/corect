@@ -7,7 +7,7 @@ from apps.accounts import views as accounts
 from apps.accounts.forms import LoginForm
 from apps.assistant import views as assistant
 from apps.assistant import voice_views as voice
-from apps.core import health
+from apps.core import health, seo
 from apps.core import views as core
 from apps.learning import views as learning
 
@@ -15,6 +15,8 @@ urlpatterns = [
     path("", core.home, name="home"),
     path("healthz", health.healthz, name="healthz"),
     path("readyz", health.readyz, name="readyz"),
+    path("robots.txt", seo.robots_txt, name="robots_txt"),
+    path("sitemap.xml", seo.sitemap_xml, name="sitemap_xml"),
     path("about/", core.about_page, name="about"),
     # The page's earlier address, still linked from outside: a permanent redirect, keeping any query string.
     path("despre/", RedirectView.as_view(pattern_name="about", permanent=True, query_string=True)),

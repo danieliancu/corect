@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.checks import Error, Warning, register
@@ -30,3 +31,19 @@ def replaced_limit_settings(app_configs, **kwargs):
                     id="core.W001", hint=f"Use {replacement} instead." + (
                         " It is still read while NATURALIZE_RATE_LIMIT_MINUTE is not set." if name == "RATE_LIMIT_MINUTE" else ""))
             for name, replacement in REPLACED_LIMIT_SETTINGS.items() if name in os.environ]
+
+
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+
+
+@register()
+def site_url_configured(app_configs, **kwargs):
+    """With DEBUG off, canonical URLs, Open Graph and the sitemap must point at the real HTTPS site, never localhost."""
+    if settings.DEBUG:
+        return []
+    value = getattr(settings, "SITE_URL", "")
+    parts = urlsplit(value)
+    if not value or parts.scheme != "https" or not parts.hostname or parts.hostname in LOCAL_HOSTS             or parts.path not in ("", "/") or parts.query:
+        return [Error("SITE_URL must be the public HTTPS origin, e.g. https://corect.uk.", id="core.E004",
+                      hint="Set SITE_URL in the environment before running with DJANGO_DEBUG=false (README, SEO).")]
+    return []

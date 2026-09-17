@@ -14,6 +14,7 @@ from apps.assistant.services.voice import REALTIME_CALLS_URL
 from .consent import acceptance_required, analytics_chosen, record_acceptance, set_consent_cookie
 from .legal import retention_facts
 from .plans import display_plans
+from .seo import structured_data
 
 # The browser opens its connection to this origin only once the learner reaches for the microphone, never on page load.
 REALTIME_ORIGIN = "{0.scheme}://{0.netloc}".format(urlsplit(REALTIME_CALLS_URL))
@@ -33,7 +34,7 @@ def home_context(**kwargs):
 
 @never_cache
 def home(request):
-    return render(request, "core/home.html", home_context())
+    return render(request, "core/home.html", home_context(structured_data=structured_data(request)))
 
 
 def about_page(request):

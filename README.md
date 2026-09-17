@@ -81,6 +81,7 @@ Without the trusted origin, forms and voice requests fail CSRF checks because HT
 | `DJANGO_DEBUG` | `false` by default; example enables local development |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts, default `localhost,127.0.0.1` |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | Comma-separated full origins (e.g. `https://name.ngrok-free.dev`) for tunnels or proxies that end HTTPS in front of Django; empty by default |
+| `SITE_URL` | The public HTTPS origin, e.g. `https://corect.uk` (no trailing slash), used for canonical links, Open Graph/Twitter URLs, `robots.txt` and `sitemap.xml`. Required when `DJANGO_DEBUG=false` (system check `core.E004` refuses empty, `http`, localhost or a path); locally, empty uses the request's own origin |
 | `CLIENT_IP_HEADER` | Which header carries the visitor's address when the request comes from a trusted proxy: `none` (default, `REMOTE_ADDR` only), `x-forwarded-for`, `x-real-ip` or `cf-connecting-ip`. Anything else, or a header without `TRUSTED_PROXY_CIDRS`, stops the app at startup (see [Deployment behind a proxy](#deployment-behind-a-proxy)) |
 | `TRUSTED_PROXY_CIDRS` | Comma-separated IPv4/IPv6 addresses or networks of your own reverse proxies, empty by default. Forwarding headers from any other address are ignored; `0.0.0.0/0` and `::/0` are refused |
 | `DATABASE_NAME`, `DATABASE_USER` | Default `englishcoach` |
@@ -588,6 +589,14 @@ waitress-serve --listen=127.0.0.1:8000 config.wsgi:application
 ```
 
 WhiteNoise serves versioned compressed assets. Configure TLS at a trusted reverse proxy and ensure the WSGI URL scheme is correct (for Waitress, use its trusted-proxy settings, scoped to your proxy). Do not indiscriminately trust `X-Forwarded-Proto`. Match proxy request timeouts to the AI timeout (at least 60 seconds by default; every submission makes at most one provider call) and allow request bodies of at least `VOICE_MAX_BYTES` for `/assistant/transcribe/`. Live transcription audio travels over WebRTC directly between the browser and OpenAI, not through the proxy; if you add a Content-Security-Policy, allow `connect-src https://api.openai.com`. Run `cleanup_assistant` daily so abandoned live sessions are accounted for. `VOICE_REALTIME_ENABLED=false` (then restart) switches every browser to finished-recording transcription. Database backup/restore, HTTPS, secret rotation, scheduled cleanup and infrastructure monitoring are deployment responsibilities. See [Monitoring](#monitoring) for health checks, logs, alerts and error tracking; do not enable verbose OpenAI/HTTP logging in production. Keep `OPENAI_PRICING` and `OPENAI_AUDIO_PRICING` in step with the provider's published prices. Restrict staff status to people who may see usage and cost data.
+
+### SEO
+
+- **Indexable pages** (allow-list in `apps/core/seo.py`): `/`, `/about/`, `/confidentialitate/`, `/termeni/` and `/contact/` (when enabled). They get a `<link rel="canonical">` built from `SITE_URL` plus the path (query strings dropped), Open Graph (`og:site_name`, `og:url`, `og:image` 1200×630, `og:locale`) and Twitter `summary_large_image` tags, and a page-specific description (`{% block meta_description %}`).
+- **Everything else is `noindex, nofollow`**, both as `X-Robots-Tag` (every response, including redirects, errors, JSON endpoints, health checks and admin) and as a robots meta tag on HTML pages: accounts and authentication pages, history, mistakes, progress, practice and learning, cookie settings, staff analytics. Private pages are also behind login; `robots.txt` is only a crawl hint and disallows `/admin/`, `/naturalize/`, `/assistant/` and `/analytics/`.
+- **`/robots.txt` and `/sitemap.xml`** are generated (no extra app); the sitemap lists only the indexable pages, as absolute `SITE_URL` URLs, and never anything personal.
+- **Structured data**: the homepage has JSON-LD `WebSite` and `Organization` (name, URL, logo, contact email when set) — no prices, ratings or reviews.
+- **Share image**: `static/img/og-image.jpg`, rendered from the hero picture and logo by `python -m qa.tools.make_og_image`; rerun it when those change.
 
 ### Account emails
 

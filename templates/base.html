@@ -4,10 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}corect.uk — Engleză britanică naturală, din română sau engleză{% endblock %}</title>
-  <meta name="description" content="Scrie sau spune în română sau engleză și primești engleză britanică naturală, cu greșelile explicate simplu în română.">
-  <meta property="og:title" content="corect.uk — Vorbești corect.">
-  <meta property="og:description" content="Asistentul tău simplu pentru engleza britanică, cu explicații clare în română.">
+  <meta name="description" content="{% block meta_description %}Scrie sau spune în română sau engleză și primești engleză britanică naturală, cu greșelile explicate simplu în română.{% endblock %}">
+  {% if robots_noindex %}<meta name="robots" content="noindex, nofollow">{% endif %}
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
+  <meta property="og:site_name" content="{{ site_name }}">
+  <meta property="og:locale" content="ro_RO">
   <meta property="og:type" content="website">
+  <meta property="og:title" content="{% block og_title %}corect.uk — Vorbești corect.{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Asistentul tău simplu pentru engleza britanică, cu explicații clare în română.{% endblock %}">
+  <meta property="og:url" content="{{ canonical_url|default:og_url }}">
+  <meta property="og:image" content="{{ og_image.url }}">
+  <meta property="og:image:width" content="{{ og_image.width }}">
+  <meta property="og:image:height" content="{{ og_image.height }}">
+  <meta property="og:image:alt" content="{{ og_image.alt }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}corect.uk — Vorbești corect.{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}Asistentul tău simplu pentru engleza britanică, cu explicații clare în română.{% endblock %}">
+  <meta name="twitter:image" content="{{ og_image.url }}">
+  <meta name="twitter:image:alt" content="{{ og_image.alt }}">
+  {% if structured_data %}<script type="application/ld+json">{{ structured_data }}</script>{% endif %}
   <meta name="theme-color" content="#287dff">
   <link rel="icon" href="{% static 'img/logo.svg' %}?v=4" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/app.css' %}{{ asset_query }}">

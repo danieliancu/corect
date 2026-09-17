@@ -20,6 +20,7 @@ LEGAL_OPERATOR_NAME = "Test Operator"
 LEGAL_SERVICE_ADDRESS = "1 Test Street, London"
 CONTACT_EMAIL = "contact@example.com"
 COMPANY_NUMBER = VAT_NUMBER = LEGAL_HOSTING_PROVIDER = ""
+SITE_URL = "https://corect.uk"  # Required with DEBUG off; fixed so canonical URLs never depend on a .env.
 PRO_DISPLAY_PRICE, PRO_PROMO_ENABLED, PRO_PROMO_PRICE = "£9.99", True, "£4.99"
 # Moderation calls OpenAI; tests that exercise it enable it and mock the client (apps/assistant/tests/test_guardrails.py).
 CONTENT_MODERATION_ENABLED = False

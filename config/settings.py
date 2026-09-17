@@ -14,6 +14,9 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY or (not DEBUG and SECRET_KEY == "replace-with-a-long-random-secret"):
     raise ImproperlyConfigured("Set DJANGO_SECRET_KEY to a random secret.")
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1",).split(",")
+# The public origin used for canonical URLs, Open Graph, robots.txt and the sitemap, e.g. https://corect.uk (no trailing
+# slash). Required with DEBUG off (system check core.E004); locally the request's own origin is used when empty.
+SITE_URL = os.getenv("SITE_URL", "").strip().rstrip("/")
 # Full origins such as https://example.ngrok-free.dev, needed when HTTPS ends at a tunnel or proxy in front of Django.
 CSRF_TRUSTED_ORIGINS = [origin for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin]
 INSTALLED_APPS = [
@@ -23,7 +26,8 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     "apps.core.middleware.RequestContextMiddleware",
-    "django.middleware.security.SecurityMiddleware", "apps.core.middleware.AdminEnglishMiddleware",
+    "django.middleware.security.SecurityMiddleware", "apps.core.seo.RobotsTagMiddleware",
+    "apps.core.middleware.AdminEnglishMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -34,7 +38,8 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"],
               "APP_DIRS": True, "OPTIONS": {"context_processors": [
                   "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
-                  "django.contrib.messages.context_processors.messages", "apps.core.context_processors.site"]}}]
+                  "django.contrib.messages.context_processors.messages", "apps.core.context_processors.site",
+                  "apps.core.seo.seo_context"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {"default": {"ENGINE": "django.db.backends.postgresql", "NAME": os.getenv("DATABASE_NAME", "englishcoach"),
     "USER": os.getenv("DATABASE_USER", "englishcoach"), "PASSWORD": os.getenv("DATABASE_PASSWORD", ""),
