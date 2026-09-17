@@ -671,6 +671,14 @@ For `x-forwarded-for` the list is read right to left, skipping trusted proxies, 
 
 The V1 settings are intentionally fixed. Live voice input (transcription) and British voice output are included; a realtime voice conversation or speech-to-speech assistant, realtime AI correction, social login, password-reset email delivery, public deployment and AI-generated practice are not. Saved activity counts are not an English proficiency score.
 
+## Dependency updates
+
+- **Dependabot** (`.github/dependabot.yml`) opens pull requests every Monday for Python packages (`requirements*.txt`) and GitHub Actions. Patch and minor updates are grouped into one PR per ecosystem; each major version gets its own PR, to be read against the package's changelog before merging.
+- **CI** (`.github/workflows/tests.yml`) runs on every push and pull request against PostgreSQL 16: `manage.py check`, `makemigrations --check`, the full backend suite, and `pip-audit` for known vulnerabilities in the pinned requirements. The Playwright browser checks run on demand (Actions → tests → Run workflow → "browser"), with screenshots uploaded as an artifact.
+- **Nothing merges automatically.** Merge a dependency PR only when `tests` is green; for Django, OpenAI, psycopg or Playwright updates also run the browser checks and a manual smoke test. Update the pinned version in `requirements.txt` in the same PR if Dependabot did not.
+
+Owner actions in the GitHub repository settings: protect `main` and require the `backend` and `audit` checks before merging; enable Dependabot alerts, Dependabot security updates and secret scanning (Settings → Code security).
+
 ## Visual reference
 
 The supplied mobile and desktop images guide the homepage hierarchy, blue/white palette, rounded editor/results, paired actions and navigation. The implementation uses actual responsive HTML, not a phone/browser frame. The editor begins empty and uses the specification's 2,000-character default. Long responses scroll naturally.

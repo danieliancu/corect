@@ -1,0 +1,96 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: "Also run the Playwright browser checks"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: englishcoach
+          POSTGRES_USER: englishcoach
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U englishcoach -d englishcoach"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-secret-0123456789abcdefghijklmnopqrstuvwxyz
+      DATABASE_NAME: englishcoach
+      DATABASE_USER: englishcoach
+      DATABASE_PASSWORD: ci-only-password
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: "5432"
+      DJANGO_SETTINGS_MODULE: config.test_settings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py test apps --noinput
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pip-audit
+      - run: pip-audit --requirement requirements.txt --requirement requirements-dev.txt
+
+  browser:
+    if: github.event_name == 'workflow_dispatch' && inputs.browser
+    needs: backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: englishcoach
+          POSTGRES_USER: englishcoach
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U englishcoach -d englishcoach"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-secret-0123456789abcdefghijklmnopqrstuvwxyz
+      DATABASE_NAME: englishcoach
+      DATABASE_USER: englishcoach
+      DATABASE_PASSWORD: ci-only-password
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: "5432"
+      DJANGO_SETTINGS_MODULE: config.test_settings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python manage.py test qa.browser_check --noinput
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-screenshots
+          path: artifacts/browser/
