@@ -343,6 +343,9 @@ class FooterAndPageTests(TestCase):
         self.assertContains(response, "<h1", count=1)
         for text in ("Executarea contractului cu tine", "Interes legitim", "Te poți opune oricând, oprindu-l din Setări cookie-uri",
                      "<code>store=False</code>", "Asta nu înseamnă că OpenAI nu păstrează nimic",
+                     "Cererile „Vreau să sune natural!” și cele pentru exerciții",
+                     "nu este o garanție de ștergere imediată",
+                     "Verificarea de moderare, transcrierea și pronunția nu folosesc această opțiune",
                      "browserul tău trimite sunetul direct către OpenAI", "<code>corect_consent</code>",
                      "<code>sessionid</code>", "<code>csrftoken</code>", "<code>corect_visitor_id</code>",
                      "Identificatorul este activ implicit", "7 zile", "14 zile",
@@ -350,7 +353,10 @@ class FooterAndPageTests(TestCase):
                      "dreptul de acces", "portabilitate", "Perioada nu este încă stabilită",
                      "Corect.uk este un nume comercial operat de Test Operator."):
             self.assertContains(response, text)
-        self.assertNotContains(response, "OpenAI nu stochează nimic")
+        # store=False must never be presented as zero retention by the provider.
+        for absolute in ("OpenAI nu stochează nimic", "OpenAI nu păstrează datele", "nu păstrează niciodată",
+                         "Zero Data Retention", "zero retention"):
+            self.assertNotContains(response, absolute)
         with override_settings(ANALYTICS_VISITOR_COOKIE=False):
             self.assertContains(self.client.get("/confidentialitate/"), "Cookie-ul de statistici pentru vizitatori este dezactivat.")
 

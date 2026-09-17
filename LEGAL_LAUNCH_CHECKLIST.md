@@ -23,6 +23,11 @@ professional actions that code cannot complete. None is done just because a conf
 - [ ] Review the OpenAI wording against the final production setup: API data processing addendum, contracting entity,
       data retention (including abuse monitoring), international transfer mechanism, and whether `store=False` wording
       is still accurate.
+- [ ] Confirm with OpenAI (organisation settings, contract) the retention that applies to this account: standard API
+      abuse-monitoring retention, or Zero Data Retention if approved. The Privacy notice deliberately says only that
+      `store=False` is requested for text and exercise requests and that OpenAI may keep API data for a limited period;
+      it must not be changed to promise zero retention unless OpenAI confirms it in writing. Moderation, transcription,
+      realtime and speech calls have no `store` option.
 - [ ] Decide retention periods still marked "nestabilit" in the Privacy notice: usage ledgers (`UsageEvent`,
       `AudioUsageEvent`), anonymous visitor records, server logs. Implement automatic deletion for them, then update
       `apps/core/legal.py:retention_facts` and raise `PRIVACY_VERSION`.
