@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
         migrations.RunPython(preflight, migrations.RunPython.noop),
         migrations.RunPython(normalise, migrations.RunPython.noop),
         migrations.RunSQL(
-            f"CREATE UNIQUE INDEX {INDEX} ON auth_user (LOWER(email)) WHERE email <> ''",
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {INDEX} ON auth_user (LOWER(email)) WHERE email <> ''",
             f"DROP INDEX IF EXISTS {INDEX}",
         ),
     ]
