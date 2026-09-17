@@ -5,6 +5,7 @@ from django.views.generic import RedirectView
 
 from apps.accounts import views as accounts
 from apps.accounts.forms import LoginForm
+from apps.analytics import public_views as analytics_public
 from apps.assistant import views as assistant
 from apps.assistant import voice_views as voice
 from apps.core import health, seo
@@ -24,6 +25,7 @@ urlpatterns = [
     path("termeni/", core.terms_page, name="terms"),
     path("contact/", core.contact_page, name="contact"),
     path("cookie-uri/", core.consent_page, name="consent"),
+    path("analytics/event/", analytics_public.funnel_event, name="funnel_event"),
     path("naturalize/", assistant.naturalize, name="naturalize"),
     path("assistant/realtime-transcription/session/", voice.start_realtime_transcription, name="realtime_session"),
     path("assistant/realtime-transcription/finish/", voice.finish_realtime_transcription, name="realtime_finish"),

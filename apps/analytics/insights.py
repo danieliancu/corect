@@ -45,7 +45,7 @@ def spend_insight(spend_today, daily_alert):
 
 
 def dashboard_insights(*, totals, costs, audio_totals, learning_totals, plan_rows, visitors, signup_rate,
-                       success_rate, plan_conversions, spend_today=None, daily_alert=None):
+                       success_rate, plan_conversions, spend_today=None, daily_alert=None, funnel=None):
     """The notable facts about this period, most actionable first."""
     insights = []
     spend = spend_insight(spend_today, daily_alert)
@@ -103,6 +103,15 @@ def dashboard_insights(*, totals, costs, audio_totals, learning_totals, plan_row
             f"{limit_hits} learning AI call{'' if limit_hits == 1 else 's'} prevented by limits",
             f"{budget_hits} by the service-wide daily budget (LEARNING_AI_GLOBAL_DAY_*), the rest by per-account "
             "limits. Learners got stored exercises instead."))
+
+    # The business funnel over the last 7 days: interest in paying among people who actually came.
+    week = next((window for window in funnel or () if window["key"] == "last_7"), None)
+    if week and week["visitors"]:
+        detail = (f"{week['visitors']} visitors: {_percent(week['use_rate'])} used Corect, "
+                  f"{_percent(week['return_rate'])} came back on another day, {_percent(week['pricing_rate'])} saw the "
+                  f"plans and {_percent(week['pro_click_rate'])} clicked Pro.")
+        insights.append(_insight("info", "trend", f"Funnel, last 7 days: {_percent(week['use_rate'])} used Corect",
+                                 detail))
 
     # Voice is the most variable cost, so its share is worth stating on its own.
     if audio_totals.get("audio_calls") and costs.get("audio_share") is not None:

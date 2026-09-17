@@ -1,5 +1,6 @@
-{# The Free and Pro plans. Daily limits are enforced (apps/assistant/services/quota.py); payments do not exist yet. #}
-<section class="landing-section landing-plans{% if user_is_pro %} is-pro-member{% endif %}" id="plans" aria-labelledby="plans-title">
+{% comment %}The Free and Pro plans. Daily limits are enforced (apps/assistant/services/quota.py); payments do not exist yet.
+When the Pro button becomes a real link, add data-funnel-cta="pricing_section" so clicks reach the business funnel.{% endcomment %}
+<section class="landing-section landing-plans{% if user_is_pro %} is-pro-member{% endif %}" id="plans" aria-labelledby="plans-title"{% if funnel_pricing %} data-funnel-pricing="{{ funnel_pricing }}"{% endif %}>
   {% if user_is_pro %}
   <div class="landing-heading"><h2 id="plans-title">Ești în planul potrivit.</h2></div>
   {% for plan in plans %}{% if plan.key == 'pro' %}

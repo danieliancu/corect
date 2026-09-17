@@ -334,13 +334,31 @@ Open <http://127.0.0.1:8000/admin/analytics/> (in production: `https://<your-hos
 
 | Page | What it shows |
 | --- | --- |
-| `/admin/analytics/` | AI cost by source (all sources, text AI, audio, voice input split into realtime and file transcription with sessions/calls, minutes and cost, voice output, each with its share), registered users, anonymous visitors, signup conversion, text requests (period, today, 7 and 30 days), successes, failures, rejections, corrections, translations, voice transcriptions, British TTS plays, text tokens, text activity chart, text errors, text models, audio usage, audio models, audio errors, top users and top visitors |
+| `/admin/analytics/` | The business funnel (below), AI cost by source (all sources, text AI, audio, voice input split into realtime and file transcription with sessions/calls, minutes and cost, voice output, each with its share), registered users, anonymous visitors, signup conversion, text requests (period, today, 7 and 30 days), successes, failures, rejections, corrections, translations, voice transcriptions, British TTS plays, text tokens, text activity chart, text errors, text models, audio usage, audio models, audio errors, top users and top visitors |
 | `/admin/analytics/users/` | Every registered user with joined date, last activity, text requests, corrections, translations, successes, failures, text tokens, voice transcriptions, realtime sessions, realtime audio, TTS plays, text AI cost, realtime STT cost, file STT cost, voice input cost, voice output cost, audio cost and total AI cost; sortable, searchable by username or email, paginated |
 | `/admin/analytics/users/<id>/` | One user's cost by source, text usage by period, audio usage, models, errors, daily activity and linked anonymous visitors |
 | `/admin/analytics/visitors/` | Anonymous visitors (`anon-7e5238`) with text or voice activity: first/last seen, active days, text requests, voice transcriptions, TTS plays, costs by source and conversion; searchable by short or full ID |
 | `/admin/analytics/visitors/<uuid>/` | One visitor's cost by source, anonymous text and voice usage, requests before and after conversion, errors and daily activity; never text or audio |
 
 Filters: period (today, 7, 30, 90 days, all time), audience (all, registered, anonymous), request type (English correction, Into British English, Unclassified; applies to text figures only) and model (text and audio models, shown when more than one has been used). “—” means not recorded: pricing unavailable, or history saved before token tracking.
+
+### Business funnel
+
+The dashboard's **Business funnel** section answers "are people coming, using Corect, coming back and interested in paying?" for today, the last 7 days and the last 30 days (London days; the report filters do not apply). It is first-party and follows the analytics consent: nothing is recorded for a visitor who switched analytics off, and no third-party analytics is used.
+
+| Step | Stable name / source | Recorded by |
+| --- | --- | --- |
+| Visitor | `site_visit` | `static/js/funnel.js`, once a day per browser (bots and scripts without JavaScript are not counted) |
+| Uses Corect | successful `UsageEvent` (existing) | — |
+| Returns | `site_visit` on two or more days in the window | — |
+| Starts signup | `signup_viewed` | signup page |
+| Creates account | `User.date_joined` (existing) | — |
+| Hits the Free / anonymous limit | `UsageEvent` `quota_exhausted` (existing) | — |
+| Sees the plans | `pricing_viewed` (placement `home` / `about`) | the plans section scrolled into view |
+| Clicks Pro | `pro_cta_clicked` (placement `quota_box`; `pricing_section` once the plan card's Pro button is live) | the link or button's `data-funnel-cta` |
+| Starts checkout / pays | `checkout_started`, `subscription_started` | `apps.analytics.services.funnel.record_funnel_event(request, FunnelEvent.Name.CHECKOUT_STARTED)` from future billing code; shown as "billing not live" until data exists |
+
+`FunnelEvent` rows hold only the step name, a short placement, the audience and plan, the account or anonymous visitor ID and the day: no text, results, audio, IP address, email or user agent. Each step is stored at most once per identity, placement and day (unique constraints, so repeats and concurrent requests are harmless). The browser posts steps to `POST /analytics/event/` (CSRF-protected, allow-listed names and placements, 30 per minute per actor, always `204`). Rows are deleted with their account or visitor ID and after about 13 months by `cleanup_assistant` (`FUNNEL_EVENT_DAYS`). Visitors are counted as accounts plus anonymous visitors, so a browser that signs up counts once as each.
 
 ### Where the AI cost comes from
 

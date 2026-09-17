@@ -61,6 +61,7 @@
       <tr><td><code>corect_visitor_id</code></td><td>Identificatorul anonim de analytics.</td><td>12 luni</td><td>Analytics, activ implicit; îl poți opri</td></tr>
     </tbody>
   </table></div>
+  <p>Cu analytics activ, înregistrăm și câțiva pași de utilizare, cel mult o dată pe zi fiecare: că ai deschis site-ul, pagina de creare a contului sau secțiunea cu planuri și că ai apăsat un buton pentru Pro. Îi legăm de contul tău sau de identificatorul anonim, fără text, adresă IP sau adresă de email, și îi folosim doar ca să înțelegem, în statistici agregate, cum este folosit Corect.uk.</p>
   <p>Poți schimba oricând setarea din <a href="{% url 'consent' %}" data-consent-open>Setări cookie-uri</a>. Dacă oprești analytics, ștergem cookie-ul <code>corect_visitor_id</code> din browser și nu mai asociem cererile tale cu el. Evidențele deja create rămân pseudonime (fără text, sunet sau adresă IP); ne poți cere să le ștergem.</p>
 
   <h2 id="openai">6. Inteligența artificială: OpenAI</h2>
@@ -100,6 +101,7 @@
       <tr><td>Codurile împotriva cererilor duplicate</td><td>{{ retention.submission_claim_days }} zile</td></tr>
       <tr><td>Evidența tehnică a sesiunilor de transcriere în timp real</td><td>{{ retention.closed_session_days }} zile de la închiderea sesiunii</td></tr>
       <tr><td>Statisticile de utilizare (fără text, sunet sau IP)</td><td>{% if retention.usage_ledger_days %}{{ retention.usage_ledger_days }} zile{% else %}Perioada nu este încă stabilită; până atunci nu sunt șterse automat. După ștergerea contului nu mai sunt legate de cont.{% endif %}</td></tr>
+      <tr><td>Pașii de utilizare pentru statistici (vizită, pagina de creare a contului, planuri văzute, clic pe Pro)</td><td>{{ retention.funnel_event_days }} zile, apoi sunt șterși la curățarea zilnică; se șterg imediat odată cu contul sau identificatorul anonim</td></tr>
       <tr><td>Identificatorul anonim de analytics (în baza de date)</td><td>{% if retention.visitor_record_days %}{{ retention.visitor_record_days }} zile{% else %}Perioada nu este încă stabilită; până atunci nu este șters automat. Îl ștergem la ștergerea contului sau la cerere.{% endif %}</td></tr>
       <tr><td>Jurnalele serverului web și ale găzduirii</td><td>{% if retention.server_log_days %}{{ retention.server_log_days }} zile{% else %}Depind de furnizorul de găzduire; perioada nu este încă stabilită.{% endif %}</td></tr>
       <tr><td>Înregistrări audio</td><td>Nu sunt păstrate</td></tr>

@@ -235,3 +235,46 @@ class LearningUsageEvent(models.Model):
 
     def __str__(self):
         return f"{self.get_feature_display()} {self.status} #{self.pk}"
+
+
+class FunnelEvent(models.Model):
+    """One business funnel step per identity (account or anonymous visitor), per placement, per London day.
+
+    Stable names only (apps/analytics/funnel.py): no text, results, audio, IP address, email or user agent. Using
+    Corect, signing up and hitting a quota are read from the existing ledgers and accounts, so they are not repeated
+    here. Rows are deleted with the account or visitor ID they belong to.
+    """
+
+    class Name(models.TextChoices):
+        SITE_VISIT = "site_visit", "Visited the site"
+        SIGNUP_VIEWED = "signup_viewed", "Opened the signup page"
+        PRICING_VIEWED = "pricing_viewed", "Saw the plans"
+        PRO_CTA_CLICKED = "pro_cta_clicked", "Clicked a Pro call to action"
+        CHECKOUT_STARTED = "checkout_started", "Started checkout"
+        SUBSCRIPTION_STARTED = "subscription_started", "Became a paying customer"
+
+    name = models.CharField(max_length=32, choices=Name.choices)
+    placement = models.CharField(max_length=32, blank=True)
+    audience = models.CharField(max_length=10, choices=UsageEvent.Audience.choices)
+    plan = models.CharField(max_length=10, choices=UsageEvent.Plan.choices, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE,
+                             related_name="funnel_events")
+    visitor = models.ForeignKey(AnonymousVisitor, null=True, blank=True, on_delete=models.CASCADE,
+                                related_name="funnel_events")
+    day = models.DateField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(user__isnull=True) ^ models.Q(visitor__isnull=True),
+                                   name="analytics_funnel_one_identity"),
+            models.UniqueConstraint(fields=["name", "placement", "user", "day"], condition=models.Q(user__isnull=False),
+                                    name="analytics_funnel_user_daily"),
+            models.UniqueConstraint(fields=["name", "placement", "visitor", "day"],
+                                    condition=models.Q(visitor__isnull=False), name="analytics_funnel_visitor_daily"),
+        ]
+        indexes = [models.Index(fields=["name", "created_at"], name="analytics_funnel_name_idx")]
+
+    def __str__(self):
+        return f"{self.name} {self.day}"

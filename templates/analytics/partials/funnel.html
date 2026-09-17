@@ -1,0 +1,28 @@
+{% load analytics_format %}
+<div class="an-card">
+  <div class="an-card-head"><h2>Are people coming, using Corect, coming back and interested in paying?</h2></div>
+  <div class="an-table-wrap">
+    <table>
+      <thead><tr><th scope="col">Step</th>{% for window in funnel_windows %}<th scope="col" class="num">{{ window.label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        <tr><th scope="row">Unique visitors</th>{% for w in funnel_windows %}<td class="num">{{ w.visitors|number }}</td>{% endfor %}</tr>
+        <tr><td>… anonymous / signed in</td>{% for w in funnel_windows %}<td class="num">{{ w.anonymous_visitors|number }} / {{ w.registered_visitors|number }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Used Corect</th>{% for w in funnel_windows %}<td class="num">{{ w.used|number }} <span class="an-muted">({{ w.use_rate|percent }})</span></td>{% endfor %}</tr>
+        <tr><th scope="row">Returning (2+ days)</th>{% for w in funnel_windows %}<td class="num">{{ w.returning|number }} <span class="an-muted">({{ w.return_rate|percent }})</span></td>{% endfor %}</tr>
+        <tr><th scope="row">Opened signup</th>{% for w in funnel_windows %}<td class="num">{{ w.signup_viewed|number }}</td>{% endfor %}</tr>
+        <tr><th scope="row">New accounts</th>{% for w in funnel_windows %}<td class="num">{{ w.signups|number }} <span class="an-muted">({{ w.signup_rate|percent }} of anonymous visitors)</span></td>{% endfor %}</tr>
+        <tr><th scope="row">Free quota hit rate</th>{% for w in funnel_windows %}<td class="num">{{ w.free_hit_rate|percent }}</td>{% endfor %}</tr>
+        <tr><td>… anonymous quota hit rate</td>{% for w in funnel_windows %}<td class="num">{{ w.anonymous_hit_rate|percent }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Saw the plans</th>{% for w in funnel_windows %}<td class="num">{{ w.pricing_viewed|number }} <span class="an-muted">({{ w.pricing_rate|percent }})</span></td>{% endfor %}</tr>
+        <tr><th scope="row">Clicked Pro</th>{% for w in funnel_windows %}<td class="num">{{ w.pro_clicks|number }} <span class="an-muted">({{ w.pro_click_rate|percent }})</span></td>{% endfor %}</tr>
+        {% if billing_live %}
+        <tr><th scope="row">Started checkout</th>{% for w in funnel_windows %}<td class="num">{{ w.checkouts|number }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Became paying</th>{% for w in funnel_windows %}<td class="num">{{ w.subscriptions|number }} <span class="an-muted">({{ w.checkout_rate|percent }} of checkouts)</span></td>{% endfor %}</tr>
+        {% else %}
+        <tr><th scope="row">Checkout / paying</th>{% for w in funnel_windows %}<td class="num">— <span class="an-muted">(billing not live)</span></td>{% endfor %}</tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <p class="an-note" style="margin: 12px 0 0">Unique visitors are accounts and anonymous visitors with analytics on who opened a page (percentages are of them); a browser that signs up counts once as a visitor and once as an account. Windows follow London days and ignore the filters above. Nothing here contains text, IP addresses or emails.</p>
+</div>

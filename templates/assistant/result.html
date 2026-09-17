@@ -7,7 +7,7 @@
   <div class="quota-box" role="alert">
     <p>{{ error }}</p>
     {% if tier == 'anonymous' %}<a class="button quota-cta" href="{% url 'signup' %}">Creează cont gratuit</a>
-    {% elif tier == 'free' %}<a class="button secondary quota-cta" href="{% url 'about' %}#plans">Vezi planul Pro</a>{% endif %}
+    {% elif tier == 'free' %}<a class="button secondary quota-cta" data-funnel-cta="quota_box" href="{% url 'about' %}#plans">Vezi planul Pro</a>{% endif %}
   </div>
   {% else %}<div class="error-box" role="alert">{{ error }}</div>{% endif %}{% if not empty_text %}<p class="muted">Textul tău e tot aici. Îl poți modifica și încerca din nou.</p>{% endif %}
 {% elif outcome == 'translated' %}

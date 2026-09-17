@@ -20,6 +20,7 @@ from apps.learning.services.guardrails import BUDGET_EXHAUSTED as LEARNING_BUDGE
 from apps.learning.services.guardrails import LIMIT_CODES as LEARNING_LIMIT_CODES
 from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
+from .funnel import funnel_summary
 from .identifiers import visitor_lookup
 from .insights import dashboard_insights
 from .monitoring import ai_spend, day_start as monitoring_day_start
@@ -331,7 +332,9 @@ def dashboard(request):
     costs = costs_with_audio(totals["cost"], audio["audio_totals"], learning["learning_totals"]["learning_cost"])
     success_rate = rate(totals["successes"], totals["successes"] + totals["failures"])
     signup_rate = rate(visitors["signed_up"], visitors["total"])
+    funnel = funnel_summary()
     return render_report(request, "analytics/dashboard.html", "Usage analytics", "dashboard", {
+        **funnel,
         **filter_context(filters, models), **breakdowns(events), **plans, **audio, **learning,
         "totals": totals, "costs": costs,
         "windows": recent.aggregate(**windows()), "users": users, "visitors": visitors,
@@ -343,7 +346,8 @@ def dashboard(request):
             totals=totals, costs=costs, audio_totals=audio["audio_totals"],
             learning_totals=learning["learning_totals"], plan_rows=plans["plan_rows"], visitors=visitors,
             signup_rate=signup_rate, success_rate=success_rate, plan_conversions=plans["plan_conversions"],
-            spend_today=ai_spend(monitoring_day_start()).cost, daily_alert=settings.AI_COST_ALERT_DAILY_USD)})
+            spend_today=ai_spend(monitoring_day_start()).cost, daily_alert=settings.AI_COST_ALERT_DAILY_USD,
+            funnel=funnel["funnel_windows"])})
 
 
 @staff_member_required

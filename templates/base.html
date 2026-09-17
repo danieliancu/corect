@@ -32,6 +32,7 @@
   <script src="{% static 'js/navigation.js' %}{{ asset_query }}" defer></script>
   <script src="{% static 'js/consent.js' %}{{ asset_query }}" defer></script>
   <script src="{% static 'js/copy.js' %}{{ asset_query }}" defer></script>
+  {% if consent.analytics_available and consent.analytics %}<script src="{% static 'js/funnel.js' %}{{ asset_query }}" data-funnel-url="{% url 'funnel_event' %}" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
