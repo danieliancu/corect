@@ -433,7 +433,7 @@ class BrowserChecks(StaticLiveServerTestCase):
         self.assertEqual(self.errors, [])
 
     def test_editor_link_focuses_text_box_and_pro_members_see_their_benefits(self):
-        user = self.in_database_thread(lambda: User.objects.create_user(username="pro-learner",
+        user = self.in_database_thread(lambda: User.objects.create_user(username="pro-learner", email="pro-learner@example.com",
                                                                         password="Browser-test-password-815"))
         # An existing account that already accepted the current Terms, so no consent dialog covers the page.
         self.in_database_thread(lambda: LegalAcceptance.objects.create(
@@ -600,7 +600,7 @@ class BrowserChecks(StaticLiveServerTestCase):
     def sign_in_learner(self, username, mistakes=0, exercises=0):
         """A learner who accepted the current Terms, with repeated since/for mistakes and stored exercises for them."""
         def seed():
-            user = User.objects.create_user(username=username, password="Browser-test-password-815")
+            user = User.objects.create_user(username=username, email=f"{username}@example.com", password="Browser-test-password-815")
             LegalAcceptance.objects.create(user=user, terms_version=settings.TERMS_VERSION,
                                            privacy_version=settings.PRIVACY_VERSION, source="visit")
             for days_ago in range(mistakes):

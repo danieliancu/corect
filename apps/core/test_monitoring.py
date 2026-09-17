@@ -245,7 +245,7 @@ class SpendFigureTests(TestCase):
         self.assertIsNone(spend_insight(Decimal("1"), Decimal("10")))
         self.assertEqual(spend_insight(Decimal("8.5"), Decimal("10"))["level"], "watch")
         self.assertEqual(spend_insight(Decimal("11"), Decimal("10"))["level"], "alert")
-        staff = User.objects.create_user("staff", password="pw", is_staff=True)
+        staff = User.objects.create_user("staff", "staff@example.com", password="pw", is_staff=True)
         usage(estimated_cost=Decimal("30"), provider_calls=1)
         self.client.force_login(staff)
         self.assertContains(self.client.get("/admin/analytics/"), "AI spend today is above the alert threshold")

@@ -4,6 +4,7 @@
   <form method="post" class="card account-form profile-details">{% csrf_token %}
     <input type="hidden" name="action" value="profile">
     <h2>Datele contului</h2>
+    {% if email_required %}<p class="quota-box" role="alert">Contul tău nu are încă o adresă de email. Adaug-o mai jos ca să poți continua: o folosim pentru autentificare și ca să îți putem recupera contul.</p>{% endif %}
     {{ profile_form.as_p }}
     <button class="button" type="submit">Salvează modificările</button>
   </form>

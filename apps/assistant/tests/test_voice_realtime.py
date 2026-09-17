@@ -182,7 +182,7 @@ class VoiceAndThePlanQuotaTests(RealtimeCase):
     def test_the_daily_speech_to_text_guardrail_follows_the_plan(self):
         self.assertEqual(self.start().status_code, 200)
         self.assertEqual(self.start().status_code, 429)  # Anonymous: one session a day in this configuration.
-        member = User.objects.create_user("pro-voice", password="Voice-test-pass-1")
+        member = User.objects.create_user("pro-voice", "pro-voice@example.com", password="Voice-test-pass-1")
         member.groups.add(Group.objects.get_or_create(name="Pro")[0])
         self.client.force_login(member)
         self.assertEqual([self.start().status_code for _ in range(4)], [200] * 4)

@@ -127,7 +127,7 @@ class GuardrailEndpointTests(TestCase):
 
     def test_suspended_accounts_cannot_use_ai_features_but_keep_their_history(self):
         self.assertTrue(Group.objects.filter(name=SUSPENDED_GROUP).exists())  # Created by accounts.0002.
-        user = User.objects.create_user("ana", password="test-password")
+        user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         user.groups.add(Group.objects.get(name=SUSPENDED_GROUP))
         self.client.force_login(user)
         response = self.post()
@@ -143,7 +143,7 @@ class GuardrailEndpointTests(TestCase):
 
     def test_staff_suspend_and_lift_from_the_users_admin(self):
         admin = User.objects.create_superuser("admin", "admin@example.com", "admin-password")
-        user = User.objects.create_user("ana", password="test-password")
+        user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         self.client.force_login(admin)
         self.assertContains(self.client.get("/admin/auth/user/"), "Suspend selected accounts")
         self.client.post("/admin/auth/user/", {"action": "suspend_accounts", "_selected_action": [user.pk]})

@@ -4,7 +4,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth.models import Group, User
-from django.db import DatabaseError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.utils import formats, timezone
 
@@ -24,8 +24,8 @@ SERVER_TIMING = re.compile(r"^[a-z_]+;dur=\d+(, [a-z_]+;dur=\d+)*$")
 
 class EndpointTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="ana", password="test-password")
-        self.other = User.objects.create_user(username="other", password="test-password")
+        self.user = User.objects.create_user(username="ana", email="ana@example.com", password="test-password")
+        self.other = User.objects.create_user(username="other", email="other@example.com", password="test-password")
         self.naturalize = patch("apps.assistant.views.NaturalizeService.naturalize",
                                 return_value=naturalized_english()).start()
         self.addCleanup(patch.stopall)
@@ -241,7 +241,7 @@ class EndpointTests(TestCase):
         self.assertIsNone(events[1].assistant_request)
 
     def test_a_repeated_text_is_reused_only_for_its_own_learner_and_its_own_switch(self):
-        other = User.objects.create_user("bogdan", password="test-password")
+        other = User.objects.create_user("bogdan", "bogdan@example.com", password="test-password")
         text = correction_result().original_text
         self.client.force_login(self.user)
         self.post(text)
@@ -411,7 +411,8 @@ class EndpointTests(TestCase):
 
     def test_profile_changes_username_and_password(self):
         self.client.force_login(self.user)
-        profile = lambda **data: self.client.post("/accounts/profile/", {"action": "profile", "email": "", **data})
+        profile = lambda **data: self.client.post("/accounts/profile/", {"action": "profile",
+                                                                          "email": "ana@example.com", **data})
         password = lambda old: self.client.post("/accounts/profile/", {"action": "password", "old_password": old,
             "new_password1": "A-new-pass-5823", "new_password2": "A-new-pass-5823"})
         self.assertContains(profile(username="other"), "există deja")
@@ -431,10 +432,10 @@ class EndpointTests(TestCase):
                 self.assertRedirects(self.client.post("/accounts/login/", {"username": identifier, "password": "test-password"}), "/")
                 self.client.logout()
         self.assertContains(self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "wrong"}), "nume de utilizator sau email")
-        self.other.email = "ana@example.com"
-        self.other.save()
-        response = self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "test-password"})
-        self.assertContains(response, "nume de utilizator sau email")
+        # Emails are unique ignoring case (apps/accounts/emails.py), so an email identifies at most one account.
+        self.other.email = "Ana@Example.com"
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.other.save()
         self.assertContains(self.client.get("/accounts/login/"), "Nume de utilizator sau email")
 
     def test_mistake_category_page_lists_only_own_mistakes(self):
@@ -544,7 +545,7 @@ class SingleCallRoutingTests(ProviderMock, TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.objects.create_user("ana", password="test-password")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         self.client.force_login(self.user)
         self.api.moderations.create.return_value = moderation()
 

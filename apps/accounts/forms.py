@@ -4,9 +4,28 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils.html import format_html
 
+from .emails import EMAIL_REQUIRED, EMAIL_TAKEN, email_taken, normalize_email
 
-class SignupForm(UserCreationForm):
-    email = forms.EmailField(required=False)
+
+class RequiredEmailMixin:
+    """A required, normalised (trimmed, lower-case) address that no other account uses, ignoring case."""
+
+    def clean_email(self):
+        email = normalize_email(self.cleaned_data.get("email"))
+        if not email:
+            raise forms.ValidationError(EMAIL_REQUIRED, code="required")
+        if email_taken(email, exclude_pk=self.instance.pk):
+            raise forms.ValidationError(EMAIL_TAKEN, code="unique")
+        return email
+
+
+def required_email_field():
+    return forms.EmailField(label="Email", max_length=254, error_messages={"required": EMAIL_REQUIRED},
+                            widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+
+
+class SignupForm(RequiredEmailMixin, UserCreationForm):
+    email = required_email_field()
     accept_legal = forms.BooleanField(required=True, error_messages={
         "required": "Ca să creezi contul, confirmă că ai cel puțin 16 ani și că accepți Termenii și Politica de "
                     "confidențialitate."})
@@ -39,7 +58,9 @@ class LoginForm(AuthenticationForm):
         self.fields["username"].label = "Nume de utilizator sau email"
 
 
-class ProfileForm(forms.ModelForm):
+class ProfileForm(RequiredEmailMixin, forms.ModelForm):
+    email = required_email_field()
+
     class Meta:
         model = User
         fields = ("username", "email")

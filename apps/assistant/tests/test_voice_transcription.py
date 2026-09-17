@@ -88,7 +88,7 @@ class TranscriptionEndpointTests(ProviderMock, TestCase):
         self.assertEqual(response.cookies[VISITOR_COOKIE].value, str(event.visitor_id))
 
     def test_registered_transcription_is_not_added_to_history(self):
-        user = User.objects.create_user("ana", password="test-password")
+        user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         self.client.force_login(user)
         self.assertEqual(self.post().status_code, 200)
         self.assertFalse(AssistantRequest.objects.exists())

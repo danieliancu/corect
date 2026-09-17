@@ -14,7 +14,7 @@ LEGACY_INTO_ROMANIAN = translation_result(TRANSLATION_CASES[2]).model_dump()
 
 class LegacyHistoryTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="test-password")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         self.client.force_login(self.user)
         self.entries = {
             "correction": self.saved("correction", "en", LEGACY_CORRECTION, LEGACY_CORRECTION["corrected_text"]),

@@ -165,7 +165,7 @@ class SpeechEndpointTests(ProviderMock, TestCase):
         self.assertIsNone(AudioUsageEvent.objects.latest("pk").usage_event)
 
     def test_registered_speech_and_disabled_visitor_tracking(self):
-        user = User.objects.create_user("ana", password="test-password")
+        user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         self.client.force_login(user)
         self.post(token=make_speech_token(SENTENCE, "correction"))
         self.assertEqual((AudioUsageEvent.objects.get().audience, AudioUsageEvent.objects.get().user), ("registered", user))

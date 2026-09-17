@@ -49,7 +49,7 @@ class TaxonomyTests(TestCase):
 
 class ProfileTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
 
     def pattern(self, key="since_vs_for"):
         return UserMistakePattern.objects.get(user=self.user, pattern_key=key)
@@ -127,7 +127,7 @@ class ProfileTests(TestCase):
 
 class ReviewTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
         record_correction_occurrences(self.user, make_correction(self.user))
         self.pattern = UserMistakePattern.objects.get()
         self.now = timezone.now()
@@ -151,7 +151,7 @@ class ReviewTests(TestCase):
 
 class ExerciseTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
         for days_ago in (2, 1):
             record_correction_occurrences(self.user, make_correction(self.user, days_ago=days_ago))
 
@@ -229,7 +229,7 @@ class ExerciseTests(TestCase):
 
 class DailyTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
 
     def test_allocation_and_today_plan_prioritise_recurring_mistakes(self):
         self.assertEqual([allocation(n) for n in range(4)], [[], [5], [3, 2], [2, 2, 1]])
@@ -261,7 +261,7 @@ class DailyTests(TestCase):
 
 class InsightTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
 
     def test_new_users_see_onboarding_not_trends(self):
         self.assertEqual(learning_overview(self.user)["stage"], "empty")
@@ -311,7 +311,7 @@ class InsightTests(TestCase):
 
 class GenerationContextTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
         record_correction_occurrences(self.user, make_correction(self.user))
 
     def test_the_pattern_and_recent_mistakes_are_the_whole_generation_context(self):
@@ -323,7 +323,7 @@ class GenerationContextTests(TestCase):
 
 class RebuildCommandTests(TestCase):
     def test_rebuild_is_idempotent_and_never_changes_corrections(self):
-        user = User.objects.create_user("ana", password="pass")
+        user = User.objects.create_user("ana", "ana@example.com", password="pass")
         make_correction(user, pattern="")
         make_correction(user, category="article", original="is engineer", replacement="is an engineer", pattern="missing_article")
         before = list(GrammarCorrection.objects.values_list("pk", "original", "replacement", "category"))

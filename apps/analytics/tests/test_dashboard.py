@@ -19,7 +19,7 @@ class AnalyticsReportTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         now = timezone.now()
-        cls.staff = User.objects.create_user("staff", password="pw-staff-1234", is_staff=True)
+        cls.staff = User.objects.create_user("staff", "staff@example.com", password="pw-staff-1234", is_staff=True)
         cls.learner = User.objects.create_user("learner", "learner@example.com", "pw-learner-1234")
         cls.visitor = AnonymousVisitor.objects.create(first_seen_at=now - timedelta(days=40), last_seen_at=now,
                                                       converted_user=cls.learner, converted_via="signup",
@@ -88,7 +88,7 @@ class AnalyticsReportTests(TestCase):
 
     def test_plan_summary_counts_successes_quota_rejections_and_who_used_up_the_quota(self):
         now = timezone.now()
-        free_user = User.objects.create_user("free-one", password="pw-free-1234")
+        free_user = User.objects.create_user("free-one", "free-one@example.com", password="pw-free-1234")
 
         def event(**fields):
             return UsageEvent.objects.create(**{"model": "test-model", "request_type": "unclassified", **fields})
@@ -125,7 +125,7 @@ class AnalyticsReportTests(TestCase):
         with CaptureQueriesContext(connection) as few:
             self.client.get(USERS, {"period": "all"})
         for index in range(5):
-            member = User.objects.create_user(f"extra{index}")
+            member = User.objects.create_user(f"extra{index}", f"extra{index}@example.com")
             UsageEvent.objects.create(audience="registered", user=member, request_type="correction", status="success")
         with CaptureQueriesContext(connection) as many:
             self.client.get(USERS, {"period": "all"})

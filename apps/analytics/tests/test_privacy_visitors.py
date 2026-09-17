@@ -103,8 +103,8 @@ class VisitorPrivacyTests(TestCase):
         self.assertEqual((visitor.converted_via, AnonymousVisitor.objects.count()), ("signup", 1))
 
     def test_login_converts_the_visitor_and_the_first_conversion_wins(self):
-        first = User.objects.create_user("existing", password=PASSWORD)
-        User.objects.create_user("second", password=PASSWORD)
+        first = User.objects.create_user("existing", "existing@example.com", password=PASSWORD)
+        User.objects.create_user("second", "second@example.com", password=PASSWORD)
         self.post()
         self.client.post("/accounts/login/", {"username": "existing", "password": PASSWORD})
         self.client.post("/accounts/logout/")
@@ -114,7 +114,7 @@ class VisitorPrivacyTests(TestCase):
         self.assertEqual(UsageEvent.objects.count(), 1)
 
     def test_withdrawn_analytics_stops_conversion(self):
-        User.objects.create_user("existing", password=PASSWORD)
+        User.objects.create_user("existing", "existing@example.com", password=PASSWORD)
         self.post()
         self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(False)
         self.client.post("/accounts/login/", {"username": "existing", "password": PASSWORD})

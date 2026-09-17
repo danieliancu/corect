@@ -59,7 +59,7 @@ class AudioAnalyticsReportTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         now = timezone.now()
-        cls.staff = User.objects.create_user("staff", password="pw-staff-1234", is_staff=True)
+        cls.staff = User.objects.create_user("staff", "staff@example.com", password="pw-staff-1234", is_staff=True)
         cls.learner = User.objects.create_user("learner", "learner@example.com", "pw-learner-1234")
         cls.voice_only = AnonymousVisitor.objects.create()
         UsageEvent.objects.create(audience="registered", user=cls.learner, request_type="correction", status="success",
@@ -127,7 +127,7 @@ class AudioAnalyticsReportTests(TestCase):
             self.client.get(USERS, {"period": "all"})
             self.client.get(VISITORS, {"period": "all"})
         for index in range(4):
-            member = User.objects.create_user(f"extra{index}")
+            member = User.objects.create_user(f"extra{index}", f"extra{index}@example.com")
             visitor = AnonymousVisitor.objects.create()
             for owner in ({"user": member, "audience": "registered"}, {"visitor": visitor, "audience": "anonymous"}):
                 AudioUsageEvent.objects.create(operation="speech", status="success", model="gpt-4o-mini-tts",
@@ -166,7 +166,7 @@ class RealtimeAudioAnalyticsTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         now = timezone.now()
-        cls.staff = User.objects.create_user("staff", password="pw-staff-1234", is_staff=True)
+        cls.staff = User.objects.create_user("staff", "staff@example.com", password="pw-staff-1234", is_staff=True)
         cls.learner = User.objects.create_user("learner", "learner@example.com", "pw-learner-1234")
         cls.visitor = AnonymousVisitor.objects.create()
         UsageEvent.objects.create(audience="registered", user=cls.learner, request_type="correction", status="success",

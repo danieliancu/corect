@@ -42,12 +42,14 @@ class Command(BaseCommand):
         if not database_ok():
             alerts.append({"check": "database", "category": DATABASE})
             return report, alerts
+        from apps.accounts.emails import missing_email_count
         from apps.analytics.monitoring import ai_spend, day_start, provider_error_rate
 
         try:
             today = ai_spend(day_start(now), now)
             last_hour = ai_spend(now - timedelta(hours=1), now)
             errors = provider_error_rate(now - timedelta(hours=1), now)
+            report["accounts_without_email"] = missing_email_count()  # Informational: they are asked on next visit.
         except DatabaseError:
             alerts.append({"check": "database", "category": DATABASE})
             return report, alerts

@@ -14,7 +14,7 @@ from .helpers import batch, make_correction, make_exercise, patch_ai
 
 class LearningPageTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
         self.client.force_login(self.user)
 
     def test_new_user_dashboard_is_an_onboarding_state(self):
@@ -76,7 +76,7 @@ class LearningPageTests(TestCase):
         make_exercise(self.user, count=5)
         self.client.post("/learn/practice/start/", {"kind": "pattern", "pattern": "since_vs_for"})
         session = PracticeSession.objects.get()
-        other = User.objects.create_user("bob", password="pass")
+        other = User.objects.create_user("bob", "bob@example.com", password="pass")
         self.client.force_login(other)
         self.assertEqual(self.client.get(f"/learn/practice/{session.pk}/").status_code, 404)
         self.assertNotContains(self.client.get("/learn/"), "Since / for")
@@ -117,7 +117,7 @@ class LearningPageTests(TestCase):
 @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=100)
 class CorrectionLoopTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", password="pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
         self.client.force_login(self.user)
         from apps.assistant.tests.examples import naturalized_english
         self.naturalize = patch("apps.assistant.views.NaturalizeService.naturalize",
@@ -163,7 +163,7 @@ class CorrectionLoopTests(TestCase):
 class LearningAnalyticsTests(TestCase):
     def setUp(self):
         self.staff = User.objects.create_superuser("admin", "admin@example.com", "pass")
-        self.learner = User.objects.create_user("ana", password="pass")
+        self.learner = User.objects.create_user("ana", "ana@example.com", password="pass")
         self.client.force_login(self.staff)
 
     def learning_event(self, feature, cost, user=None):

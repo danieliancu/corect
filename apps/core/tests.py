@@ -67,7 +67,7 @@ class AboutPageTests(TestCase):
         self.assertRedirects(self.client.get("/despre/?from=link"), "/about/?from=link", status_code=301)
 
     def test_signed_in_editor_links_lead_home(self):
-        User.objects.create_user(username="ana", password="test-password")
+        User.objects.create_user(username="ana", email="ana@example.com", password="test-password")
         self.client.login(username="ana", password="test-password")
         html = self.client.get("/about/").content.decode()
         self.assertIn('<a class="button cta-button" href="/#text">Scrie primul text</a>', html)
@@ -164,7 +164,7 @@ class LandingPageTests(TestCase):
         self.assertIn('href="/accounts/signup/">Creează cont</a>', cta)
 
     def test_signed_in_visitors_are_not_asked_to_create_an_account(self):
-        User.objects.create_user(username="ana", password="test-password")
+        User.objects.create_user(username="ana", email="ana@example.com", password="test-password")
         self.client.login(username="ana", password="test-password")
         html = self.client.get("/").content.decode()
         cta = section(html, 'class="landing-cta"')
@@ -175,7 +175,7 @@ class LandingPageTests(TestCase):
 
     def test_pro_members_see_only_their_benefits(self):
         self.assertTrue(Group.objects.filter(name=PRO_GROUP).exists())  # Created by core.0001_pro_group.
-        user = User.objects.create_user(username="pro", password="test-password")
+        user = User.objects.create_user(username="pro", email="pro@example.com", password="test-password")
         user.groups.add(Group.objects.get(name=PRO_GROUP))
         self.client.force_login(user)
         plans = section(self.client.get("/").content.decode(), 'class="landing-section landing-plans')
@@ -275,7 +275,7 @@ class ConsentTests(TestCase):
             self.assertEqual(self.acknowledge().cookies[CONSENT_COOKIE].value, f"2099-01-01|{settings.PRIVACY_VERSION}|0")
 
     def test_signed_in_users_are_recorded_against_their_account(self):
-        user = User.objects.create_user("ana", password="test-password")
+        user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         self.client.force_login(user)
         self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(True)
         # A browser acknowledgement does not count for the account.
@@ -384,7 +384,7 @@ class LegalCheckTests(TestCase):
 
 class PlanTierAndLimitSettingsTests(TestCase):
     def test_one_resolver_decides_anonymous_free_and_pro(self):
-        learner = User.objects.create_user("free-learner", password="Plan-test-pass-1")
+        learner = User.objects.create_user("free-learner", "free-learner@example.com", password="Plan-test-pass-1")
         self.assertEqual(tier_for(AnonymousUser()), "anonymous")
         self.assertEqual(tier_for(learner), "free")
         learner.groups.add(Group.objects.get_or_create(name=PRO_GROUP)[0])

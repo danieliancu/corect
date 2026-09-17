@@ -12,7 +12,7 @@ backfill = import_module("apps.analytics.migrations.0008_effective_operation_bac
 
 class EffectiveOperationBackfillTests(TestCase):
     def test_earlier_rows_get_their_effective_operation_and_language_without_touching_history(self):
-        user = User.objects.create_user("ana", password="test-password")
+        user = User.objects.create_user("ana", "ana@example.com", password="test-password")
         romanian = AssistantRequest.objects.create(user=user, request_type="translation", detected_language="ro",
                                                    model_used="m", prompt_version="2026-09-v6", status="success",
                                                    result_data={"translated_text": "Hello"})
