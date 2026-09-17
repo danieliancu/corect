@@ -108,7 +108,8 @@ except InvalidOperation:
     ANALYTICS_GBP_PER_USD = Decimal(-1)
 if not ANALYTICS_GBP_PER_USD.is_finite() or ANALYTICS_GBP_PER_USD <= 0:
     raise ImproperlyConfigured("ANALYTICS_GBP_PER_USD must be a positive number.")
-from config.env_settings import int_setting as _int_setting, naturalize_limits, tier_limits  # noqa: E402
+from config.env_settings import (  # noqa: E402
+    client_ip_settings, int_setting as _int_setting, naturalize_limits, tier_limits)
 
 
 # Live transcription timing. The delay is how long the provider waits before emitting words ("" leaves it out).
@@ -127,6 +128,11 @@ VOICE_TRANSCRIBE_LANGUAGES = [code.strip() for code in os.getenv("VOICE_TRANSCRI
                               if code.strip()]
 VOICE_SPEECH_TOKEN_MAX_AGE = int(os.getenv("VOICE_SPEECH_TOKEN_MAX_AGE", "2700"))
 ASSISTANT_MAX_CHARACTERS = int(os.getenv("ASSISTANT_MAX_CHARACTERS", "2000"))
+
+# CLIENT IP (apps/core/client_ip.py). Behind a reverse proxy REMOTE_ADDR is the proxy, so every visitor would share one
+# anonymous quota. List the proxies in TRUSTED_PROXY_CIDRS and name the one header they set; forwarding headers from
+# any other address are ignored. Default: REMOTE_ADDR only (README, Deployment behind a proxy).
+CLIENT_IP_HEADER, TRUSTED_PROXY_CIDRS = client_ip_settings()
 
 # PRODUCT QUOTA: successful „Vreau să sune natural!” uses per London calendar day, by plan tier (apps/core/plans.py).
 # Typed and spoken text count the same; the microphone and British speech never use it (apps/assistant/services/quota.py).

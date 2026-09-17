@@ -81,6 +81,8 @@ Without the trusted origin, forms and voice requests fail CSRF checks because HT
 | `DJANGO_DEBUG` | `false` by default; example enables local development |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts, default `localhost,127.0.0.1` |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | Comma-separated full origins (e.g. `https://name.ngrok-free.dev`) for tunnels or proxies that end HTTPS in front of Django; empty by default |
+| `CLIENT_IP_HEADER` | Which header carries the visitor's address when the request comes from a trusted proxy: `none` (default, `REMOTE_ADDR` only), `x-forwarded-for`, `x-real-ip` or `cf-connecting-ip`. Anything else, or a header without `TRUSTED_PROXY_CIDRS`, stops the app at startup (see [Deployment behind a proxy](#deployment-behind-a-proxy)) |
+| `TRUSTED_PROXY_CIDRS` | Comma-separated IPv4/IPv6 addresses or networks of your own reverse proxies, empty by default. Forwarding headers from any other address are ignored; `0.0.0.0/0` and `::/0` are refused |
 | `DATABASE_NAME`, `DATABASE_USER` | Default `englishcoach` |
 | `DATABASE_PASSWORD` | Required database password |
 | `DATABASE_HOST`, `DATABASE_PORT` | Default `127.0.0.1`, `5434` |
@@ -125,7 +127,7 @@ Without the trusted origin, forms and voice requests fail CSRF checks because HT
 | `LEARNING_BATCH_SIZE` | Default 8 exercises per generation call |
 | `PRO_ENTITLEMENTS_ENFORCED` | `false` by default: every signed-in user gets the learning features. `true` limits the features in `apps/core/entitlements.py:PRO_FEATURES` to the "Pro" group |
 
-An actor is a signed-in user or an HMAC of an anonymous visitor's IP address. Forwarded headers are not trusted. If deploying behind a reverse proxy, configure the application server to establish the real `REMOTE_ADDR` only from that trusted proxy; otherwise all anonymous visitors share the proxy's quota. Never accept arbitrary client forwarding headers. This rate-limiting identity is separate from the analytics visitor ID described below. Voice calls count in their own namespaced counters (`voice-stt:` and `voice-tts:`), so they never use up the plan quota. Opening a live transcription session counts as one speech-to-text call, the same as uploading a finished recording, so opening and closing connections cannot bypass the limit.
+An actor is a signed-in user or an HMAC (keyed with `DJANGO_SECRET_KEY`) of an anonymous visitor's IP address; an IPv6 visitor counts as its /64 network, because one connection usually controls a whole /64. The raw address is never stored. Forwarding headers are read only from the proxies in `TRUSTED_PROXY_CIDRS`, and only the one named by `CLIENT_IP_HEADER` (`apps/core/client_ip.py`); behind an unconfigured proxy all anonymous visitors would share the proxy's quota, see [Deployment behind a proxy](#deployment-behind-a-proxy). This rate-limiting identity is separate from the analytics visitor ID described below. Voice calls count in their own namespaced counters (`voice-stt:` and `voice-tts:`), so they never use up the plan quota. Opening a live transcription session counts as one speech-to-text call, the same as uploading a finished recording, so opening and closing connections cannot bypass the limit.
 
 ## Architecture and behaviour
 
@@ -567,6 +569,20 @@ waitress-serve --listen=127.0.0.1:8000 config.wsgi:application
 ```
 
 WhiteNoise serves versioned compressed assets. Configure TLS at a trusted reverse proxy and ensure the WSGI URL scheme is correct (for Waitress, use its trusted-proxy settings, scoped to your proxy). Do not indiscriminately trust `X-Forwarded-Proto`. Match proxy request timeouts to the AI timeout (at least 60 seconds by default; every submission makes at most one provider call) and allow request bodies of at least `VOICE_MAX_BYTES` for `/assistant/transcribe/`. Live transcription audio travels over WebRTC directly between the browser and OpenAI, not through the proxy; if you add a Content-Security-Policy, allow `connect-src https://api.openai.com`. Run `cleanup_assistant` daily so abandoned live sessions are accounted for. `VOICE_REALTIME_ENABLED=false` (then restart) switches every browser to finished-recording transcription. Database backup/restore, HTTPS, secret rotation, scheduled cleanup and infrastructure monitoring are deployment responsibilities. Monitor 429/503 counts and sanitised `apps.assistant` and `apps.analytics` log codes; do not enable verbose OpenAI/HTTP logging in production. Keep `OPENAI_PRICING` and `OPENAI_AUDIO_PRICING` in step with the provider's published prices. Restrict staff status to people who may see usage and cost data.
+
+### Deployment behind a proxy
+
+Behind nginx, a load balancer, the host's proxy or Cloudflare, `REMOTE_ADDR` is the proxy, not the visitor. Without configuration every anonymous visitor would share one daily quota. Configure exactly the proxies you run, never "any address":
+
+| Set-up | Configuration |
+| --- | --- |
+| No proxy (Waitress faces the internet) | Nothing: `CLIENT_IP_HEADER=none` is the default |
+| nginx or a load balancer on the same host or private network | nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` — Django: `CLIENT_IP_HEADER=x-forwarded-for`, `TRUSTED_PROXY_CIDRS=127.0.0.1,::1` (or the balancer's private network, e.g. `10.0.0.0/24`) |
+| nginx that already resolved the address (`real_ip` module) | nginx: `proxy_set_header X-Real-IP $remote_addr;` — Django: `CLIENT_IP_HEADER=x-real-ip`, `TRUSTED_PROXY_CIDRS=127.0.0.1` |
+| Cloudflare straight to Waitress | `CLIENT_IP_HEADER=cf-connecting-ip`, `TRUSTED_PROXY_CIDRS` = the ranges published at https://www.cloudflare.com/ips/ (review them when Cloudflare changes them); block direct access to the origin |
+| Cloudflare → nginx → Waitress | Let nginx restore the visitor address from Cloudflare (`set_real_ip_from` Cloudflare ranges, `real_ip_header CF-Connecting-IP`) and pass it as `X-Real-IP`; Django trusts only nginx: `CLIENT_IP_HEADER=x-real-ip`, `TRUSTED_PROXY_CIDRS=127.0.0.1` |
+
+For `x-forwarded-for` the list is read right to left, skipping trusted proxies, so an address a visitor typed into the header is never used. If you instead use Waitress's own `--trusted-proxy` options (which rewrite `REMOTE_ADDR`), leave `CLIENT_IP_HEADER=none` so the address is not resolved twice. Check the result after deploying: two devices on different networks must get separate anonymous allowances, and `curl -H "X-Forwarded-For: 1.2.3.4"` from outside must not reset one.
 
 The V1 settings are intentionally fixed. Live voice input (transcription) and British voice output are included; a realtime voice conversation or speech-to-speech assistant, realtime AI correction, social login, password-reset email delivery, public deployment and AI-generated practice are not. Saved activity counts are not an English proficiency score.
 

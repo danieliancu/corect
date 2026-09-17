@@ -43,3 +43,31 @@ def tier_limits(name, defaults, env=None):
         raise ImproperlyConfigured(f"{name} must be three whole numbers of at least 1 for anonymous, free and pro, not "
                                    f"decreasing (for example {','.join(map(str, defaults))}).")
     return dict(zip(TIERS, values))
+
+
+CLIENT_IP_HEADERS = ("none", "x-forwarded-for", "x-real-ip", "cf-connecting-ip")
+
+
+def client_ip_settings(env=None):
+    """CLIENT_IP_HEADER and TRUSTED_PROXY_CIDRS (apps/core/client_ip.py), refused when they would let anyone choose the
+    address the rate limits count."""
+    import ipaddress
+
+    env = os.environ if env is None else env
+    header = env.get("CLIENT_IP_HEADER", "none").strip().lower() or "none"
+    if header not in CLIENT_IP_HEADERS:
+        raise ImproperlyConfigured(f"CLIENT_IP_HEADER must be one of {', '.join(CLIENT_IP_HEADERS)}.")
+    cidrs = []
+    for part in env.get("TRUSTED_PROXY_CIDRS", "").split(","):
+        if not part.strip():
+            continue
+        try:
+            network = ipaddress.ip_network(part.strip(), strict=False)
+        except ValueError:
+            raise ImproperlyConfigured(f"TRUSTED_PROXY_CIDRS has an invalid address or network: {part.strip()!r}.") from None
+        if network.prefixlen == 0:
+            raise ImproperlyConfigured("TRUSTED_PROXY_CIDRS must not trust every address (0.0.0.0/0 or ::/0).")
+        cidrs.append(str(network))
+    if header != "none" and not cidrs:
+        raise ImproperlyConfigured("CLIENT_IP_HEADER needs TRUSTED_PROXY_CIDRS: list the proxies allowed to set it.")
+    return header, cidrs

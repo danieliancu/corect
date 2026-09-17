@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
 from apps.assistant.models import RateBucket, SubmissionClaim
+from apps.core.client_ip import rate_limit_identity
 from .localday import local_day, next_reset, seconds_until_reset
 from .openai_client import AssistantError
 
@@ -26,8 +27,9 @@ VOICE_GUARDRAILS = {"transcription": ("voice-stt", "VOICE_TRANSCRIBE_LIMIT_MINUT
 def actor_key(request) -> str:
     if request.user.is_authenticated:
         return f"user:{request.user.pk}"
-    # REMOTE_ADDR only: do not trust client-supplied forwarding headers.
-    return "anon:" + salted_hmac("assistant-rate", request.META.get("REMOTE_ADDR", "unknown")).hexdigest()
+    # The real client address (forwarding headers only from TRUSTED_PROXY_CIDRS; an IPv6 visitor counts as its /64),
+    # keyed with the secret so no address is ever stored.
+    return "anon:" + salted_hmac("assistant-rate", rate_limit_identity(request)).hexdigest()
 
 
 def consume_quota(key_prefix: str, windows, code: str, message: str) -> None:
