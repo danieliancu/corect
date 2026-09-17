@@ -9,6 +9,7 @@ from apps.analytics.models import LearningUsageEvent
 from apps.analytics.services.recording import record_learning_event
 from apps.assistant.services.openai_client import AssistantError, guarded_parse, parse_response
 from apps.assistant.services.usage import collect_provider_usage
+from apps.core.monitoring import log_failure
 
 logger = logging.getLogger("apps.assistant")
 Feature = LearningUsageEvent.Feature
@@ -47,12 +48,12 @@ def learning_call(*, user, feature, prompt, prompt_version, payload, schema, val
             status = Status.REJECTED if exc.code in REFUSED else Status.FAILED
             record_learning_event(user=user, feature=feature, status=status, calls=calls, error_code=exc.code,
                                   prompt_version=prompt_version)
-            logger.warning("learning_ai_failed code=%s feature=%s", exc.code, feature)
+            log_failure(logger, "learning_ai_failed", exc.code, feature=feature)
             raise LearningAIUnavailable(exc.code) from None
         except ValueError:
             record_learning_event(user=user, feature=feature, status=Status.FAILED, calls=calls,
                                   error_code="invalid_output", prompt_version=prompt_version)
-            logger.warning("learning_ai_failed code=invalid_output feature=%s", feature)
+            log_failure(logger, "learning_ai_failed", "invalid_output", feature=feature)
             raise LearningAIUnavailable("invalid_output") from None
     event = record_learning_event(user=user, feature=feature, status=Status.SUCCESS, calls=calls,
                                   prompt_version=prompt_version)

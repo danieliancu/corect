@@ -20,6 +20,7 @@ from .filters import AUDIENCES, PERIODS, TYPES, ReportFilters, day_start
 from .formatting import rate
 from .identifiers import visitor_lookup
 from .insights import dashboard_insights
+from .monitoring import ai_spend, day_start as monitoring_day_start
 from .models import AnonymousVisitor, AudioUsageEvent, LearningUsageEvent, UsageEvent
 
 User = get_user_model()
@@ -336,7 +337,8 @@ def dashboard(request):
         "insights": dashboard_insights(
             totals=totals, costs=costs, audio_totals=audio["audio_totals"],
             learning_totals=learning["learning_totals"], plan_rows=plans["plan_rows"], visitors=visitors,
-            signup_rate=signup_rate, success_rate=success_rate, plan_conversions=plans["plan_conversions"])})
+            signup_rate=signup_rate, success_rate=success_rate, plan_conversions=plans["plan_conversions"],
+            spend_today=ai_spend(monitoring_day_start()).cost, daily_alert=settings.AI_COST_ALERT_DAILY_USD)})
 
 
 @staff_member_required

@@ -71,3 +71,17 @@ def client_ip_settings(env=None):
     if header != "none" and not cidrs:
         raise ImproperlyConfigured("CLIENT_IP_HEADER needs TRUSTED_PROXY_CIDRS: list the proxies allowed to set it.")
     return header, cidrs
+
+
+def decimal_setting(name, default, low="0", env=None):
+    """A finite decimal of at least `low`, e.g. a cost threshold in USD."""
+    from decimal import Decimal, InvalidOperation
+
+    env = os.environ if env is None else env
+    try:
+        value = Decimal(str(env.get(name, default)).strip())
+    except InvalidOperation:
+        value = None
+    if value is None or not value.is_finite() or value < Decimal(low):
+        raise ImproperlyConfigured(f"{name} must be a number of at least {low}.")
+    return value

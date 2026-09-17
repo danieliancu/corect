@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "apps.core", "apps.accounts", "apps.assistant", "apps.learning", "apps.analytics",
 ]
 MIDDLEWARE = [
+    "apps.core.middleware.RequestContextMiddleware",
     "django.middleware.security.SecurityMiddleware", "apps.core.middleware.AdminEnglishMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware",
@@ -109,7 +110,7 @@ except InvalidOperation:
 if not ANALYTICS_GBP_PER_USD.is_finite() or ANALYTICS_GBP_PER_USD <= 0:
     raise ImproperlyConfigured("ANALYTICS_GBP_PER_USD must be a positive number.")
 from config.env_settings import (  # noqa: E402
-    client_ip_settings, int_setting as _int_setting, naturalize_limits, tier_limits)
+    client_ip_settings, decimal_setting, int_setting as _int_setting, naturalize_limits, tier_limits)
 
 
 # Live transcription timing. The delay is how long the provider waits before emitting words ("" leaves it out).
@@ -205,7 +206,57 @@ SECURE_HSTS_PRELOAD = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
-LOGGING = {"version": 1, "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
-    "loggers": {"apps.assistant": {"handlers": ["console"], "level": "INFO", "propagate": False},
-                "openai": {"level": "CRITICAL"}, "httpx": {"level": "CRITICAL"}}}
+# Health endpoints answer plain-HTTP checks from the host (uptime monitors, load balancers) without an HTTPS redirect.
+SECURE_REDIRECT_EXEMPT = [r"^healthz$", r"^readyz$"]
+
+# LOGGING (apps/core/log_format.py, apps/core/monitoring.py). json: one object per line with the request ID, method,
+# path and a category (application, database, provider, quota, guardrail) — the default with DEBUG off. text: readable
+# local output. Logs never contain submitted text, transcripts, prompts, provider payloads, keys, emails or IPs.
+LOG_FORMAT = os.getenv("LOG_FORMAT", "text" if DEBUG else "json").strip().lower()
+if LOG_FORMAT not in ("json", "text"):
+    raise ImproperlyConfigured("LOG_FORMAT must be json or text.")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+if LOG_LEVEL not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+    raise ImproperlyConfigured("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR or CRITICAL.")
+LOGGING = {
+    "version": 1, "disable_existing_loggers": False,
+    "filters": {"context": {"()": "apps.core.log_format.RequestContextFilter"}},
+    "formatters": {
+        "json": {"()": "apps.core.log_format.JsonFormatter"},
+        "text": {"format": "%(asctime)s %(levelname)s %(name)s [%(category)s %(request_id)s] %(message)s"},
+    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["context"], "formatter": LOG_FORMAT}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "apps": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        # 500s with their traceback (error) and 4xx responses such as 429 (warning).
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.db.backends": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # Provider SDK and HTTP logs can contain request or response bodies: keep them silent.
+        "openai": {"level": "CRITICAL"}, "httpx": {"level": "CRITICAL"}, "httpcore": {"level": "CRITICAL"},
+    },
+}
+
+# ERROR TRACKING (apps/core/sentry.py): off unless SENTRY_DSN is set. No PII, bodies, cookies or headers are sent.
+SENTRY_DSN = os.getenv("SENTRY_DSN", "").strip()
+SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", "").strip()
+SENTRY_RELEASE = os.getenv("SENTRY_RELEASE", "").strip()
+try:
+    SENTRY_TRACES_SAMPLE_RATE = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0"))
+except ValueError:
+    SENTRY_TRACES_SAMPLE_RATE = -1.0
+if not 0 <= SENTRY_TRACES_SAMPLE_RATE <= 1:
+    raise ImproperlyConfigured("SENTRY_TRACES_SAMPLE_RATE must be a number from 0 to 1.")
+if SENTRY_DSN:
+    from apps.core.sentry import init_sentry  # noqa: E402
+
+    init_sentry(SENTRY_DSN, environment=SENTRY_ENVIRONMENT, release=SENTRY_RELEASE,
+                traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE)
+
+# ALERT THRESHOLDS for `manage.py check_production_health` (README, Monitoring). USD, like the usage ledgers.
+AI_COST_ALERT_DAILY_USD = decimal_setting("AI_COST_ALERT_DAILY_USD", "20")
+AI_COST_ALERT_HOURLY_USD = decimal_setting("AI_COST_ALERT_HOURLY_USD", "5")
+# Provider failures as a share of AI requests in the last hour, checked only once ALERT_MIN_REQUESTS were made.
+ALERT_ERROR_RATE_PERCENT = _int_setting("ALERT_ERROR_RATE_PERCENT", 20, 1, 100)
+ALERT_MIN_REQUESTS = _int_setting("ALERT_MIN_REQUESTS", 20, 1, 100000)

@@ -10,6 +10,7 @@ from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
 from apps.analytics.models import UsageEvent
 from apps.analytics.services.recording import record_usage_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
+from apps.core.monitoring import DATABASE, log_event, log_failure
 from apps.core.plans import tier_for
 from apps.core.views import home_context
 from apps.learning.services.profile import record_correction_occurrences
@@ -106,7 +107,7 @@ def naturalize(request):
                                 # correction, so the same mistake is never counted twice.
                                 context["learning_hints"] = record_correction_occurrences(request.user, entry)
                         except DatabaseError:
-                            logger.error("learning_profile_unavailable")
+                            log_event(logger, logging.ERROR, "learning_profile_unavailable", DATABASE)
                 except AssistantError as exc:
                     retry_after = exc.retry_after
                     context["error"] = exc.message
@@ -115,15 +116,15 @@ def naturalize(request):
                     usage.update(status=UsageEvent.Status.REJECTED if exc.code in REJECTION_CODES else UsageEvent.Status.FAILED,
                                  error_code=exc.code, kind=operation_for(exc.source_language) or UNCLASSIFIED,
                                  source_language=exc.source_language)
-                    logger.warning("assistant_failed code=%s kind=%s", exc.code, usage["kind"])
+                    log_failure(logger, "assistant_failed", exc.code, kind=usage["kind"])
                     if accepted:
                         try:
                             usage["assistant_request"] = save_failure(request.user, usage["kind"], exc.code,
                                                                       exc.source_language, polite)
                         except DatabaseError:
-                            logger.error("assistant_failure_record_unavailable")
+                            log_event(logger, logging.ERROR, "assistant_failure_record_unavailable", DATABASE)
                 except DatabaseError:
-                    logger.error("assistant_database_unavailable kind=%s", usage["kind"])
+                    log_event(logger, logging.ERROR, "assistant_database_unavailable", DATABASE, kind=usage["kind"])
                     context["error"] = "Nu am putut finaliza cererea. Încearcă din nou mai târziu."
                     status = 503
                     usage.update(status=UsageEvent.Status.FAILED, error_code="database_unavailable")
@@ -150,5 +151,5 @@ def quota_status(actor, tier):
     try:
         return quota.status(actor, tier)
     except DatabaseError:
-        logger.error("naturalize_quota_status_unavailable")
+        log_event(logger, logging.ERROR, "naturalize_quota_status_unavailable", DATABASE)
         return None

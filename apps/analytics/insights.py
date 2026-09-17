@@ -4,6 +4,7 @@ A pure function over aggregates the view has already fetched: it runs no query o
 the report tests assert stay exactly as they were. Nothing is shown unless the data supports it — an empty period
 produces an empty list, and the panel says so rather than inventing a trend.
 """
+from decimal import Decimal
 
 # A failure rate above this is worth acting on; below it, the same figure is reported as healthy.
 FAILURE_ALERT = 0.05
@@ -26,10 +27,30 @@ def _insight(level, icon, title, detail):
     return {"level": level, "icon": icon, "title": title, "detail": detail}
 
 
+# Today's AI spend is flagged from this share of AI_COST_ALERT_DAILY_USD, before the alert itself fires.
+SPEND_WATCH = Decimal("0.8")
+
+
+def spend_insight(spend_today, daily_alert):
+    """Today's AI spend (London day, every ledger, USD) against the alert threshold used by check_production_health."""
+    if spend_today is None or not daily_alert:
+        return None
+    detail = (f"${spend_today:.2f} spent today across text, voice and learning; the alert threshold "
+              f"(AI_COST_ALERT_DAILY_USD) is ${daily_alert:.2f}.")
+    if spend_today > daily_alert:
+        return _insight("alert", "alert", "AI spend today is above the alert threshold", detail)
+    if spend_today >= daily_alert * SPEND_WATCH:
+        return _insight("watch", "coins", "AI spend today is close to the alert threshold", detail)
+    return None
+
+
 def dashboard_insights(*, totals, costs, audio_totals, learning_totals, plan_rows, visitors, signup_rate,
-                       success_rate, plan_conversions):
+                       success_rate, plan_conversions, spend_today=None, daily_alert=None):
     """The notable facts about this period, most actionable first."""
     insights = []
+    spend = spend_insight(spend_today, daily_alert)
+    if spend is not None:
+        insights.append(spend)
     requests = totals.get("requests") or 0
     failures = totals.get("failures") or 0
     rejections = totals.get("rejections") or 0

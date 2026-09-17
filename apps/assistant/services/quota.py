@@ -17,6 +17,7 @@ from django.db.models.functions import Greatest
 from django.utils import timezone
 
 from apps.assistant.models import NaturalizeUsage
+from apps.core.monitoring import DATABASE, log_event
 from apps.core.plans import ANONYMOUS, FREE, PRO
 from apps.core.text import romanian_count
 from .localday import local_day, seconds_until_reset
@@ -99,7 +100,7 @@ def release(reservation):
     try:
         NaturalizeUsage.objects.filter(pk=reservation.usage_id, reserved__gt=0).update(reserved=F("reserved") - 1)
     except DatabaseError:
-        logger.error("naturalize_quota_release_unavailable")
+        log_event(logger, logging.ERROR, "naturalize_quota_release_unavailable", DATABASE)
 
 
 def status(actor, tier, now=None):

@@ -126,6 +126,11 @@ Without the trusted origin, forms and voice requests fail CSRF checks because HT
 | `LEARNING_REUSE_THRESHOLD` | Default 7: while a learner has at least this many (or enough for the session) unused stored exercises for a pattern, no new batch is generated |
 | `LEARNING_BATCH_SIZE` | Default 8 exercises per generation call |
 | `PRO_ENTITLEMENTS_ENFORCED` | `false` by default: every signed-in user gets the learning features. `true` limits the features in `apps/core/entitlements.py:PRO_FEATURES` to the "Pro" group |
+| `LOG_FORMAT`, `LOG_LEVEL` | `json` (one object per line, the default with `DJANGO_DEBUG=false`) or `text` (the default locally); level `INFO`. See [Monitoring](#monitoring) |
+| `SENTRY_DSN` | Optional error tracking; empty (the default) leaves Sentry off. Nothing personal is sent (see [Monitoring](#monitoring)) |
+| `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE` | Sentry labels, and the share of requests traced for performance, 0–1, default `0` |
+| `AI_COST_ALERT_DAILY_USD`, `AI_COST_ALERT_HOURLY_USD` | `check_production_health` alerts when AI spend (text, voice and learning, USD) passes these: default 20 per London day and 5 in the last hour. The dashboard warns from 80 % of the daily figure |
+| `ALERT_ERROR_RATE_PERCENT`, `ALERT_MIN_REQUESTS` | Alert when provider failures reach this share of AI requests in the last hour (default 20 %), once at least this many requests were made (default 20) |
 
 An actor is a signed-in user or an HMAC (keyed with `DJANGO_SECRET_KEY`) of an anonymous visitor's IP address; an IPv6 visitor counts as its /64 network, because one connection usually controls a whole /64. The raw address is never stored. Forwarding headers are read only from the proxies in `TRUSTED_PROXY_CIDRS`, and only the one named by `CLIENT_IP_HEADER` (`apps/core/client_ip.py`); behind an unconfigured proxy all anonymous visitors would share the proxy's quota, see [Deployment behind a proxy](#deployment-behind-a-proxy). This rate-limiting identity is separate from the analytics visitor ID described below. Voice calls count in their own namespaced counters (`voice-stt:` and `voice-tts:`), so they never use up the plan quota. Opening a live transcription session counts as one speech-to-text call, the same as uploading a finished recording, so opening and closing connections cannot bypass the limit.
 
@@ -568,7 +573,35 @@ python manage.py check --deploy
 waitress-serve --listen=127.0.0.1:8000 config.wsgi:application
 ```
 
-WhiteNoise serves versioned compressed assets. Configure TLS at a trusted reverse proxy and ensure the WSGI URL scheme is correct (for Waitress, use its trusted-proxy settings, scoped to your proxy). Do not indiscriminately trust `X-Forwarded-Proto`. Match proxy request timeouts to the AI timeout (at least 60 seconds by default; every submission makes at most one provider call) and allow request bodies of at least `VOICE_MAX_BYTES` for `/assistant/transcribe/`. Live transcription audio travels over WebRTC directly between the browser and OpenAI, not through the proxy; if you add a Content-Security-Policy, allow `connect-src https://api.openai.com`. Run `cleanup_assistant` daily so abandoned live sessions are accounted for. `VOICE_REALTIME_ENABLED=false` (then restart) switches every browser to finished-recording transcription. Database backup/restore, HTTPS, secret rotation, scheduled cleanup and infrastructure monitoring are deployment responsibilities. Monitor 429/503 counts and sanitised `apps.assistant` and `apps.analytics` log codes; do not enable verbose OpenAI/HTTP logging in production. Keep `OPENAI_PRICING` and `OPENAI_AUDIO_PRICING` in step with the provider's published prices. Restrict staff status to people who may see usage and cost data.
+WhiteNoise serves versioned compressed assets. Configure TLS at a trusted reverse proxy and ensure the WSGI URL scheme is correct (for Waitress, use its trusted-proxy settings, scoped to your proxy). Do not indiscriminately trust `X-Forwarded-Proto`. Match proxy request timeouts to the AI timeout (at least 60 seconds by default; every submission makes at most one provider call) and allow request bodies of at least `VOICE_MAX_BYTES` for `/assistant/transcribe/`. Live transcription audio travels over WebRTC directly between the browser and OpenAI, not through the proxy; if you add a Content-Security-Policy, allow `connect-src https://api.openai.com`. Run `cleanup_assistant` daily so abandoned live sessions are accounted for. `VOICE_REALTIME_ENABLED=false` (then restart) switches every browser to finished-recording transcription. Database backup/restore, HTTPS, secret rotation, scheduled cleanup and infrastructure monitoring are deployment responsibilities. See [Monitoring](#monitoring) for health checks, logs, alerts and error tracking; do not enable verbose OpenAI/HTTP logging in production. Keep `OPENAI_PRICING` and `OPENAI_AUDIO_PRICING` in step with the provider's published prices. Restrict staff status to people who may see usage and cost data.
+
+### Monitoring
+
+Nothing here depends on one vendor: health checks are plain HTTP, logs go to standard output, alerts are a command's exit code, and Sentry is optional.
+
+| What | How it is detected |
+| --- | --- |
+| Site down | An uptime monitor (the host's, UptimeRobot, Better Stack…) polls `GET /healthz` (process alive, no database access) every minute |
+| PostgreSQL down | `GET /readyz` returns 503 `{"status": "unavailable", "checks": {"database": "error"}}`; use it for the load balancer's readiness check and a second uptime check. Errors are logged with `category=database` |
+| Django errors / HTTP 500 | `django.request` logs each 500 with its stack (JSON field `exc_type`, never the exception message); with `SENTRY_DSN`, Sentry groups them and alerts |
+| OpenAI unavailable | Every failed call is logged as `assistant_failed` / `voice_failed` / `learning_ai_failed` with `category=provider` and a fixed code; `check_production_health` alerts when provider failures pass `ALERT_ERROR_RATE_PERCENT` in the last hour |
+| Quota or rate-limit pressure | Refusals are logged at INFO with `category=quota`; the staff dashboard shows quota hit rates per plan |
+| Unusual AI cost | `check_production_health` compares today's and the last hour's spend from the three usage ledgers with `AI_COST_ALERT_DAILY_USD` / `AI_COST_ALERT_HOURLY_USD`, and flags calls without a price; the staff dashboard shows the same warning |
+
+Health endpoints are exempt from the HTTPS redirect so the host can check them over plain HTTP; the request's `Host` must still be in `DJANGO_ALLOWED_HOSTS`. They return only `ok`/`error`.
+
+**Logs.** With `LOG_FORMAT=json` every line is one JSON object: `time`, `level`, `logger`, `message`, `event`, `category` (`application`, `database`, `provider`, `quota`, `guardrail`), `request_id` (also returned to the browser as `X-Request-ID`, so a user's report can be matched to a log line), `method`, `path` (never the query string) and, for 4xx/5xx, `status`. Logs never contain submitted text, corrections, transcripts, audio, prompts, provider payloads, API keys, passwords, emails or IP addresses; exception messages are left out because database and provider errors can quote submitted values. Ship standard output to the host's log service and alert on `level=ERROR`.
+
+**Alerts.** `python manage.py check_production_health` prints one JSON line and exits 1 when the database is unreachable, spend passes a threshold, provider failures pass the error rate, or calls have no price; it also logs `monitoring_alert` at ERROR (so Sentry, when enabled, sends an alert). Run it from cron or the host's scheduler:
+
+```sh
+# Every 15 minutes; cron emails the JSON line only when there is a problem (MAILTO=ops@example.com).
+*/15 * * * * cd /srv/corect && .venv/bin/python manage.py check_production_health --quiet
+# Or forward alerts to a webhook (Slack, Discord, a pager):
+*/15 * * * * cd /srv/corect && .venv/bin/python manage.py check_production_health --quiet > /tmp/corect-health.json || curl -fsS -X POST -H 'Content-Type: application/json' --data @/tmp/corect-health.json "$ALERT_WEBHOOK_URL"
+```
+
+**Sentry.** Set `SENTRY_DSN` (and optionally `SENTRY_ENVIRONMENT=production`, `SENTRY_RELEASE=<git sha>`) and restart. Unhandled exceptions and ERROR logs become events tagged with their `category`. Personal data is not sent: no default PII, no request bodies, cookies, headers or query strings, no local variables, no breadcrumbs, no exception messages, and the user is reduced to its numeric ID. Without a DSN the SDK is never initialised.
 
 ### Deployment behind a proxy
 

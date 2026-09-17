@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.analytics.models import AnonymousVisitor
 from apps.core.consent import analytics_allowed
+from apps.core.monitoring import DATABASE, log_event
 
 VISITOR_COOKIE = "corect_visitor_id"
 VISITOR_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
@@ -30,7 +31,7 @@ def existing_visitor(request):
     try:
         return AnonymousVisitor.objects.filter(pk=visitor_id).first()
     except DatabaseError:
-        logger.error("visitor_lookup_unavailable")
+        log_event(logger, logging.ERROR, "visitor_lookup_unavailable", DATABASE)
         return None
 
 
@@ -47,7 +48,7 @@ def get_or_create_visitor(request):
             return visitor
         return AnonymousVisitor.objects.create(first_seen_at=now, last_seen_at=now)
     except DatabaseError:
-        logger.error("visitor_lookup_unavailable")
+        log_event(logger, logging.ERROR, "visitor_lookup_unavailable", DATABASE)
         return None
 
 
@@ -73,5 +74,5 @@ def link_visitor(request, user, via):
         return AnonymousVisitor.objects.filter(pk=visitor_id, converted_user__isnull=True).update(
             converted_user=user, converted_at=timezone.now(), converted_via=via)
     except DatabaseError:
-        logger.error("visitor_link_unavailable")
+        log_event(logger, logging.ERROR, "visitor_link_unavailable", DATABASE)
         return 0

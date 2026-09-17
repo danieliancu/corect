@@ -9,6 +9,7 @@ from apps.analytics.models import AudioUsageEvent, LearningUsageEvent, UsageEven
 from apps.assistant.services.pricing import estimate_cost, estimate_speech_cost, estimate_transcription_cost
 from apps.assistant.services.prompts import POLITE_PROMPT_VERSION, PROMPT_VERSION
 from apps.assistant.services.timing import bounded_ms
+from apps.core.monitoring import DATABASE, log_event
 from apps.core.plans import ANONYMOUS, tier_for
 
 logger = logging.getLogger("apps.analytics")
@@ -52,7 +53,7 @@ def record_usage_event(*, request, kind, status, calls=(), error_code="", visito
             provider_duration_ms=bounded_ms(_total([getattr(call, "duration_ms", None) for call in calls])),
             moderation_duration_ms=bounded_ms(moderation_ms), **tokens)
     except DatabaseError:
-        logger.error("usage_event_unavailable")
+        log_event(logger, logging.ERROR, "usage_event_unavailable", DATABASE)
         return None
 
 
@@ -68,7 +69,7 @@ def record_learning_event(*, user, feature, status, calls=(), error_code="", pro
             prompt_version=prompt_version[:40], status=status, error_code=error_code[:40], provider_calls=len(calls),
             estimated_cost=cost, **tokens)
     except DatabaseError:
-        logger.error("learning_usage_event_unavailable")
+        log_event(logger, logging.ERROR, "learning_usage_event_unavailable", DATABASE)
         return None
 
 
@@ -122,5 +123,5 @@ def record_audio_event(*, operation, status, request=None, user=None, audience="
             audio_seconds=seconds, metering_source=metering_source, estimated_cost=cost, provider_duration_ms=provider_ms,
             **_voice_timings(timings), **tokens)
     except DatabaseError:
-        logger.error("audio_usage_event_unavailable")
+        log_event(logger, logging.ERROR, "audio_usage_event_unavailable", DATABASE)
         return None

@@ -17,6 +17,7 @@ from apps.analytics.models import AudioUsageEvent
 from apps.analytics.services.recording import record_audio_event
 from apps.analytics.services.visitors import attach_visitor_cookie, existing_visitor, get_or_create_visitor
 from apps.accounts.suspension import SUSPENDED_MESSAGE, is_suspended
+from apps.core.monitoring import DATABASE, log_event, log_failure
 from apps.core.plans import tier_for
 from .services.limits import actor_key, claim_voice
 from .services.openai_client import AssistantError
@@ -85,12 +86,12 @@ def claim_or_reject(request, operation, visitor, **event):
     except AssistantError as exc:
         record_audio_event(request=request, operation=operation, status=Status.REJECTED, error_code=exc.code,
                            visitor=visitor, plan=tier, **event)
-        logger.warning("voice_failed code=%s operation=%s", exc.code, operation)
+        log_failure(logger, "voice_failed", exc.code, operation=operation)
         error = VoiceError(exc.code, exc.message, 429)
         error.retry_after = exc.retry_after
         return error_response(error)
     except DatabaseError:
-        logger.error("voice_database_unavailable operation=%s", operation)
+        log_event(logger, logging.ERROR, "voice_database_unavailable", DATABASE, operation=operation)
         return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
     return None
 
@@ -126,13 +127,13 @@ def _start_realtime_session(request):
     except VoiceError as exc:
         record_audio_event(request=request, operation=Operation.TRANSCRIPTION, status=Status.FAILED, error_code=exc.code,
                            visitor=visitor, provider_called=exc.code != "voice_not_configured", **live)
-        logger.warning("voice_failed code=%s operation=realtime", exc.code)
+        log_failure(logger, "voice_failed", exc.code, operation="realtime")
         return finish(request, error_response(exc), visitor)
     try:
         with timed("db"):
             session = start_session(request, visitor)
     except DatabaseError:
-        logger.error("voice_database_unavailable operation=realtime")
+        log_event(logger, logging.ERROR, "voice_database_unavailable", DATABASE, operation="realtime")
         return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
     return finish(request, JsonResponse({"client_secret": secret, "expires_at": expires_at, "session": session,
                                          "calls_url": REALTIME_CALLS_URL, "max_seconds": settings.VOICE_MAX_SECONDS}),
@@ -151,13 +152,13 @@ def finish_realtime_transcription(request):
             raise VoiceError("realtime_session_invalid", VOICE_UNAVAILABLE, 400)
         session_id = read_session_token(request.POST.get("session", ""))
     except VoiceError as exc:
-        logger.warning("voice_failed code=%s operation=realtime", exc.code)
+        log_failure(logger, "voice_failed", exc.code, operation="realtime")
         return error_response(exc)
     try:
         finish_session(session_id, outcome=outcome, reported_seconds=parse_seconds(request.POST.get("provider_seconds")),
                        timings=parse_timings(request.POST))
     except DatabaseError:
-        logger.error("voice_database_unavailable operation=realtime")
+        log_event(logger, logging.ERROR, "voice_database_unavailable", DATABASE, operation="realtime")
         return error_response(VoiceError("voice_unavailable", VOICE_UNAVAILABLE))
     return JsonResponse({"finished": True})
 
@@ -185,12 +186,12 @@ def _transcribe(request):
     else:
         error = None
     if error:
-        logger.warning("voice_failed code=%s operation=transcription", error.code)
+        log_failure(logger, "voice_failed", error.code, operation="transcription")
         return error_response(error)
     data = upload.read()
     audio_format = sniff_audio(data[:16])
     if audio_format is None or not declared_type_matches(audio_format, upload.content_type or ""):
-        logger.warning("voice_failed code=unsupported_audio operation=transcription")
+        log_failure(logger, "voice_failed", "unsupported_audio", operation="transcription")
         return error_response(VoiceError("unsupported_audio", "Formatul înregistrării nu este acceptat în acest browser.", 415))
     visitor = resolve_visitor(request)
     rejected = claim_or_reject(request, Operation.TRANSCRIPTION, visitor)
@@ -201,7 +202,7 @@ def _transcribe(request):
     except VoiceError as exc:
         record_audio_event(request=request, operation=Operation.TRANSCRIPTION, status=Status.FAILED, error_code=exc.code,
                            usage=exc.usage, visitor=visitor, provider_called=exc.code != "voice_not_configured")
-        logger.warning("voice_failed code=%s operation=transcription", exc.code)
+        log_failure(logger, "voice_failed", exc.code, operation="transcription")
         return finish(request, error_response(exc), visitor)
     finally:
         del data
@@ -224,7 +225,7 @@ def speak(request):
             raise VoiceError("speech_token_invalid", SPEECH_UNAVAILABLE, 400)
         text, target, usage_event_id = read_speech_token(token)
     except VoiceError as exc:
-        logger.warning("voice_failed code=%s operation=speech", exc.code)
+        log_failure(logger, "voice_failed", exc.code, operation="speech")
         return error_response(exc)
     visitor = resolve_visitor(request)
     event = {"speech_target": target, "usage_event_id": usage_event_id}
@@ -236,7 +237,7 @@ def speak(request):
     except VoiceError as exc:
         record_audio_event(request=request, operation=Operation.SPEECH, status=Status.FAILED, error_code=exc.code,
                            usage=exc.usage, visitor=visitor, provider_called=exc.code != "voice_not_configured", **event)
-        logger.warning("voice_failed code=%s operation=speech", exc.code)
+        log_failure(logger, "voice_failed", exc.code, operation="speech")
         return finish(request, error_response(exc), visitor)
     record_audio_event(request=request, operation=Operation.SPEECH, status=Status.SUCCESS, usage=usage, visitor=visitor,
                        provider_called=True, **event)
