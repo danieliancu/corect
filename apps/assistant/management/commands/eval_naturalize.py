@@ -82,6 +82,7 @@ class Command(BaseCommand):
         write(f"routing accuracy {summary['routing_accuracy']} {summary['routing_confusion']}")
         write(f"errors: precision {summary['error_precision']} · recall {summary['error_recall']} · "
               f"false-error rate {summary['false_error_rate']} · paraphrase rate {summary['paraphrase_rate']}")
+        write(f"invented meaning in {summary['invention_failures']} cases")
         write(f"provider calls {summary['provider_calls']} · error codes {summary['error_codes']}")
         write(f"latency ms {summary['latency_ms']}")
         write(f"provider ms {summary['provider_ms']}")

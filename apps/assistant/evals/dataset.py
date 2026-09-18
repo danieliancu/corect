@@ -9,7 +9,8 @@ from apps.assistant.languages import CORRECTION, TRANSLATION, UNSUPPORTED, sourc
 
 DEFAULT_CASES = Path(__file__).with_name("naturalize_cases.jsonl")
 GROUPS = ("en_romanian_transfer", "en_contexts", "en_tense_time", "en_punctuation_only", "en_already_natural",
-          "en_correct_unnatural", "en_american", "en_mixed_ro_words", "ro_to_en", "unsupported", "long", "polite")
+          "en_correct_unnatural", "en_american", "en_mixed_ro_words", "ro_to_en", "ro_intent_first", "unsupported", "long",
+          "polite")
 
 
 class Strict(BaseModel):
@@ -27,7 +28,8 @@ class Expectation(Strict):
     natural: Literal["required", "forbidden", "any"] = "any"
     corrected_includes_any: list[list[str]] = Field(default_factory=list)  # English corrected text only.
     output_includes_any: list[list[str]] = Field(default_factory=list)  # Corrected or natural text / British English.
-    output_excludes: list[str] = Field(default_factory=list)
+    output_excludes: list[str] = Field(default_factory=list)  # Wrong or literal (Romanian-shaped) wording.
+    must_not_invent: list[str] = Field(default_factory=list)  # Meaning the input does not state or imply.
     categories_any: list[str] = Field(default_factory=list)
     min_corrections: int | None = None
     max_corrections: int | None = None

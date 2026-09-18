@@ -1,8 +1,10 @@
 """NaturalizeService: English is corrected (and made natural only when that adds something), Romanian goes straight to
 British English, and every request makes exactly one generative call."""
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
+from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from openai import APIConnectionError, APITimeoutError
 from pydantic import ValidationError
@@ -12,7 +14,8 @@ from apps.assistant.schemas import CorrectionResult, NaturalizeResult, Translati
 from apps.assistant.services.naturalize import (POLITE_PROMPT_CACHE_KEY, PROMPT_CACHE_KEY, NaturalizeService,
                                                 output_token_budget)
 from apps.assistant.services.openai_client import AssistantError
-from apps.assistant.services.prompts import NATURALIZE_POLITE_PROMPT, NATURALIZE_PROMPT, POLITE_PROMPT_VERSION
+from apps.assistant.services.prompts import (LANGUAGE_RULES, NATURALIZE_POLITE_PROMPT, NATURALIZE_PROMPT,
+                                            POLITE_PROMPT_VERSION, POLITE_RULES, PROMPT_VERSION)
 from apps.learning.taxonomy import derive_pattern
 from .examples import CORRECTION_CASES, ROMANIAN_CASES, english_raw, romanian_raw
 from .provider import ProviderMock, moderation
@@ -23,6 +26,10 @@ def correction(original, replacement, category="verb_form", severity="minor", ex
     return dict(original=original, replacement=replacement, category=category,
                 pattern=derive_pattern(category, original, replacement), severity=severity, explanation_ro=explanation,
                 is_british_english_preference=preference)
+
+
+def flat(text):
+    return " ".join(text.split())
 
 
 def raw(**fields):
@@ -271,3 +278,74 @@ class SingleGenerativeCallTests(ProviderMock, SimpleTestCase):
                 self.assertEqual(self.api.moderations.create.call_count, 1)  # Independent, alongside the model call.
                 # No language-detection or other generative call happens first: these are the only provider calls.
                 self.assertEqual({name for name, _, _ in self.api.method_calls}, {"responses.parse", "moderations.create"})
+
+
+class PoliteRomanianTests(ProviderMock, SimpleTestCase):
+    def test_polite_romanian_is_one_call_with_the_polite_prompt_and_stays_a_translation(self):
+        text = "Mă duci și pe mine acasă?"
+        self.respond(raw(source_language="ro", has_errors=True, corrected_text="Mă duci acasă?",
+                         corrections=[correction("duci", "duci")], natural_text="Would you mind giving me a lift home?",
+                         natural_explanation="Sună politicos."))
+        outcome = NaturalizeService().naturalize(text, polite=True)
+        self.api.responses.parse.assert_called_once()
+        kwargs = self.api.responses.parse.call_args.kwargs
+        self.assertEqual(kwargs["input"], [{"role": "system", "content": NATURALIZE_POLITE_PROMPT},
+                                           {"role": "user", "content": text}])
+        self.assertEqual(kwargs["prompt_cache_key"], POLITE_PROMPT_CACHE_KEY)
+        self.assertEqual((outcome.operation, outcome.source_language, outcome.polite), ("translation", "ro", True))
+        self.assertIsInstance(outcome.result, TranslationResult)  # No grammar corrections for Romanian.
+        self.assertEqual(outcome.result.translated_text, "Would you mind giving me a lift home?")
+
+
+class PromptContractTests(SimpleTestCase):
+    """The prompt text is checked for its contract only; live language quality is measured by eval_naturalize."""
+
+    def test_version_and_cache_keys_move_together(self):
+        self.assertEqual(PROMPT_VERSION, "2026-09-v8-naturalize")
+        self.assertEqual(POLITE_PROMPT_VERSION, f"{PROMPT_VERSION}+polite")
+        self.assertEqual(PROMPT_CACHE_KEY, f"corect:naturalize:{PROMPT_VERSION}")
+        self.assertEqual(POLITE_PROMPT_CACHE_KEY, f"corect:naturalize-polite:{PROMPT_VERSION}")
+
+    def test_romanian_rules_are_intent_first_faithful_and_register_aware(self):
+        rules = flat(LANGUAGE_RULES["ro"])
+        self.assertIn("TRANSLATE THE INTENT, NOT THE WORDS.", rules)
+        self.assertIn("A grammatical literal translation is NOT good enough", rules)
+        self.assertIn("You may reorder, change the construction, split or combine sentences", rules)
+        self.assertIn("never invent a situation to reach an idiom", rules)
+        self.assertIn("Natural is not extra polite: a plain direct request stays direct.", rules)
+        self.assertIn("contemporary British English", rules)
+        self.assertIn("Romanian without diacritics", rules)
+        self.assertIn("corrected_text empty, has_errors false, corrections empty", rules)
+        # Ordered: intent, then British wording, then the limits of fidelity, then register.
+        steps = [rules.index(marker) for marker in ("1. Intent", "2. British wording", "3. Fidelity", "4. Register")]
+        self.assertEqual(steps, sorted(steps))
+        # The original problem sentence and its counterexample are both taught.
+        self.assertIn("Vrei să mergi cu mine cu mașina diseară, la 5? => Would you like a lift at five this evening?",
+                      rules)
+        self.assertIn("Vrei să vii cu mine diseară la 5? => Do you want to come with me", rules)
+
+    def test_english_rules_keep_minimal_correction(self):
+        rules = flat(LANGUAGE_RULES["en"])
+        self.assertIn("correct English MUST remain unchanged in corrected_text", rules)
+        self.assertIn("natural_text MUST be an empty string when corrected_text already sounds natural", rules)
+        self.assertNotIn("TRANSLATE THE INTENT", rules)
+
+    def test_polite_rules_build_on_intent_first_romanian(self):
+        self.assertEqual(NATURALIZE_POLITE_PROMPT, NATURALIZE_PROMPT + POLITE_RULES)
+        self.assertLess(NATURALIZE_POLITE_PROMPT.index("TRANSLATE THE INTENT"),
+                        NATURALIZE_POLITE_PROMPT.index("## Mod Politicos is ON"))
+        self.assertIn("For ro: first follow the Romanian rules above (intent first", flat(POLITE_RULES))
+        self.assertIn("never fall back to a literal translation", flat(POLITE_RULES))
+        self.assertIn("Trimite-mi adresa. => Send me the address.", NATURALIZE_PROMPT)  # Normal mode stays direct.
+        self.assertIn("Trimite-mi adresa. => Could you send me the address, please?", POLITE_RULES)
+
+    def test_runtime_code_has_no_phrase_substitution(self):
+        """Idioms come from the model reading the context, never from Python rules keyed on Romanian words."""
+        offenders = []
+        for path in (Path(settings.BASE_DIR) / "apps" / "assistant").rglob("*.py"):
+            if {"tests", "evals", "migrations"} & set(path.parts) or path.name == "prompts.py":
+                continue
+            source = path.read_text(encoding="utf-8").lower()
+            if any(word in source for word in ("mașin", "masin", "lift", "pick up", "pop round")):
+                offenders.append(path.name)
+        self.assertEqual(offenders, [])

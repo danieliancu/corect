@@ -4,7 +4,7 @@ from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
 from apps.assistant.evals.dataset import EvalCase
-from apps.assistant.evals.scoring import normalise, score_case, summarise
+from apps.assistant.evals.scoring import contains, normalise, score_case, summarise
 from apps.assistant.services.naturalize import Naturalized
 from apps.assistant.services.openai_client import AssistantError
 from apps.assistant.services.usage import ProviderUsage
@@ -61,8 +61,29 @@ class ScoringTests(SimpleTestCase):
         self.assertEqual(score_case(case(), error=error).failures, ["error language"])
         self.assertFalse(score_case(case(group="unsupported", error_code="language"), self.english()).passed)
 
+    def test_invented_meaning_is_reported_apart_from_literal_wording(self):
+        def romanian(text):
+            return Naturalized("translation", "ro", translation_result().model_copy(update={"translated_text": text}))
+
+        expect = dict(group="ro_intent_first", source_language="ro", operation="translation",
+                      output_includes_any=[["come"]], output_excludes=["come with me in"], must_not_invent=["lift", "car"])
+        good = score_case(case(**expect), romanian("Do you want to come with me at five this evening?"))
+        self.assertTrue(good.passed, good.failures)
+        invented = score_case(case(**expect), romanian("Do you want to come? I can give you a lift in my car."))
+        self.assertEqual(invented.failures, ["invented 'lift'", "invented 'car'"])
+        literal = score_case(case(**expect), romanian("Do you want to come with me in the evening?"))
+        self.assertEqual(literal.failures, ["output keeps 'come with me in'"])
+        summary = summarise([{"case": case(**expect), "score": score, "duration_ms": 900, "calls": [], "budget": 3000}
+                             for score in (good, invented, literal)])
+        self.assertEqual(summary["invention_failures"], 1)
+        self.assertEqual(summary["failure_reasons"], {"invented": 2, "output": 1})
+
     def test_normalisation_ignores_case_punctuation_and_apostrophe_style(self):
         self.assertEqual(normalise("  I’M   Here, OK!\n"), "i'm here ok")
+        self.assertTrue(contains(normalise("Come with me to the doctor’s."), "doctor"))  # Possessive 's.
+        self.assertTrue(contains(normalise("The report's due."), "the report"))
+        self.assertFalse(contains(normalise("I'm carrying it."), "car"))  # Still whole words only.
+        self.assertFalse(contains(normalise("The doctors are busy."), "doctor"))
 
     def test_summary_metrics(self):
         rows = []

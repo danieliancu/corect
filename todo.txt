@@ -28,9 +28,9 @@
 | British English                     |                 ✅ 100% | Prompt dedicat                                                        |
 | Natural version                     |                 ✅ 100% | Inclusiv propoziții corecte dar nenaturale                            |
 | Silent punctuation/capitalisation   |                 ✅ 100% | Nu sunt raportate ca greșeli                                          |
-| RO → engleză britanică naturală     |                 ✅ 100% | Direct, fără al doilea apel                                           |
+| RO → engleză britanică naturală     |                 ✅ 100% | Intenția, nu cuvintele (prompt v8); fără al doilea apel               |
 | EN → RO                             |              ⚪ Retras | Istoricul vechi rămâne vizibil                                        |
-| Eval calitate limbă (live)          |                 ✅ 100% | 236 cazuri, `eval_naturalize --live`                                  |
+| Eval calitate limbă (live)          |                 ✅ 100% | 303 cazuri (48 `ro_intent_first`), `eval_naturalize --live`           |
 | Măsurare latență                    |                 ✅ 100% | Server-Timing, ledger, `latency_report`, benchmark text/voce         |
 | OpenAI text                         |                 ✅ 100% | `gpt-5.6-luna`, verificat live                                        |
 | Structured Outputs                  |                 ✅ 100% | Pydantic                                                              |

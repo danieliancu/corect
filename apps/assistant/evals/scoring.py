@@ -16,8 +16,9 @@ def normalise(text: str) -> str:
 
 
 def contains(haystack: str, needle: str) -> bool:
-    """Whole-word containment after normalisation."""
-    return f" {normalise(needle)} " in f" {haystack} "
+    """Whole-word containment after normalisation; the last word may also carry 's (the doctor's, the report's)."""
+    needle, haystack = normalise(needle), f" {haystack} "
+    return f" {needle} " in haystack or f" {needle}'s " in haystack
 
 
 @dataclass
@@ -79,6 +80,9 @@ def score_case(case, outcome=None, error=None) -> CaseScore:
     for phrase in expect.output_excludes:
         if any(contains(text, phrase) for text in outputs):
             failures.append(f"output keeps {phrase!r}")
+    for phrase in expect.must_not_invent:
+        if any(contains(text, phrase) for text in outputs):
+            failures.append(f"invented {phrase!r}")
     score.passed = not failures
     return score
 
@@ -116,6 +120,7 @@ def summarise(rows) -> dict:
         "false_error_rate": round(sum(bool(score.has_errors) for score in false_error_pool) / len(false_error_pool), 3)
                             if false_error_pool else None,
         "paraphrase_rate": round(sum(bool(score.natural_given) for score in forbidden) / len(forbidden), 3) if forbidden else None,
+        "invention_failures": sum(any(failure.startswith("invented ") for failure in score.failures) for score in scores),
         "error_codes": dict(Counter(score.error_code for score in scores if score.error_code)),
         "failure_reasons": dict(reasons),
         "provider_calls": len(calls),
