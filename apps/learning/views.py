@@ -29,12 +29,13 @@ from .services.guardrails import BUDGET_EXHAUSTED, LIMIT_CODES, QUOTA_EXHAUSTED,
 from .services.insights import activity_days, change_cards, insight_cards, learning_overview
 from .services.priorities import ranked_patterns
 from .services.profile import refresh_if_stale
+from .services.report import session_report
 from .taxonomy import PATTERNS, pattern_label
 
 HISTORY_DAYS_PER_PAGE = 7
 Kind = PracticeSession.Kind
 INSTRUCTIONS = {"multiple_choice": "Alege varianta corectă.", "choose_phrase": "Alege expresia potrivită.",
-                "fill_blank": "Completează spațiul liber.", "rewrite": "Rescrie propoziția.",
+                "fill_blank": "Completează spațiul liber cu cuvântul sau expresia potrivită.", "rewrite": "Rescrie propoziția.",
                 "short_correction": "Corectează propoziția."}
 GENERATION_FAILED = "Nu am putut pregăti exerciții noi acum. Încearcă din nou în câteva minute."
 NO_EXERCISES = "Încă nu avem exerciții pentru tine. Scrie câteva texte în engleză și revino."
@@ -111,12 +112,9 @@ def practice_session(request, pk):
     if session.completed_at or session.position >= total:
         if not session.completed_at:
             complete_session(session)
-        results = session.attempts.filter(is_correct__isnull=False).values("pattern_key").annotate(
-            correct=Count("id", filter=Q(is_correct=True)), total=Count("id")).order_by("pattern_key")
         return render(request, "learning/session.html", {
             "learning_section": "practice", "session": session, "finished": True, "title": session_title(session),
-            "answered": sum(row["total"] for row in results),
-            "by_pattern": [{**row, "label": pattern_label(row["pattern_key"])} for row in results if row["pattern_key"]]})
+            "report": session_report(session)})
     exercise = get_object_or_404(Exercise.objects.filter(Q(user=request.user) | Q(user__isnull=True)),
                                  pk=session.exercise_ids[session.position])
     target = session.exercise_patterns[session.position] if session.position < len(session.exercise_patterns) \
@@ -125,7 +123,9 @@ def practice_session(request, pk):
     context = {"learning_section": "practice", "session": session, "exercise": exercise, "title": session_title(session),
                "number": session.position + 1, "total": total, "percent": round(100 * session.position / total),
                "is_last": session.position + 1 >= total, "is_choice": exercise.exercise_type in CHOICE_TYPES,
-               "instruction": INSTRUCTIONS.get(exercise.exercise_type, ""), "pattern_label": pattern_label(target)}
+               "instruction": INSTRUCTIONS.get(exercise.exercise_type, ""), "pattern_label": pattern_label(target),
+               "blank": exercise.question.split("___", 1) if exercise.exercise_type == Exercise.Type.FILL_BLANK
+               and "___" in exercise.question else None}
     if request.method == "POST":
         if request.POST.get("action") == "next":
             session.position += 1

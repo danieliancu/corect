@@ -3,7 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-ExerciseType = Literal["multiple_choice", "fill_blank", "choose_phrase", "rewrite", "short_correction"]
+# Practice never asks for a whole sentence: the learner picks an option or fills one short blank.
+ExerciseType = Literal["multiple_choice", "fill_blank", "choose_phrase"]
 
 
 class StrictModel(BaseModel):

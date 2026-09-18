@@ -23,6 +23,9 @@ from .prompts import (OPEN_ANSWER_PROMPT, OPEN_ANSWER_PROMPT_VERSION, PERSONALIS
 Type = Exercise.Type
 GradedBy = ExerciseAttempt.GradedBy
 CHOICE_TYPES = {Type.MULTIPLE_CHOICE, Type.CHOOSE_PHRASE}
+# What sessions use: options or one short blank, never a whole sentence to write (rewrite, short_correction).
+PRACTICE_TYPES = CHOICE_TYPES | {Type.FILL_BLANK}
+FILL_BLANK_MAX_WORDS = 5
 EDITORIAL_PATTERNS = {"verb_form": "base_form_after_did", "verb_tense": "present_perfect_duration", "article": "a_vs_an",
                       "preposition": "dependent_preposition", "conditional": "second_conditional_form",
                       "collocation": "take_vs_make", "romanian_transfer": "age_with_be",
@@ -49,7 +52,8 @@ def rested_ids(user, now):
 def suitable_pool(user, pattern_key, now=None):
     """The learner's stored exercises for a pattern that are not retired or answered in the last days."""
     now = now or timezone.now()
-    return (Exercise.objects.filter(user=user, pattern_key=pattern_key, retired_at__isnull=True)
+    return (Exercise.objects.filter(user=user, pattern_key=pattern_key, retired_at__isnull=True,
+                                    exercise_type__in=PRACTICE_TYPES)
             .exclude(pk__in=rested_ids(user, now)).order_by("times_shown", "generated_at", "pk"))
 
 
@@ -59,7 +63,8 @@ def editorial_pool(user, pattern_key, now=None):
     seed_editorial()
     category = pattern_category(pattern_key)
     keys = [key for key in PATTERNS if pattern_category(key) == category]
-    items = Exercise.objects.filter(source=Exercise.Source.EDITORIAL, pattern_key__in=keys).exclude(pk__in=rested_ids(user, now))
+    items = Exercise.objects.filter(source=Exercise.Source.EDITORIAL, pattern_key__in=keys,
+                                    exercise_type__in=PRACTICE_TYPES).exclude(pk__in=rested_ids(user, now))
     return sorted(items, key=lambda item: (item.pattern_key != pattern_key, item.pk))
 
 
@@ -101,11 +106,14 @@ def clean_batch(batch):
     for item in batch.exercises:
         options = [option.strip() for option in item.options if option.strip()]
         answer = item.correct_answer.strip()
+        if item.exercise_type not in PRACTICE_TYPES:
+            continue
         if item.exercise_type in CHOICE_TYPES:
             if not 2 <= len(options) <= 4 or len({option.lower() for option in options}) != len(options) or answer not in options:
                 continue
         else:
-            if item.exercise_type == Type.FILL_BLANK and "___" not in item.question:
+            # One short blank: a whole sentence to type is not what practice asks for.
+            if item.question.count("___") != 1 or len(answer.split()) > FILL_BLANK_MAX_WORDS:
                 continue
             options = []
         usable.append((item, options, answer))

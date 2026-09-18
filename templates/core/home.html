@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% load static %}
 {% block body_class %}home-page{% endblock %}
-{% block styles %}{% include 'core/partials/hand_font.html' %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}"><link rel="stylesheet" href="{% static 'css/home.css' %}{{ asset_query }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}"><link rel="stylesheet" href="{% static 'css/home.css' %}{{ asset_query }}">{% endblock %}
 {% block scripts %}<script src="{% static 'js/assistant.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/example-prompts.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/transcript-state.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/voice.js' %}{{ asset_query }}" defer></script>{% endblock %}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
@@ -20,7 +20,6 @@
       <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/users.html' %}</span><span><strong>Pentru tine</strong><small>Natural și autentic</small></span></li>
     </ul>
   </div>
-  <p class="hand-note hero-hand" lang="en" aria-hidden="true">Better<br> English<br> A brighter you</p>
 </section>
 <div class="workspace">
   <section class="editor-card" aria-labelledby="editor-label">
@@ -50,7 +49,7 @@
 <div class="home-more">
   <a class="features-teaser" href="{% url 'about' %}"><span class="teaser-icon" aria-hidden="true">{% include 'icons/crown.html' %}</span><strong class="teaser-title">De ce să alegi Corect.uk</strong><span class="teaser-arrow" aria-hidden="true">{% include 'icons/chevron-right.html' %}</span></a>
 </div>
-<div class="voice-overlay" id="voice-overlay" hidden aria-hidden="true"><span class="voice-overlay-spinner"></span><p>Pornim microfonul…</p></div>
+<div class="wait-screen" id="voice-overlay" hidden aria-hidden="true"><span class="wait-screen-spinner"></span><p>Pornim microfonul…</p></div>
 {# Features, how it works, plans and the closing banner from 1024px only (home.css); /about/ shows them at every width. #}
 <div class="landing-sections landing-wide-only">
   {% include 'core/partials/desktop_features.html' %}

@@ -173,10 +173,12 @@ class ExerciseTests(TestCase):
         self.assertEqual(generated.count(), 8)
         event = LearningUsageEvent.objects.get()
         self.assertEqual((event.feature, event.status, event.model, event.prompt_version, event.total_tokens, event.provider_calls),
-                         ("practice", "success", "test-model", "2026-09-learn-practice-v1", 1500, 1))
+                         ("practice", "success", "test-model", "2026-09-learn-practice-v2", 1500, 1))
         self.assertEqual(event.estimated_cost, None)  # test-model has no price
         self.assertTrue(all(item.usage_event == event and item.prompt_version == event.prompt_version for item in generated))
-        self.assertEqual(generated.filter(exercise_type="rewrite").first().open_ended, True)
+        self.assertEqual(set(generated.values_list("exercise_type", flat=True)),
+                         {"multiple_choice", "fill_blank", "choose_phrase"})  # Never a whole sentence to write.
+        self.assertFalse(generated.filter(open_ended=True).exists())
         payload = ai.call_args.args[1]
         self.assertIn('"pattern": "since_vs_for"', payload)
         self.assertIn("since five years", payload)

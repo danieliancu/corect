@@ -87,7 +87,22 @@ class LearningChecks(BrowserTestCase):
         # Five stored exercises for a pattern, answered on a phone, graded on the server without AI.
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.goto(self.live_server_url + "/practice/")
-        self.page.get_by_role("button", name="Exersează: Since / for").click()
+        # Preparing practice takes seconds on the server: the shared waiting screen covers the page meanwhile.
+        # The first press is stopped after the page reacted to it (a window listener runs last), to see the screen.
+        self.page.evaluate("window.addEventListener('submit', (event) => event.preventDefault(), {once: true})")
+        start = self.page.get_by_role("button", name="Exersează: Since / for")
+        start.click()
+        wait = self.page.locator(".wait-screen")
+        expect(wait).to_be_visible()
+        expect(wait).to_have_text("Se pregătește exercițiul…")
+        self.page.screenshot(path=str(self.artifacts / "wait-screen-practice-390.png"))
+        start.click(force=True)  # Covered by the screen: a second press is ignored while the first one runs.
+        expect(wait).to_be_visible()
+        self.page.evaluate("""() => {
+            document.querySelector('.wait-screen').hidden = true;
+            document.querySelectorAll('form[data-submitting]').forEach((form) => delete form.dataset.submitting);
+        }""")
+        start.click()
         for number in range(1, 6):
             expect(self.page.get_by_role("heading", level=1)).to_have_text(f"Exercițiul {number} din 5")
             if number == 1:
@@ -97,8 +112,17 @@ class LearningChecks(BrowserTestCase):
             self.page.get_by_role("button", name="Verifică").click()
             expect(self.page.get_by_role("status")).to_contain_text("Corect!")
             self.page.get_by_role("button", name="Termină" if number == 5 else "Continuă →").click()
-        expect(self.page.get_by_role("heading", name="Gata, ai terminat!")).to_be_visible()
-        expect(self.page.locator(".learn-session-done")).to_contain_text("Ai răspuns corect la 5 din 5 exerciții.")
+        expect(self.page.get_by_role("heading", name="Perfect!")).to_be_visible()
+        finish = self.page.locator(".learn-finish")
+        expect(finish).to_contain_text("Ai răspuns corect la 5 din 5 exerciții.")
+        expect(finish.get_by_role("img", name="3 din 3 stele")).to_be_visible()
+        expect(finish.get_by_role("heading", name="Progresul tău")).to_be_visible()
+        expect(finish.get_by_role("button", name="Exersează din nou")).to_be_visible()
+        expect(finish.get_by_role("link", name="Înapoi la Greșeli")).to_have_attribute("href", "/mistakes/")
+        self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 390)
+        self.page.screenshot(path=str(self.artifacts / "learn-finish-390.png"), full_page=True)
+        self.page.set_viewport_size({"width": 1280, "height": 900})
+        self.page.screenshot(path=str(self.artifacts / "learn-finish-1280.png"), full_page=True)
         model.assert_not_called()
         self.assertEqual(self.errors, [])
 

@@ -55,15 +55,19 @@
     window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
     text.focus({ preventScroll: true });
   });
+  // Reserve only the scroll room a short mobile result still lacks to reach the top of the screen: everything below it
+  // (its buttons, "De ce să alegi Corect.uk", the footer) already counts, and the rest goes after the footer.
+  const shell = document.querySelector(".site-shell");
   function measureResult() {
-    result.parentElement.style.setProperty(
-      "--result-height",
-      `${result.getBoundingClientRect().height}px`,
-    );
+    const reserved = shell ? parseFloat(getComputedStyle(shell).paddingBottom) || 0 : 0;
+    const top = result.getBoundingClientRect().top + window.scrollY;
+    const below = document.documentElement.scrollHeight - reserved - top;
+    document.documentElement.style.setProperty("--result-tail", `${Math.round(below)}px`);
   }
-  // Reserve scroll room below a short mobile result, without stretching its card.
+  // The body, not just the result: the buttons under it are swapped in by HTMX. The value settles after one pass.
   const resultObserver = new ResizeObserver(measureResult);
   resultObserver.observe(result);
+  resultObserver.observe(document.body);
   function showLoading() {
     result.classList.add("is-result-active");
     const loading = document.createElement("div");

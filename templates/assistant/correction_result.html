@@ -38,7 +38,7 @@
         {% if learning_hints %}{% with hint=learning_hints|hint_for:correction.pattern %}{% if hint and hint.previous_count %}
         <div class="learning-hint">
           <p>Ai mai făcut această greșeală {{ hint.previous_count|times_phrase }}.{% if hint.is_top %} Pare să fie una dintre greșelile pe care le repeți cel mai des.{% endif %}</p>
-          <form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="pattern"><input type="hidden" name="pattern" value="{{ correction.pattern }}"><button class="button small" type="submit">Exersează acum</button></form>
+          <form method="post" action="{% url 'learn_start' %}" data-wait="Se pregătește exercițiul…">{% csrf_token %}<input type="hidden" name="kind" value="pattern"><input type="hidden" name="pattern" value="{{ correction.pattern }}"><button class="button small" type="submit">Exersează acum</button></form>
         </div>
         {% endif %}{% endwith %}{% endif %}
       </div>

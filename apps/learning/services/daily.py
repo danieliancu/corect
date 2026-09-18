@@ -68,8 +68,11 @@ def start_session(user, kind, pattern_key="", now=None):
         add(pattern_key, rules.TODAY_EXERCISES)
     if not ids:
         return None, next((error for error in errors if error), "no_exercises")
+    # Mastery before practice, so the end-of-session report can show what the session changed.
+    mastery = dict(UserMistakePattern.objects.filter(user=user, pattern_key__in=set(patterns))
+                   .values_list("pattern_key", "mastery"))
     session = PracticeSession.objects.create(user=user, kind=kind, pattern_key=pattern_key, exercise_ids=ids,
-                                             exercise_patterns=patterns, started_at=now)
+                                             exercise_patterns=patterns, mastery_at_start=mastery, started_at=now)
     Exercise.objects.filter(pk__in=ids).update(times_shown=F("times_shown") + 1)
     # A failed generation that stored exercises could cover is still reported, so the learner is told why.
     return session, next((error for error in errors if error), "")
