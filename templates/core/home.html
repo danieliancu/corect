@@ -50,7 +50,7 @@
 <div class="home-more">
   <a class="features-teaser" href="{% url 'about' %}"><span class="teaser-icon" aria-hidden="true">{% include 'icons/crown.html' %}</span><strong class="teaser-title">De ce să alegi Corect.uk</strong><span class="teaser-arrow" aria-hidden="true">{% include 'icons/chevron-right.html' %}</span></a>
 </div>
-<div class="voice-overlay" id="voice-overlay" hidden aria-hidden="true"><span class="voice-overlay-spinner"></span><p>Pornim microfonul…</p></div>
+<div class="wait-screen" id="voice-overlay" hidden aria-hidden="true"><span class="wait-screen-spinner"></span><p>Pornim microfonul…</p></div>
 {# Features, how it works, plans and the closing banner from 1024px only (home.css); /about/ shows them at every width. #}
 <div class="landing-sections landing-wide-only">
   {% include 'core/partials/desktop_features.html' %}

@@ -532,6 +532,41 @@
   font-size: 18px;
   resize: vertical;
 }
+/* Fill the blank: the gap shows in the sentence (filled with the answer afterwards) and is typed on one line. */
+.learn-blank {
+  display: inline-block;
+  min-width: 4.5em;
+  margin: 0 0.15em;
+  padding: 0 0.35em;
+  border-bottom: 3px solid var(--brand-blue);
+  border-radius: 6px 6px 0 0;
+  background: var(--learn-blue);
+  color: var(--learn-blue-ink);
+  line-height: 1.25;
+  text-align: center;
+}
+.learn-blank.is-filled {
+  border-color: #a33a1a;
+  background: #ffe7e0;
+  color: #a33a1a;
+}
+.learn-blank.is-filled.is-correct {
+  border-color: var(--learn-mint-ink);
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-blank-input {
+  width: min(100%, 420px);
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #cdd9ea;
+  border-radius: 12px;
+  font-size: 18px;
+}
+.learn-blank-input:focus {
+  border-color: var(--brand-blue);
+  outline: 3px solid #247cff33;
+}
 .learn-note {
   padding: 14px 18px;
   border-radius: 10px;
@@ -543,20 +578,328 @@
 .learn-exercise .learn-note {
   margin-bottom: 10px;
 }
-.learn-summary {
+/* End of a practice session: score, stars, what changed per pattern, the answers to review and what to do next. */
+.learn-finish {
+  position: relative;
+  overflow: hidden;
+  padding: 30px;
+}
+.learn-finish::before {
+  content: "";
+  position: absolute;
+  top: -160px;
+  right: -120px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #e1ebff 0%, #e1ebff00 70%);
+  pointer-events: none;
+}
+.learn-finish.is-perfect::before {
+  background: radial-gradient(circle, #fdf2c4 0%, #fdf2c400 70%);
+}
+.learn-finish > * {
+  position: relative;
+}
+.learn-finish-hero {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+.learn-finish-score {
   display: grid;
-  gap: 8px;
-  margin: 14px 0;
+  flex-shrink: 0;
+  place-content: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--learn-card) 80%, transparent 81%),
+    conic-gradient(var(--brand-blue) calc(var(--score) * 1%), var(--learn-line) 0);
+  text-align: center;
+}
+.learn-finish.is-perfect .learn-finish-score {
+  background:
+    radial-gradient(closest-side, var(--learn-card) 80%, transparent 81%),
+    conic-gradient(#f2b705 calc(var(--score) * 1%), var(--learn-line) 0);
+}
+.learn-finish-score strong {
+  color: var(--learn-ink);
+  font-size: 30px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.learn-finish-score span {
+  margin-top: 4px;
+  color: var(--learn-muted);
+  font-size: 13px;
+}
+.learn-finish-head h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+}
+.learn-finish-stars {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 10px;
+}
+.learn-finish-stars svg {
+  width: 28px;
+  height: 28px;
+  fill: var(--learn-line);
+}
+.learn-finish-stars svg.is-on {
+  fill: #f2b705;
+  filter: drop-shadow(0 2px 4px #f2b70559);
+}
+.learn-finish-lead {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--learn-muted);
+}
+.learn-finish-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 26px 0 8px;
   padding: 0;
   list-style: none;
 }
-.learn-summary li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 12px;
+.learn-finish-stats li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
   background: #f6f8fd;
+}
+.learn-finish-stats strong {
+  font-size: 22px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.learn-finish-stats li > span:last-child {
+  grid-column: 2;
+  color: var(--learn-muted);
+  font-size: 13px;
+}
+.learn-finish-stat-icon {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-weight: 700;
+}
+.learn-finish-stats .is-correct .learn-finish-stat-icon {
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-finish-stats .is-wrong .learn-finish-stat-icon {
+  background: #ffe7e0;
+  color: #a33a1a;
+}
+.learn-finish-stats .is-unverified .learn-finish-stat-icon {
+  background: var(--learn-yellow);
+  color: var(--learn-yellow-ink);
+}
+.learn-finish-stats .is-streak .learn-finish-stat-icon {
+  background: #fff0e0;
+}
+.learn-finish-subtitle {
+  margin: 26px 0 12px;
+  font-size: 18px;
+}
+.learn-finish-patterns,
+.learn-finish-review {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.learn-finish-patterns li,
+.learn-finish-review li {
+  padding: 14px 16px;
+  border: 1px solid var(--learn-line);
+  border-radius: 14px;
+}
+.learn-finish-pattern-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.learn-finish-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--learn-yellow);
+  color: var(--learn-yellow-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+.learn-finish-pattern-meta {
+  margin: 4px 0 10px;
+  color: var(--learn-muted);
+  font-size: 14px;
+}
+.learn-finish-mastery {
+  display: grid;
+  gap: 6px;
+}
+.learn-finish-bar {
+  position: relative;
+  display: block;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--learn-line);
+}
+.learn-finish-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+.learn-finish-bar .is-after {
+  background: var(--brand-blue);
+}
+/* After a gain, the part learnt in this session shows in green beside what was already there. */
+.learn-finish-bar .is-after:has(+ .is-before) {
+  background: #2fb36d;
+}
+.learn-finish-bar .is-before {
+  background: var(--brand-blue);
+}
+.learn-finish-mastery-label {
+  font-size: 14px;
+}
+.learn-finish-delta {
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.learn-finish-delta.is-up {
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-finish-delta.is-down {
+  background: #ffe7e0;
+  color: #a33a1a;
+}
+.learn-finish-question {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.learn-finish-answer {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0 0;
+}
+.learn-finish-answer s {
+  color: #a33a1a;
+}
+.learn-finish-tag {
+  flex-shrink: 0;
+  min-width: 56px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.learn-finish-tag.is-wrong {
+  background: #ffe7e0;
+  color: #a33a1a;
+}
+.learn-finish-tag.is-right {
+  background: var(--learn-mint);
+  color: var(--learn-mint-ink);
+}
+.learn-finish-next {
+  margin: 22px 0 0;
+}
+.learn-finish-actions {
+  align-items: center;
+}
+.learn-finish-actions form {
+  margin: 0;
+}
+.learn-finish-link {
+  margin-left: 4px;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .learn-finish-stars svg.is-on {
+    animation: learn-star-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .learn-finish-stars svg.is-on:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .learn-finish-stars svg.is-on:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+@keyframes learn-star-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-30deg);
+  }
+}
+@media (max-width: 767px) {
+  .learn-finish {
+    padding: 20px 16px;
+  }
+  .learn-finish-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .learn-finish-score {
+    width: 104px;
+    height: 104px;
+  }
+  /* On a phone the tiles stand upright, so all of them fit on one row. */
+  .learn-finish-stats {
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 8px;
+  }
+  .learn-finish-stats li {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    row-gap: 2px;
+    padding: 12px 6px;
+    text-align: center;
+  }
+  .learn-finish-stats li > span:last-child {
+    grid-column: 1;
+  }
+  .learn-finish-stat-icon {
+    grid-row: auto;
+    width: 30px;
+    height: 30px;
+    margin-bottom: 4px;
+  }
+  .learn-finish-head h1 {
+    font-size: 26px;
+  }
+  .learn-finish-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .learn-finish-actions .button {
+    width: 100%;
+  }
+  .learn-finish-link {
+    margin: 4px 0 0;
+    text-align: center;
+  }
 }
 .learn-actions {
   display: flex;

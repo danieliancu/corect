@@ -9,7 +9,7 @@
     {% if plan.done_today %}<p class="learn-hero-reason">Ai terminat deja exercițiile de azi. Le poți relua oricând.</p>{% endif %}
     {# An unfinished session from today is resumed; anything else starts a fresh one. Free accounts are turned back by the view. #}
     {% if open_session and open_session.kind == 'today' %}<a class="button learn-hero-button" href="{% url 'learn_session' pk=open_session.pk %}">Continuă sesiunea</a>
-    {% else %}<form method="post" action="{% url 'learn_start' %}">{% csrf_token %}<input type="hidden" name="kind" value="today"><button class="button learn-hero-button" type="submit">{% if plan.done_today %}Reia exercițiile de azi{% else %}Începe cele {{ plan.total }} exerciții{% endif %}</button></form>{% endif %}
+    {% else %}<form method="post" action="{% url 'learn_start' %}" data-wait="Se pregătește exercițiul…">{% csrf_token %}<input type="hidden" name="kind" value="today"><button class="button learn-hero-button" type="submit">{% if plan.done_today %}Reia exercițiile de azi{% else %}Începe cele {{ plan.total }} exerciții{% endif %}</button></form>{% endif %}
     {% elif overview.stage == 'empty' %}
     <h2 id="today-title">Hai să începem.</h2>
     <p class="learn-hero-reason">Începe să scrii sau să vorbești în engleză. Pe măsură ce folosești Corect, vom identifica ce merită să exersezi.</p>

@@ -50,11 +50,11 @@ def attempt(user, exercise, correct, days_ago=0, pattern_key=None):
 def batch(pattern="since_vs_for", count=8):
     items = []
     for i in range(count):
-        kind = ("multiple_choice", "fill_blank", "short_correction", "rewrite")[i % 4]
+        kind = ("multiple_choice", "fill_blank", "choose_phrase")[i % 3]
         items.append({"exercise_type": kind,
                       "question": f"I've worked here ___ March, number {i}." if kind == "fill_blank" else f"Question {i} about since and for.",
-                      "options": ["since", "for"] if kind == "multiple_choice" else [],
-                      "correct_answer": "since" if kind in ("multiple_choice", "fill_blank") else "I've lived here for two years.",
+                      "options": [] if kind == "fill_blank" else ["since", "for"],
+                      "correct_answer": "since",
                       "accepted_answers": [], "explanation_ro": "Since arată începutul.", "difficulty": 1,
                       "uk_context": "at work"})
     return ExerciseBatch.model_validate({"pattern": pattern, "exercises": items})

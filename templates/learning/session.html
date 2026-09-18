@@ -1,15 +1,54 @@
 {% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Exersează — Corect.uk{% endblock %}
 {% block learning_content %}
-{% if finished %}
-<section class="learn-card learn-session-done" aria-labelledby="done-title">
-  <p class="learn-eyebrow">{{ title }}</p>
-  <h1 id="done-title">Gata, ai terminat!</h1>
-  <p>Ai răspuns corect la {{ session.correct_count }} din {{ answered }} {% if answered == 1 %}exercițiu{% else %}exerciții{% endif %}.</p>
-  {% if by_pattern %}<ul class="learn-summary" role="list">{% for row in by_pattern %}<li><strong>{{ row.label }}</strong><span>{{ row.correct }} din {{ row.total }} corecte</span></li>{% endfor %}</ul>{% endif %}
-  <p class="learn-muted">Am programat următoarea recapitulare în funcție de rezultatele tale.</p>
-  <div class="learn-actions"><a class="button" href="{% url 'learn_dashboard' %}">Înapoi la panou</a><a class="button secondary" href="{% url 'progress' %}">Vezi progresul</a></div>
+{% if finished %}{% with verdict=report.verdict %}
+<section class="learn-card learn-finish{% if verdict.stars == 3 %} is-perfect{% endif %}" aria-labelledby="done-title">
+  <div class="learn-finish-hero">
+    <div class="learn-finish-score" style="--score: {{ verdict.percent|default:0 }}" aria-hidden="true"><strong>{{ report.correct }}/{{ report.answered }}</strong><span>corecte</span></div>
+    <div class="learn-finish-head">
+      <p class="learn-eyebrow">{{ title }} · sesiune încheiată</p>
+      <h1 id="done-title">{{ verdict.title }}</h1>
+      <p class="learn-finish-stars" role="img" aria-label="{{ verdict.stars }} din 3 stele">{% for star in "123" %}<svg class="{% if forloop.counter <= verdict.stars %}is-on{% endif %}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>{% endfor %}</p>
+      <p class="learn-finish-lead">{% if report.answered %}Ai răspuns corect la {{ report.correct }} din {{ report.answered }} {% if report.answered == 1 %}exercițiu{% else %}exerciții{% endif %}. {% endif %}{{ verdict.text }}</p>
+    </div>
+  </div>
+  <ul class="learn-finish-stats" role="list">
+    <li class="is-correct"><span class="learn-finish-stat-icon" aria-hidden="true">✓</span><strong>{{ report.correct }}</strong><span>{% if report.correct == 1 %}corect{% else %}corecte{% endif %}</span></li>
+    <li class="is-wrong"><span class="learn-finish-stat-icon" aria-hidden="true">✕</span><strong>{{ report.wrong }}</strong><span>de revăzut</span></li>
+    {% if report.unverified %}<li class="is-unverified"><span class="learn-finish-stat-icon" aria-hidden="true">?</span><strong>{{ report.unverified }}</strong><span>neverificate</span></li>{% endif %}
+    <li class="is-streak"><span class="learn-finish-stat-icon" aria-hidden="true">🔥</span><strong>{{ report.streak }}</strong><span>{{ report.streak_unit }}</span></li>
+  </ul>
+  {% if report.progress %}
+  <h2 class="learn-finish-subtitle">Progresul tău</h2>
+  <ul class="learn-finish-patterns" role="list">{% for row in report.progress %}
+    <li>
+      <div class="learn-finish-pattern-head"><strong>{{ row.label }}</strong>{% if row.mastered %}<span class="learn-finish-badge">🏆 Stăpânită</span>{% elif row.status %}<span class="learn-status is-{{ row.status }}">{{ row.status|pattern_status_label }}</span>{% endif %}</div>
+      <p class="learn-finish-pattern-meta">{{ row.correct }} din {{ row.total }} corecte{% if row.next_review_at %} · următoarea recapitulare {{ row.next_review_at|date:'j M' }}{% endif %}</p>
+      {% if row.after is not None %}<div class="learn-finish-mastery">
+        <span class="learn-finish-bar" aria-hidden="true"><span class="is-after" style="width: {{ row.after }}%"></span>{% if row.delta and row.delta > 0 %}<span class="is-before" style="width: {{ row.before }}%"></span>{% endif %}</span>
+        <span class="learn-finish-mastery-label">{% if row.delta is not None and row.delta != 0 %}{{ row.before }}% → <strong>{{ row.after }}%</strong> rezolvat <span class="learn-finish-delta {% if row.delta > 0 %}is-up{% else %}is-down{% endif %}">{% if row.delta > 0 %}+{% endif %}{{ row.delta }}%</span>{% else %}<strong>{{ row.after }}%</strong> rezolvat{% endif %}</span>
+      </div>{% endif %}
+    </li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if report.review %}
+  <h2 class="learn-finish-subtitle">De reținut</h2>
+  <ul class="learn-finish-review" role="list">{% for item in report.review %}
+    <li>
+      <p class="learn-finish-question" lang="en-GB">{{ item.question }}</p>
+      <p class="learn-finish-answer"><span class="learn-finish-tag is-wrong">Tu</span><s lang="en-GB">{{ item.answer }}</s></p>
+      <p class="learn-finish-answer"><span class="learn-finish-tag is-right">Corect</span><strong lang="en-GB">{{ item.correct_answer }}</strong></p>
+    </li>{% endfor %}
+  </ul>
+  {% if report.more_to_review %}<p class="learn-muted">Și încă {{ report.more_to_review }} în recapitulare.</p>{% endif %}
+  {% endif %}
+  <p class="learn-muted learn-finish-next">{% if report.wrong %}Ce ai greșit revine mai curând în recapitulare, ca să se fixeze.{% else %}Am programat următoarea recapitulare în funcție de rezultatele tale.{% endif %}</p>
+  <div class="learn-actions learn-finish-actions">
+    <form method="post" action="{% url 'learn_start' %}" data-wait="Se pregătește exercițiul…">{% csrf_token %}<input type="hidden" name="kind" value="{{ session.kind }}">{% if session.pattern_key %}<input type="hidden" name="pattern" value="{{ session.pattern_key }}">{% endif %}<button class="button" type="submit">{% if report.wrong %}Repetă exercițiile{% else %}Exersează din nou{% endif %}</button></form>
+    {% if session.pattern_key %}<a class="button secondary" href="{% url 'mistakes' %}">Înapoi la Greșeli</a>{% else %}<a class="button secondary" href="{% url 'learn_dashboard' %}">Înapoi la panou</a>{% endif %}
+    <a class="learn-finish-link" href="{% url 'progress' %}">Vezi progresul →</a>
+  </div>
 </section>
-{% else %}
+{% endwith %}{% else %}
 <header class="learn-session-top">
   <p class="learn-eyebrow">{{ title }}</p>
   <h1>Exercițiul {{ number }} din {{ total }}</h1>
@@ -18,7 +57,7 @@
 <section class="learn-card learn-exercise" aria-labelledby="exercise-question">
   <div class="learn-exercise-meta"><span class="pill">{{ pattern_label }}</span>{% if exercise.uk_context %}<span class="pill learn-uk-pill">UK · {{ exercise.uk_context }}</span>{% endif %}</div>
   <p class="learn-instruction">{{ instruction }}</p>
-  <h2 id="exercise-question" lang="en-GB">{{ exercise.question }}</h2>
+  <h2 id="exercise-question" lang="en-GB">{% if blank %}{{ blank.0 }}<span class="learn-blank{% if attempt %} is-filled{% if attempt.is_correct %} is-correct{% endif %}{% endif %}">{% if attempt %}{{ exercise.correct_answer }}{% else %}<span class="sr-only">(spațiu liber)</span>{% endif %}</span>{{ blank.1 }}{% else %}{{ exercise.question }}{% endif %}</h2>
   {% if error %}<p class="error-box" role="alert">{{ error }}</p>{% endif %}
   {% if attempt %}
   <div class="{% if attempt.is_correct %}success-note{% elif attempt.is_correct is None %}learn-note{% else %}error-box{% endif %}" role="status">
@@ -33,6 +72,7 @@
   {% else %}
   <form method="post" class="learn-answer">{% csrf_token %}<input type="hidden" name="action" value="answer">
     {% if is_choice %}<fieldset><legend class="sr-only">Alege răspunsul</legend>{% for option in exercise.options %}<label class="practice-option"><input type="radio" name="answer" value="{{ forloop.counter0 }}" required><span lang="en-GB">{{ option }}</span></label>{% endfor %}</fieldset>
+    {% elif blank %}<label class="learn-answer-label" for="answer">Ce intră în spațiul liber?</label><input class="learn-blank-input" id="answer" name="answer" type="text" maxlength="80" required lang="en-GB" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="un cuvânt sau o expresie scurtă">
     {% else %}<label class="learn-answer-label" for="answer">Răspunsul tău</label><textarea id="answer" name="answer" rows="{% if exercise.exercise_type == 'fill_blank' %}1{% else %}3{% endif %}" maxlength="400" required lang="en-GB" autocomplete="off" spellcheck="false"></textarea>{% endif %}
     <button class="button" type="submit">Verifică</button>
   </form>

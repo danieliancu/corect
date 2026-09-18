@@ -115,6 +115,8 @@ class PracticeSession(models.Model):
     pattern_key = models.CharField(max_length=60, blank=True)
     exercise_ids = models.JSONField(default=list)
     exercise_patterns = models.JSONField(default=list, help_text="The learner's pattern each exercise practises.")
+    mastery_at_start = models.JSONField(default=dict, blank=True,
+                                        help_text="Each practised pattern's mastery when the session started.")
     position = models.PositiveSmallIntegerField(default=0)
     correct_count = models.PositiveSmallIntegerField(default=0)
     started_at = models.DateTimeField(default=timezone.now)
