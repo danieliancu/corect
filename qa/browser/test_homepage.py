@@ -157,7 +157,7 @@ class HomepageChecks(BrowserTestCase):
                 self.page.goto(self.live_server_url)
                 # Phones and tablets open straight on the editor: no picture, title text or value points on screen,
                 # while the page keeps its one heading for screen readers.
-                for selector in (".hero-art", ".hero-lead", ".hero-points.is-wide", ".hero-points.is-compact", ".hero-hand"):
+                for selector in (".hero-art", ".hero-lead", ".hero-points.is-wide", ".hero-points.is-compact"):
                     expect(self.page.locator(selector)).to_be_hidden()
                 self.assertEqual(self.page.locator("h1").count(), 1)
                 self.assertLessEqual(self.page.locator(".hero").bounding_box()["width"], 1)  # Clipped to 1px.

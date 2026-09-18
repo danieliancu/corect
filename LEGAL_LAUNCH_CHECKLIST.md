@@ -36,7 +36,8 @@ professional actions that code cannot complete. None is done just because a conf
 - [ ] Decide how data access and portability requests are fulfilled (who exports what, within one month).
 - [ ] **Owner review of Privacy notice wording changed without raising `PRIVACY_VERSION`** (pre-launch hardening,
       September 2026): the email address is now required for new accounts and unique (section 3); the learning
-      exercise requests also use `store=False` (section 6); first-party funnel events (section on analytics). Decide
+      exercise requests also use `store=False` (section 6); first-party funnel events (section on analytics); Google
+      Fonts removed from the recipients (section 7), as the homepage no longer loads any third-party font. Decide
       whether these changes are material enough to raise `PRIVACY_VERSION`, which asks every visitor to accept again.
 - [ ] Decide whether and when to use account email addresses for service messages (password reset, account notices);
       no email is sent today and addresses are not verified.

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% load static %}
 {% block body_class %}home-page{% endblock %}
-{% block styles %}{% include 'core/partials/hand_font.html' %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}"><link rel="stylesheet" href="{% static 'css/home.css' %}{{ asset_query }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/landing.css' %}{{ asset_query }}"><link rel="stylesheet" href="{% static 'css/home.css' %}{{ asset_query }}">{% endblock %}
 {% block scripts %}<script src="{% static 'js/assistant.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/example-prompts.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/transcript-state.js' %}{{ asset_query }}" defer></script><script src="{% static 'js/voice.js' %}{{ asset_query }}" defer></script>{% endblock %}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
@@ -20,7 +20,6 @@
       <li><span class="hero-point-icon" aria-hidden="true">{% include 'icons/users.html' %}</span><span><strong>Pentru tine</strong><small>Natural și autentic</small></span></li>
     </ul>
   </div>
-  <p class="hand-note hero-hand" lang="en" aria-hidden="true">Better<br> English<br> A brighter you</p>
 </section>
 <div class="workspace">
   <section class="editor-card" aria-labelledby="editor-label">

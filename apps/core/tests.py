@@ -96,7 +96,7 @@ class LandingPageTests(TestCase):
                       "<strong>Creat pentru tine</strong><small>Simplu. Eficient. Real.</small>"):
             self.assertIn(point, html)
         self.assertIn('<img src="/static/img/hero.webp" alt="" width="1774" height="887"', html)
-        self.assertIn('href="https://fonts.googleapis.com/css2?family=Caveat', html)
+        self.assertNotIn("fonts.googleapis.com", html)  # No third-party font: nothing reaches Google.
         self.assertIn('<a class="features-teaser" href="/about/">', html)  # The phone way into every section.
         self.assertIn('<a class="button header-cta" href="/accounts/signup/">Începe acum</a>',
                       section(html, 'class="site-header"', "</header>"))
