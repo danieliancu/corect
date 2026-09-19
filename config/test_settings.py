@@ -24,3 +24,12 @@ SITE_URL = "https://corect.uk"  # Required with DEBUG off; fixed so canonical UR
 PRO_DISPLAY_PRICE, PRO_PROMO_ENABLED, PRO_PROMO_PRICE = "£9.99", True, "£4.99"
 # Moderation calls OpenAI; tests that exercise it enable it and mock the client (apps/assistant/tests/test_guardrails.py).
 CONTENT_MODERATION_ENABLED = False
+# Accounts, Google and billing: mail stays in memory, and Stripe is configured with dummy values so billing is on in
+# tests; every Stripe call is mocked (apps/billing/tests), never a real key.
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+DEFAULT_FROM_EMAIL = SERVER_EMAIL = "Corect.uk <no-reply@example.com>"
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID = "unit-test-key", "whsec_unit_test", "price_unit_pro"
+BILLING_ENABLED = True
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_LOGIN_ENABLED = "test-client.apps.googleusercontent.com", "test-secret", True
+SOCIALACCOUNT_PROVIDERS = {"google": {**SOCIALACCOUNT_PROVIDERS["google"],  # noqa: F405
+                                      "APPS": [{"client_id": GOOGLE_CLIENT_ID, "secret": GOOGLE_CLIENT_SECRET, "key": ""}]}}

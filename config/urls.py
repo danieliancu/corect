@@ -1,10 +1,9 @@
+from allauth.account import views as allauth_views
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from django.views.generic import RedirectView
 
 from apps.accounts import views as accounts
-from apps.accounts.forms import LoginForm
 from apps.analytics import public_views as analytics_public
 from apps.assistant import views as assistant
 from apps.assistant import voice_views as voice
@@ -31,11 +30,15 @@ urlpatterns = [
     path("assistant/realtime-transcription/finish/", voice.finish_realtime_transcription, name="realtime_finish"),
     path("assistant/transcribe/", voice.transcribe_recording, name="transcribe"),
     path("assistant/speech/", voice.speak, name="speech"),
-    path("accounts/signup/", accounts.signup, name="signup"),
-    path("accounts/login/", auth_views.LoginView.as_view(template_name="accounts/login.html",
-         authentication_form=LoginForm), name="login"),
-    path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
+    # django-allauth handles signing up, in and out, addresses, passwords and Google (apps/accounts/adapters.py). The
+    # short names used across the site point at the same views.
+    path("accounts/signup/", allauth_views.signup, name="signup"),
+    path("accounts/login/", allauth_views.login, name="login"),
+    path("accounts/logout/", allauth_views.logout, name="logout"),
     path("accounts/profile/", accounts.profile, name="profile"),
+    path("accounts/verification/resend/", accounts.resend_verification, name="resend_verification"),
+    path("accounts/", include("allauth.urls")),
+    path("billing/", include("apps.billing.urls")),
     path("history/", learning.history, name="history"),
     path("history/<int:pk>/", learning.history_detail, name="history_detail"),
     path("mistakes/", learning.mistakes, name="mistakes"),

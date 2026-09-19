@@ -8,6 +8,7 @@ from django.db import DatabaseError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from apps.accounts.testing import make_pro
 from apps.analytics.models import LearningUsageEvent
 from apps.assistant.models import RateBucket, SubmissionClaim
 from apps.core.plans import PRO_GROUP
@@ -31,7 +32,7 @@ def call(user):
 @override_settings(**LIMITS)
 class LearningGuardrailTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", "pass")
+        self.user = User.objects.create_user("ana", "ana@example.com", "pass")  # Free: its own daily AI limit
         self.other = User.objects.create_user("bob", "bob@example.com", "pass")
 
     def refused(self, user, code):
@@ -134,7 +135,7 @@ class LearningFallbackTests(TestCase):
     """With every learning AI call refused, learners still practise with stored material."""
 
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", "pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", "pass"))
         self.client.force_login(self.user)
 
     def test_generation_falls_back_to_editorial_exercises(self):
@@ -172,7 +173,7 @@ class LearningFallbackTests(TestCase):
 @override_settings(**LIMITS)
 class DuplicateAnswerTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", "pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", "pass"))
         self.client.force_login(self.user)
         self.exercise = make_exercise(self.user, exercise_type="rewrite", options=[], open_ended=True,
                                       correct_answer="I've lived here for two years.")[0]

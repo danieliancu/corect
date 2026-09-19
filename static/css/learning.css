@@ -901,6 +901,22 @@
     text-align: center;
   }
 }
+/* "Disponibil în Pro" (templates/core/pro_required.html) and the Free history note. */
+.pro-required h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+}
+.pro-required-pitch {
+  font-size: 18px;
+  font-weight: 600;
+}
+.learn-actions form {
+  margin: 0;
+}
+.history-plan-note {
+  margin: 8px 0 0;
+  color: var(--learn-muted);
+}
 .learn-actions {
   display: flex;
   flex-wrap: wrap;

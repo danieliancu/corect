@@ -1,0 +1,1 @@
+{% if attrs.provider_id == 'google' %}<li><form method="post" action="{{ attrs.href }}">{% csrf_token %}<button class="button google-button" type="submit"><span class="google-mark" aria-hidden="true">{% include 'icons/google.html' %}</span>Conectează contul Google</button></form></li>{% else %}<li><a href="{{ attrs.href }}">{{ attrs.name }}</a></li>{% endif %}

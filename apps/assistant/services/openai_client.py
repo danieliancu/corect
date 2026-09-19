@@ -30,6 +30,11 @@ INSTRUCTION_PATTERN = re.compile(
     re.IGNORECASE)
 # Options a caller may pass through to the Responses API; anything else is a programming error.
 REQUEST_OPTIONS = {"prompt_cache_key", "reasoning"}
+# Moderation categories that are not refused on their own: learners write about accidents, injuries, the news or films
+# ("mi-am rupt piciorul", "I broke my leg" are flagged as violence), and swearing alone is never flagged. Graphic
+# violence, violent illicit activity, threats, hate, harassment, sexual content and self-harm are still refused, and so
+# is any category OpenAI adds later.
+MODERATION_ALLOWED = {"violence", "illicit"}
 # Moderation runs beside the model call. One shared pool avoids starting a thread for every request.
 _moderation_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="corect-moderation")
 
@@ -85,13 +90,15 @@ def parse_response(prompt: str, text: str, schema: type[Result], *, model: str =
 
 
 def flagged_categories(categories) -> set[str]:
+    """Flagged category names as "self-harm-intent", "violence-graphic", whatever the SDK's spelling."""
     values = categories.model_dump(by_alias=True) if hasattr(categories, "model_dump") else vars(categories)
-    return {name for name, flagged in values.items() if flagged}
+    return {name.replace("_", "-").replace("/", "-") for name, flagged in values.items() if flagged}
 
 
 def moderate_text(text: str) -> None:
-    """Refuses text flagged by OpenAI's moderation endpoint (hate, harassment, violence, sexual content, self-harm,
-    illicit activity, ...). Fails closed: when the check cannot run, the text is not processed."""
+    """Refuses text flagged by OpenAI's moderation endpoint (hate, harassment, graphic violence, sexual content,
+    self-harm, violent illicit activity, ...), except for MODERATION_ALLOWED categories alone. Fails closed: when the
+    check cannot run, the text is not processed."""
     try:
         client = openai_client()
     except ProviderNotConfigured:
@@ -101,8 +108,8 @@ def moderate_text(text: str) -> None:
         flagged, categories = bool(result.flagged), flagged_categories(result.categories)
     except (OpenAIError, AttributeError, IndexError, TypeError, ValueError):
         raise AssistantError("moderation_unavailable", MODERATION_UNAVAILABLE) from None
-    if flagged:
-        self_harm = any(name.replace("_", "-").startswith("self-harm") for name in categories)
+    if flagged and not (categories and categories <= MODERATION_ALLOWED):
+        self_harm = any(name.startswith("self-harm") for name in categories)
         raise AssistantError("content_blocked", SELF_HARM_BLOCKED if self_harm else CONTENT_BLOCKED)
 
 

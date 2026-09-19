@@ -1,23 +1,48 @@
 {% extends 'base.html' %}{% block title %}Profilul tău — Corect.uk{% endblock %}{% block content %}
 <section class="auth-container profile-page">
-  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p>{% if quota %}<p class="plan-status"><strong>Plan {% if quota.tier == 'pro' %}Pro{% else %}Free{% endif %}</strong> · {% if quota.tier == 'pro' %}Cereri nelimitate (Fair Use){% else %}{{ quota.note }}{% endif %}</p>{% endif %}</div>
+  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ name }}</p>{% if quota %}<p class="plan-status"><strong>Plan {% if quota.tier == 'pro' %}Pro{% else %}Free{% endif %}</strong> · {% if quota.tier == 'pro' %}Cereri nelimitate (Fair Use){% else %}{{ quota.note }}{% endif %}</p>{% endif %}</div>
+  <section class="card account-form profile-plan" aria-labelledby="plan-title">
+    <h2 id="plan-title">Planul tău: {% if pro_source %}Pro{% else %}Free{% endif %}</h2>
+    {% if pro_source == 'paid' %}
+      <p>{% if subscription.cancel_at_period_end %}Abonamentul Pro este anulat și se încheie pe {{ subscription.current_period_end|date:'j F Y' }}; până atunci rămâi Pro.{% elif subscription.current_period_end %}Abonament Pro activ. Se reînnoiește pe {{ subscription.current_period_end|date:'j F Y' }}.{% else %}Abonament Pro activ.{% endif %}</p>
+    {% elif pro_source == 'manual' %}
+      <p>Accesul Pro ți-a fost acordat de echipa Corect.uk; nu ai un abonament de plătit.</p>
+    {% elif subscription.status == 'past_due' or subscription.status == 'unpaid' %}
+      <p class="quota-box" role="alert">Plata abonamentului Pro nu a reușit, așa că deocamdată ai planul Free. Actualizează cardul ca să revii la Pro.</p>
+    {% else %}
+      <p>Cu Pro ai cereri nelimitate (Fair Use), progresul, greșelile pe categorii, exercițiile și tot istoricul.</p>
+    {% endif %}
+    {% if subscription.stripe_subscription_id and billing_enabled %}
+      <form method="post" action="{% url 'billing_portal' %}" data-wait="Deschidem pagina abonamentului…">{% csrf_token %}<button class="button{% if not pro_source %} secondary{% endif %}" type="submit">Gestionează abonamentul</button></form>
+    {% endif %}
+    {% if not pro_source %}
+      {% if billing_enabled %}<form method="post" action="{% url 'billing_checkout' %}" data-wait="Te ducem la plata securizată…">{% csrf_token %}<button class="button" type="submit" data-funnel-cta="pricing_section">Treci la Pro</button></form>
+      {% else %}<p class="muted">Abonamentele Pro nu pot fi cumpărate momentan.</p>{% endif %}
+    {% endif %}
+  </section>
   <form method="post" class="card account-form profile-details">{% csrf_token %}
     <input type="hidden" name="action" value="profile">
     <h2>Datele contului</h2>
-    {% if email_required %}<p class="quota-box" role="alert">Contul tău nu are încă o adresă de email. Adaug-o mai jos ca să poți continua: o folosim pentru autentificare și ca să îți putem recupera contul.</p>{% endif %}
+    {% if email_required %}<p class="quota-box" role="alert">{% if primary_email %}Confirmă adresa de email ca să poți continua: deschide linkul din emailul primit.{% else %}Contul tău nu are încă o adresă de email. Adaug-o ca să poți continua: o folosim pentru autentificare și ca să îți putem recupera contul.{% endif %}</p>{% endif %}
     {{ profile_form.as_p }}
+    <p class="profile-email"><span class="profile-label">Email</span>{% if primary_email %}<span class="profile-email-value">{{ primary_email.email }}</span> {% if primary_email.verified %}<span class="email-state is-verified">confirmat</span>{% else %}<span class="email-state">neconfirmat</span>{% endif %}{% else %}<span class="muted">nicio adresă</span>{% endif %}</p>
+    {% if pending_email %}<p class="muted">Adresa nouă <strong>{{ pending_email.email }}</strong> așteaptă confirmarea: o înlocuiește pe cea de acum după ce deschizi linkul primit.</p>{% endif %}
+    <p><a href="{% url 'account_email' %}">{% if primary_email %}Schimbă adresa de email{% else %}Adaugă o adresă de email{% endif %}</a></p>
+    {% if google_enabled %}<p class="profile-google">{% if google_connected %}Contul Google este conectat. <a href="{% url 'socialaccount_connections' %}">Vezi conexiunile</a>{% else %}<a href="{% url 'socialaccount_connections' %}">Conectează contul Google</a>, ca să te autentifici și cu Google.{% endif %}</p>{% endif %}
     <button class="button" type="submit">Salvează modificările</button>
   </form>
   <form method="post" class="card account-form profile-password">{% csrf_token %}
     <input type="hidden" name="action" value="password">
-    <h2>Schimbă parola</h2>
+    <h2>{% if user.has_usable_password %}Schimbă parola{% else %}Setează o parolă{% endif %}</h2>
+    {% if not user.has_usable_password %}<p class="muted">Te autentifici cu Google. Cu o parolă te poți autentifica și cu adresa de email.</p>{% endif %}
     {{ password_form.as_p }}
-    <button class="button" type="submit">Schimbă parola</button>
+    <button class="button" type="submit">{% if user.has_usable_password %}Schimbă parola{% else %}Setează parola{% endif %}</button>
   </form>
   <form method="post" class="card account-form delete-account">{% csrf_token %}
     <input type="hidden" name="action" value="delete">
     <h2>Șterge contul</h2>
     <p class="muted">Ștergem definitiv contul, istoricul textelor, greșelile înregistrate și confirmările Termenilor. Statisticile de utilizare (fără text, audio sau adresă IP) rămân, fără legătură cu contul tău. Acțiunea nu poate fi anulată.</p>
+    {% if subscription_live %}<p class="quota-box">Abonamentul tău Pro va fi anulat imediat, înainte de ștergere, ca să nu mai fii taxat.</p>{% endif %}
     {{ delete_form.as_p }}
     <button class="button danger-button" type="submit">Șterge contul definitiv</button>
   </form>

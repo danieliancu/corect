@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.accounts.testing import make_pro
 from apps.learning.models import PracticeSession, UserMistakePattern
 from apps.learning.schemas import ExerciseBatch
 from apps.learning.services.exercises import clean_batch, suitable_pool
@@ -15,7 +16,7 @@ from .helpers import batch, make_correction, make_exercise, patch_ai
 
 class PreparingOverlayTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", password="pass"))
         self.client.force_login(self.user)
         record_correction_occurrences(self.user, make_correction(self.user))
 
@@ -28,7 +29,7 @@ class PreparingOverlayTests(TestCase):
 
 class ShortAnswerExerciseTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", password="pass"))
         self.client.force_login(self.user)
 
     def test_generation_accepts_only_options_or_one_short_blank(self):
@@ -74,7 +75,7 @@ class ShortAnswerExerciseTests(TestCase):
 
 class SessionReportTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", password="pass"))
         self.client.force_login(self.user)
         record_correction_occurrences(self.user, make_correction(self.user))
         make_exercise(self.user, count=5)

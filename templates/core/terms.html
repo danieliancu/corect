@@ -16,7 +16,8 @@
   <h2 id="accounts">5. Contul tău și securitatea lui</h2>
   <ul>
     <li>Folosește date corecte și un singur cont pentru tine. Contul este personal: nu îl împărți cu alte persoane.</li>
-    <li>Ești responsabil să îți păstrezi parola în siguranță. Dacă bănuiești că altcineva îți folosește contul, schimbă parola și anunță-ne.</li>
+    <li>Adresa de email o confirmi o singură dată, printr-un link; până atunci contul nu poate fi folosit. Te poți autentifica și cu Google, dacă alegi „Continuă cu Google”.</li>
+    <li>Ești responsabil să îți păstrezi parola (și contul Google, dacă îl folosești) în siguranță. Dacă bănuiești că altcineva îți folosește contul, schimbă parola și anunță-ne.</li>
     <li>Poți șterge oricând contul din pagina Profil.</li>
   </ul>
 
@@ -45,9 +46,20 @@
 
   <h2 id="free">11. Serviciul gratuit</h2>
   <p>Funcțiile de bază sunt gratuite, cu o limită zilnică pentru „Vreau să sune natural!”: {{ plan_limits.anonymous }} fără cont și {{ plan_limits.free }} cu un cont gratuit. Textul scris și cel dictat se numără la fel, o singură dată pentru fiecare rezultat primit; microfonul, transcrierea și pronunția nu consumă din această limită, iar o cerere care nu produce un rezultat nu se numără. Dacă ai cont și retrimiți un text pe care l-ai mai trimis, îți arătăm rezultatul salvat, fără să consume din limită. Limita se resetează la miezul nopții, ora Regatului Unit. Pentru a proteja serviciul există și limite tehnice, de exemplu pe minut și pentru voce, pe care le putem ajusta în mod rezonabil.</p>
+  <p>Contul gratuit include istoricul ultimelor {{ free_history_days }} de zile. Progresul, greșelile pe categorii, exercițiile personalizate și istoricul complet fac parte din planul Pro; textele mai vechi rămân păstrate și apar din nou dacă treci la Pro.</p>
 
-  <h2 id="pro">12. Planul Pro (în pregătire)</h2>
-  <p>Planul Pro nu poate fi cumpărat încă și nu se percep plăți. Prețurile afișate pe pagina principală au caracter informativ. Înainte de lansare vom publica condițiile de plată, reînnoire, anulare și rambursare, iar ele se vor aplica doar după ce le accepți.</p>
+  <h2 id="pro">12. Planul Pro și plățile</h2>
+  <ul>
+    <li><strong>Ce include.</strong> Pro adaugă cererile nelimitate în regim Fair Use (secțiunea 13), progresul, greșelile pe categorii, exercițiile create din greșelile tale și tot istoricul. Datele strânse cât ai fost pe planul gratuit sunt păstrate și apar imediat după trecerea la Pro.</li>
+    <li><strong>Prețul.</strong> Pro costă {{ pro_price }} pe lună{% if pro_original_price %} (preț promoțional; prețul obișnuit este {{ pro_original_price }} pe lună){% endif %}. Prețul afișat înainte de plată, pe pagina Stripe, este prețul final pe care îl plătești și rămâne același pentru abonamentul tău până când te anunțăm altfel, ca mai jos.</li>
+    <li><strong>Plata.</strong> Plățile sunt procesate de Stripe. Datele cardului tău le introduci pe pagina Stripe: nu ajung la noi și nu le păstrăm.</li>
+    <li><strong>Reînnoirea.</strong> Abonamentul este lunar și se reînnoiește automat la sfârșitul fiecărei luni, cu plata prețului lunar, până când îl anulezi.</li>
+    <li><strong>Anularea.</strong> Poți anula oricând din contul tău, cu „Gestionează abonamentul”. Rămâi Pro până la sfârșitul perioadei deja plătite, apoi contul revine la planul gratuit și nu mai ești taxat.</li>
+    <li><strong>Dreptul de retragere de 14 zile.</strong> Ai dreptul să renunți la abonament în 14 zile de la prima plată, fără să dai un motiv. Când pornești abonamentul, ne ceri să începem serviciul imediat; dacă renunți în cele 14 zile, îți rambursăm plata, minus o sumă proporțională cu zilele în care ai avut Pro. Ca să exerciți acest drept, anulează abonamentul și scrie-ne{% if legal.contact_available %} folosind datele de pe <a href="{% url 'contact' %}">pagina Contact</a>{% endif %}; rambursarea se face în cel mult 14 zile, pe același card.</li>
+    <li><strong>Plăți eșuate.</strong> Dacă o plată nu reușește, Stripe o poate încerca din nou. Până se face plata, contul are planul gratuit; poți actualiza cardul cu „Gestionează abonamentul”.</li>
+    <li><strong>Schimbări de preț.</strong> Te anunțăm prin email cu cel puțin 30 de zile înainte ca un preț nou să se aplice abonamentului tău; poți anula înainte, fără cost.</li>
+    <li><strong>Ștergerea contului.</strong> Dacă ștergi contul, abonamentul se anulează imediat și nu mai ești taxat. Dacă vrei o rambursare în cele 14 zile, scrie-ne înainte să ștergi contul, ca să îți putem găsi plata.</li>
+  </ul>
 
   <h2 id="fair-use">13. Utilizare rezonabilă (Fair Use)</h2>
   <p>Planul Pro oferă cereri nelimitate pentru folosirea personală obișnuită, în regim de utilizare rezonabilă (Fair Use). Ca protecție împotriva abuzului, aplicăm o limită tehnică de {{ plan_limits.pro }}, mult peste ce presupune folosirea obișnuită pentru învățare; limita se resetează la miezul nopții, ora Regatului Unit. Politica de utilizare rezonabilă servește la prevenirea abuzului, de exemplu:</p>

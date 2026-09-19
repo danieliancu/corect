@@ -1,16 +1,18 @@
 from unittest.mock import patch
+from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 from django.contrib.auth.models import Group, User
 from django.test import SimpleTestCase, TestCase, override_settings
 from openai import APIConnectionError, APITimeoutError
+from openai.types.moderation import Categories
 
 from apps.accounts.suspension import SUSPENDED_GROUP
 from apps.analytics.models import UsageEvent
 from apps.assistant.services.naturalize import NaturalizeService
 from apps.assistant.services.openai_client import (CONTENT_BLOCKED, INSTRUCTION_ATTEMPT, AssistantError,
-                                                   INSTRUCTION_PATTERN)
+                                                   INSTRUCTION_PATTERN, flagged_categories)
 from apps.assistant.services.voice import make_speech_token
 from .examples import CORRECTION_CASES, ROMANIAN_CASES, correction_result, english_raw, naturalized_english, romanian_raw
 from .provider import ProviderMock, moderation
@@ -50,6 +52,33 @@ class ModerationServiceTests(ProviderMock, SimpleTestCase):
         self.assertEqual((error.code, error.message), ("content_blocked", CONTENT_BLOCKED))
         self.respond(romanian_raw())
         self.assertEqual(self.refused(ROMANIAN_CASES[0][0]).code, "content_blocked")
+
+    def test_everyday_violence_and_illicit_alone_are_not_refused(self):
+        # "Mi-am rupt piciorul" / "I broke my leg" come back flagged as violence: an injury is not abuse.
+        for categories in ({"violence": True}, {"illicit": True}, {"violence": True, "illicit": True}):
+            with self.subTest(categories=categories):
+                self.api.moderations.create.return_value = moderation(True, **categories)
+                outcome = NaturalizeService().naturalize(CORRECTION_CASES[0][0])
+                self.assertEqual(outcome.result.corrected_text, CORRECTION_CASES[0][1])
+
+    def test_graphic_violence_threats_and_violent_illicit_are_still_refused(self):
+        for categories in ({"violence": True, "violence_graphic": True}, {"illicit_violent": True},
+                           {"violence": True, "harassment_threatening": True}, {"sexual_minors": True}):
+            with self.subTest(categories=categories):
+                self.api.moderations.create.return_value = moderation(True, **categories)
+                self.assertEqual(self.refused().code, "content_blocked")
+
+    def test_sdk_category_names_with_slashes_are_read(self):
+        # As the SDK parses the API response: "violence/graphic", "self-harm/intent", ...
+        fields = {field.alias or name: False for name, field in Categories.model_fields.items()}
+        graphic = Categories.model_validate({**fields, "violence": True, "violence/graphic": True})
+        self.assertEqual(flagged_categories(graphic), {"violence", "violence-graphic"})
+        self.api.moderations.create.return_value = SimpleNamespace(
+            results=[SimpleNamespace(flagged=True, categories=graphic)])
+        self.assertEqual(self.refused().code, "content_blocked")
+        self.api.moderations.create.return_value = SimpleNamespace(results=[SimpleNamespace(
+            flagged=True, categories=Categories.model_validate({**fields, "violence": True}))])
+        NaturalizeService().naturalize(CORRECTION_CASES[0][0])
 
     def test_self_harm_gets_a_supportive_message(self):
         self.api.moderations.create.return_value = moderation(True, self_harm_intent=True)

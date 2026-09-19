@@ -1,3 +1,20 @@
+
+emailul este obligatoriu și unic ✅
+emailul se confirmă o singură dată, prin link ✅ (conturile existente: „grandfathered”)
+„Continuă cu Google” ✅ (cu pasul de acceptare a Termenilor la primul cont)
+Free/Pro aplicate: limite 5 / 20 / 200 și funcțiile Pro ✅
+Pro = abonament Stripe activ (webhook) sau grupul manual „Pro” ✅
+de făcut în producție: variabilele Railway (email SMTP, Google, Stripe), clientul OAuth Google, produsul/prețul și webhook-ul
+Stripe, Customer Portal activat; revizuirea juridică a Termenilor §12 și a Politicii (vezi LEGAL_LAUNCH_CHECKLIST.md)
+
+
+
+
+
+
+
+
+
 | Milestone                          |                                                     Stare reală acum |
 | ---------------------------------- | -------------------------------------------------------------------: |
 | M1 — Core AI                       |                                                               ✅ DONE |
@@ -6,7 +23,7 @@
 | M4 — Voice + British TTS           |                   🟢 Feature complete, mai trebuie validarea manuală |
 | **M5 — Production**                |            🟡 Aproape, dar mai sunt câteva blocaje înainte de deploy |
 | M6 — Beta                          |                                                                    ⏳ |
-| **M7 — Free / Pro**                | 🟡 Limite zilnice pe plan aplicate (5 / 20 / 200 Fair Use); plățile încă nu |
+| **M7 — Free / Pro**                | 🟡 Stripe Checkout + webhook + portal în cod; lipsește configurarea live și revizuirea juridică |
 | M8 — Optimisation                  |                                                                    ⏳ |
 
 
@@ -35,7 +52,7 @@
 | OpenAI text                         |                 ✅ 100% | `gpt-5.6-luna`, verificat live                                        |
 | Structured Outputs                  |                 ✅ 100% | Pydantic                                                              |
 | `store=False`                       |                 ✅ 100% | Păstrat                                                               |
-| Accounts                            |                  ✅ 98% | Signup/login/logout + username/email                                  |
+| Accounts                            |                  ✅ 98% | Signup/login/logout, confirmare email, Google (allauth)               |
 | Profile                             |                 ✅ 100% | Username, email, password                                             |
 | History                             |                 ✅ 100% | Privat per user                                                       |
 | Mistake categories                  |                 ✅ 100% | Pagini separate                                                       |

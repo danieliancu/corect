@@ -1,0 +1,5 @@
+{% extends "account/email/base_message.txt" %}{% block content %}{% autoescape off %}Cineva (probabil tu) a încercat să creeze un cont nou cu adresa {{ email }}, dar ea are deja un cont Corect.uk. Nu am creat un cont nou.
+
+Dacă nu îți amintești parola, o poți reseta aici:
+
+{{ password_reset_url }}{% endautoescape %}{% endblock content %}

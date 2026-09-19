@@ -1,0 +1,14 @@
+{% extends 'learning/layout.html' %}{% block title %}Disponibil în Pro — Corect.uk{% endblock %}{% block learning_content %}
+<section class="learn-card pro-required" aria-labelledby="pro-required-title">
+  <p class="learn-eyebrow">Planul Pro</p>
+  <h1 id="pro-required-title">Disponibil în Pro</h1>
+  {% if feature_pitch %}<p class="pro-required-pitch">{{ feature_pitch }}.</p>{% endif %}
+  <p>Pe planul Free păstrăm tot ce scrii: greșelile și progresul apar aici imediat ce treci la Pro.</p>
+  <div class="learn-actions">
+    {% if billing_enabled %}<form method="post" action="{% url 'billing_checkout' %}" data-wait="Te ducem la plata securizată…">{% csrf_token %}<button class="button" type="submit" data-funnel-cta="pricing_section">Treci la Pro</button></form>
+    {% else %}<p class="learn-muted">Abonamentele Pro nu pot fi cumpărate momentan.</p>{% endif %}
+    <a class="button secondary" href="{% url 'home' %}#plans">Vezi ce include Pro</a>
+    <a class="learn-finish-link" href="{% url 'history' %}">Istoricul tău →</a>
+  </div>
+</section>
+{% endblock %}

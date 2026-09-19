@@ -146,6 +146,11 @@
     max-width: none;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   }
+  /* The result card is exactly as tall as the blue editor beside it, and only grows when the result is longer. */
+  .home-page .workspace > #result.is-result-active {
+    align-self: stretch;
+    min-height: 0;
+  }
 }
 
 /* ----- Editor panel and "Mod Politicos" ----- */

@@ -1,0 +1,6 @@
+{% autoescape off %}Bună,
+
+{% block content %}{% endblock content %}
+
+Echipa Corect.uk
+{% endautoescape %}

@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Verifică-ți emailul — Corect.uk{% endblock %}{% block content %}
+<section class="auth-container"><div class="page-heading"><p class="eyebrow">UN SINGUR PAS</p><h1>Verifică-ți emailul</h1><p>Ți-am trimis un link de confirmare. Deschide-l și apasă „Confirmă” ca să îți activezi contul. Adresa se confirmă o singură dată; după aceea te autentifici normal.</p></div>
+<div class="card account-form">{% include 'account/partials/resend_form.html' %}<p class="form-footer">Ai confirmat deja? <a href="{% url 'login' %}">Autentifică-te</a></p></div></section>
+{% endblock %}

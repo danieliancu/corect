@@ -1,6 +1,6 @@
 {% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Panou — Corect.uk{% endblock %}
 {% block learning_content %}
-<header class="learn-welcome"><h1>Bun venit, {{ user.get_username }}</h1><p><span class="learn-plan-pill">{% if user_is_pro %}Pro{% else %}Free{% endif %}</span><span>{{ overview.patterns }} {% if overview.patterns == 1 %}tipologie urmărită{% else %}tipologii urmărite{% endif %}</span></p></header>
+<header class="learn-welcome"><h1>Bun venit, {{ user.first_name|default:user.get_username }}</h1><p><span class="learn-plan-pill">{% if user_is_pro %}Pro{% else %}Free{% endif %}</span><span>{{ overview.patterns }} {% if overview.patterns == 1 %}tipologie urmărită{% else %}tipologii urmărite{% endif %}</span></p></header>
 {% include 'learning/_today.html' %}
 {% if overview.stage != 'empty' %}
 <section class="learn-stats" aria-label="Pe scurt, în ultimele 30 de zile">

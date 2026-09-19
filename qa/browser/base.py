@@ -18,6 +18,7 @@ from django.utils.crypto import salted_hmac
 from playwright.sync_api import sync_playwright, expect
 
 from apps.accounts.models import LegalAcceptance
+from apps.accounts.testing import make_pro, verified_user
 from apps.analytics.models import AudioUsageEvent
 from apps.assistant.models import NaturalizeUsage
 from apps.assistant.schemas import TranslationResult
@@ -123,10 +124,13 @@ class BrowserTestCase(StaticLiveServerTestCase):
         expect(page).to_have_url(self.live_server_url + "/about/")
 
     # ----- Learning dashboard and personalised practice -----
-    def sign_in_learner(self, username, mistakes=0, exercises=0):
-        """A learner who accepted the current Terms, with repeated since/for mistakes and stored exercises for them."""
+    def sign_in_learner(self, username, mistakes=0, exercises=0, pro=False):
+        """A learner with a confirmed address who accepted the current Terms, with repeated since/for mistakes and stored
+        exercises for them; `pro` for the Pro pages (dashboard, progress, mistakes, practice)."""
         def seed():
-            user = User.objects.create_user(username=username, email=f"{username}@example.com", password="Browser-test-password-815")
+            user = verified_user(username, f"{username}@example.com", "Browser-test-password-815")
+            if pro:
+                make_pro(user)
             LegalAcceptance.objects.create(user=user, terms_version=settings.TERMS_VERSION,
                                            privacy_version=settings.PRIVACY_VERSION, source="visit")
             for days_ago in range(mistakes):
@@ -134,7 +138,7 @@ class BrowserTestCase(StaticLiveServerTestCase):
             make_exercise(user, count=exercises)
         self.in_database_thread(seed)
         self.page.goto(self.live_server_url + "/accounts/login/")
-        self.page.locator("#id_username").fill(username)
+        self.page.locator("#id_login").fill(f"{username}@example.com")
         self.page.locator("#id_password").fill("Browser-test-password-815")
         self.page.locator("#id_password").press("Enter")
         expect(self.page.locator("#text")).to_be_visible()

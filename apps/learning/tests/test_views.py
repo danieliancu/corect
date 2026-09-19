@@ -5,6 +5,7 @@ from uuid import uuid4
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
+from apps.accounts.testing import make_pro
 from apps.analytics.models import LearningUsageEvent, UsageEvent
 from apps.assistant.tests.examples import correction_result
 from apps.learning.models import ExerciseAttempt, PracticeSession, UserMistakePattern
@@ -14,7 +15,7 @@ from .helpers import batch, make_correction, make_exercise, patch_ai
 
 class LearningPageTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", password="pass"))
         self.client.force_login(self.user)
 
     def test_new_user_dashboard_is_an_onboarding_state(self):
@@ -33,7 +34,7 @@ class LearningPageTests(TestCase):
         for text in ("Pentru tine azi", "5 exerciții alese din greșelile tale recente", "Since / for",
                      '<span class="learn-topic-count" aria-hidden="true">5</span>',  # The pill states its share.
                      'value="today"', "Începe cele 5 exerciții",  # The button that starts the day's session.
-                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", '<h3 id="activity-title">Progres</h3>','<span class="learn-plan-pill">Free</span>', "1 tipologie urmărită"):
+                     "Ce trebuie exersat", "Se repetă", "Zone de exersat", '<h3 id="activity-title">Progres</h3>','<span class="learn-plan-pill">Pro</span>', "1 tipologie urmărită"):
             self.assertContains(response, text)
         for text in ("Situați", "Obiectivele tale", "Următoarele", "Continuăm de unde ai rămas", "learn-rail",
                      'aria-label="Exersează: Since / for"', 'href="/practice/"'):
@@ -76,7 +77,7 @@ class LearningPageTests(TestCase):
         make_exercise(self.user, count=5)
         self.client.post("/learn/practice/start/", {"kind": "pattern", "pattern": "since_vs_for"})
         session = PracticeSession.objects.get()
-        other = User.objects.create_user("bob", "bob@example.com", password="pass")
+        other = make_pro(User.objects.create_user("bob", "bob@example.com", password="pass"))
         self.client.force_login(other)
         self.assertEqual(self.client.get(f"/learn/practice/{session.pk}/").status_code, 404)
         self.assertNotContains(self.client.get("/learn/"), "Since / for")
@@ -117,7 +118,7 @@ class LearningPageTests(TestCase):
 @override_settings(NATURALIZE_RATE_LIMIT_MINUTE=100)
 class CorrectionLoopTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ana", "ana@example.com", password="pass")
+        self.user = make_pro(User.objects.create_user("ana", "ana@example.com", password="pass"))
         self.client.force_login(self.user)
         from apps.assistant.tests.examples import naturalized_english
         self.naturalize = patch("apps.assistant.views.NaturalizeService.naturalize",
@@ -163,7 +164,7 @@ class CorrectionLoopTests(TestCase):
 class LearningAnalyticsTests(TestCase):
     def setUp(self):
         self.staff = User.objects.create_superuser("admin", "admin@example.com", "pass")
-        self.learner = User.objects.create_user("ana", "ana@example.com", password="pass")
+        self.learner = make_pro(User.objects.create_user("ana", "ana@example.com", password="pass"))
         self.client.force_login(self.staff)
 
     def learning_event(self, feature, cost, user=None):

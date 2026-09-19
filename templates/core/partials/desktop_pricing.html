@@ -1,14 +1,15 @@
-{% comment %}The Free and Pro plans. Daily limits are enforced (apps/assistant/services/quota.py); payments do not exist yet.
-When the Pro button becomes a real link, add data-funnel-cta="pricing_section" so clicks reach the business funnel.{% endcomment %}
+{% comment %}The Free and Pro plans. Limits and features are enforced (apps/assistant/services/quota.py, apps/core/entitlements.py);
+Pro is bought through Stripe Checkout (apps/billing) and only Stripe's webhook makes an account Pro.{% endcomment %}
 <section class="landing-section landing-plans{% if user_is_pro %} is-pro-member{% endif %}" id="plans" aria-labelledby="plans-title"{% if funnel_pricing %} data-funnel-pricing="{{ funnel_pricing }}"{% endif %}>
   {% if user_is_pro %}
-  <div class="landing-heading"><h2 id="plans-title">Ești în planul potrivit.</h2></div>
+  <div class="landing-heading"><h2 id="plans-title">Planul tău: Pro</h2>{% if user_pro_source == 'manual' %}<p>Accesul Pro ți-a fost acordat de echipa Corect.uk.</p>{% endif %}</div>
   {% for plan in plans %}{% if plan.key == 'pro' %}
   <ul class="plan-features pro-benefits" role="list">
     {% for label, included in plan.features %}{% if included %}<li class="is-included"><span class="plan-mark" aria-hidden="true">{% include 'icons/check.html' %}</span><span class="sr-only">Inclus: </span>{{ label }}</li>
     {% endif %}{% endfor %}
   </ul>
   {% include 'core/partials/fair_use_note.html' %}
+  {% if user_pro_source == 'paid' %}<form class="plan-manage" method="post" action="{% url 'billing_portal' %}" data-wait="Deschidem pagina abonamentului…">{% csrf_token %}<button class="button secondary" type="submit">Gestionează abonamentul</button></form>{% endif %}
   {% endif %}{% endfor %}
   {% else %}
   <div class="landing-heading"><h2 id="plans-title">Alege planul potrivit</h2></div>
@@ -24,9 +25,10 @@ When the Pro button becomes a real link, add data-funnel-cta="pricing_section" s
         {% endfor %}
       </ul>
       {% if plan.fair_use %}{% include 'core/partials/fair_use_note.html' %}{% endif %}
-      {% if plan.note %}<p class="plan-temporary-note">{{ plan.note }}</p>{% endif %}
       <div class="plan-actions">
-        {% if plan.key == 'pro' %}<button type="button" class="button plan-button" disabled aria-describedby="pro-coming-soon">Alege Pro</button><p class="plan-note" id="pro-coming-soon">Pro va fi disponibil în curând. Plățile nu sunt încă active.</p>
+        {% if plan.key == 'pro' %}{% if not billing_enabled %}<button type="button" class="button plan-button" disabled aria-describedby="pro-unavailable">Alege Pro</button><p class="plan-note" id="pro-unavailable">Abonamentele Pro nu pot fi cumpărate momentan.</p>
+        {% elif user.is_authenticated %}<form method="post" action="{% url 'billing_checkout' %}" data-wait="Te ducem la plata securizată…">{% csrf_token %}<button class="button plan-button" type="submit" data-funnel-cta="pricing_section">Alege Pro</button></form><p class="plan-note">Plata se face prin Stripe. Abonament lunar, îl poți anula oricând din contul tău.</p>
+        {% else %}<a class="button plan-button" href="{% url 'signup' %}?next={% url 'home' %}%23plans" data-funnel-cta="pricing_section" aria-describedby="pro-account-first">Alege Pro</a><p class="plan-note" id="pro-account-first">Creează întâi un cont gratuit (sau <a href="{% url 'login' %}?next={% url 'home' %}%23plans">autentifică-te</a>), apoi alegi Pro.</p>{% endif %}
         {% elif user.is_authenticated %}<a class="button secondary plan-button" href="{{ editor_url|default:'#text' }}">Mergi la editor</a>
         {% else %}<a class="button secondary plan-button" href="{% url 'signup' %}">Începe gratis</a>{% endif %}
       </div>

@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% block title %}Autentificare — Corect.uk{% endblock %}{% block content %}
+<section class="auth-container"><div class="page-heading"><p class="eyebrow">NE BUCURĂM SĂ TE REVEDEM</p><h1>Bine ai revenit.</h1></div>
+<div class="card account-form">{% include 'account/partials/google_button.html' with next=redirect_field_value divider=True %}
+<form method="post" action="{% url 'login' %}">{% csrf_token %}{{ form.as_p }}{{ redirect_field }}<button class="button" type="submit">Autentifică-te</button></form>
+<p class="form-footer"><a href="{% url 'account_reset_password' %}">Ai uitat parola?</a></p>
+<p class="form-footer">Ești nou aici? <a href="{{ signup_url }}">Creează un cont</a></p></div></section>
+{% endblock %}

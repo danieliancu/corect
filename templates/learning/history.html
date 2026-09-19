@@ -1,5 +1,5 @@
 {% extends 'learning/layout.html' %}{% load learning_labels %}{% block title %}Istoric — Corect.uk{% endblock %}{% block learning_content %}
-<section class="page-heading"><h1>Istoric</h1></section>
+<section class="page-heading"><h1>Istoric</h1>{% if free_history_days %}<p class="history-plan-note">Planul Free arată ultimele {{ free_history_days }} de zile.{% if older_hidden %} Textele mai vechi sunt păstrate și apar din nou cu <a href="{% url 'home' %}#plans">Pro</a>.{% endif %}</p>{% endif %}</section>
 {# One collapsible block per day; the most recent day on the page starts open. #}
 <div class="history-days">{% for day in days %}
   <details class="history-day"{% if forloop.first %} open{% endif %}>

@@ -22,9 +22,8 @@ class PlanQuotaChecks(BrowserTestCase):
         self.page.goto(self.live_server_url)
         self.set_usage(self.ANONYMOUS_ACTOR, 3)
         self.naturalize_text()
-        expect(self.page.locator(".quota-note")).to_have_text("1 din 5 utilizări rămase astăzi")
         self.naturalize_text()
-        expect(self.page.locator(".quota-note")).to_have_text("0 din 5 utilizări rămase astăzi")
+        expect(self.page.get_by_text("utilizări rămase")).to_have_count(0)  # the count is shown only on the profile
         speaker = self.page.get_by_role("button", name="Ascultă varianta corectă în engleză britanică")
         speaker.click()
         expect(speaker).to_have_attribute("aria-pressed", "true")
@@ -50,7 +49,7 @@ class PlanQuotaChecks(BrowserTestCase):
         self.page.set_viewport_size({"width": 1440, "height": 1000})
         self.set_usage(actor, 19)
         self.naturalize_text("The twentieth text of the day.")
-        expect(self.page.locator(".quota-note")).to_have_text("0 din 20 de utilizări rămase astăzi")
+        expect(self.page.get_by_text("utilizări rămase")).to_have_count(0)
         self.naturalize_text("One text too many.")
         alert = self.page.locator(".quota-box[role=alert]")
         expect(alert).to_contain_text("Ai folosit cele 20 de utilizări de azi. Cu Pro ai cereri nelimitate, "

@@ -1,0 +1,5 @@
+{% extends "account/email/base_message.txt" %}{% block content %}{% autoescape off %}Cineva (probabil tu) a folosit această adresă pentru un cont Corect.uk. Confirmă adresa deschizând linkul de mai jos și apăsând „Confirmă”:
+
+{{ activate_url }}
+
+O confirmi o singură dată. Dacă nu tu ai cerut asta, ignoră emailul: fără confirmare, adresa nu este folosită.{% endautoescape %}{% endblock content %}

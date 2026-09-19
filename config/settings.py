@@ -22,7 +22,8 @@ CSRF_TRUSTED_ORIGINS = [origin for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIG
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "apps.core", "apps.accounts", "apps.assistant", "apps.learning", "apps.analytics",
+    "allauth", "allauth.account", "allauth.socialaccount", "allauth.socialaccount.providers.google",
+    "apps.core", "apps.accounts", "apps.assistant", "apps.learning", "apps.analytics", "apps.billing",
 ]
 MIDDLEWARE = [
     "apps.core.middleware.RequestContextMiddleware",
@@ -31,7 +32,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "apps.accounts.middleware.EmailRequiredMiddleware",
+    "allauth.account.middleware.AccountMiddleware", "apps.accounts.middleware.EmailRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 ROOT_URLCONF = "config.urls"
@@ -53,13 +54,73 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# No uploads are served; set so the test live server does not treat every path (e.g. allauth's "a:b:c" confirmation
+# keys, invalid Windows file names) as a media file.
+MEDIA_URL = "/media/"
 STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
             "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend", "apps.accounts.backends.EmailBackend"]
+# Sign-in with a username or an email address, and with Google, goes through django-allauth (README, Accounts). The
+# admin keeps Django's own backend.
+AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend",
+                           "allauth.account.auth_backends.AuthenticationBackend"]
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
+ACCOUNT_ADAPTER = "apps.accounts.adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.SocialAccountAdapter"
+ACCOUNT_FORMS = {"signup": "apps.accounts.forms.SignupForm", "login": "apps.accounts.forms.LoginForm"}
+SOCIALACCOUNT_FORMS = {"signup": "apps.accounts.forms.SocialSignupForm"}
+# Sign-in is by email (or Google). The name shown in the site is User.first_name and need not be unique; the username is
+# an internal identifier allauth generates, never asked for or shown.
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+# Every address is verified once, by a link; nothing is asked again at later sign-ins. A new address replaces the old
+# one only after its own link is opened (ACCOUNT_CHANGE_EMAIL).
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_CHANGE_EMAIL = True
+ACCOUNT_CONFIRM_EMAIL_ON_GET = False  # The link opens a page with a button, so link scanners cannot confirm it.
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_EMAIL_NOTIFICATIONS = True  # Password or address changes are confirmed to the account's address.
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "Corect.uk – "
+# Behind Railway's proxy Django sees plain HTTP; links in emails and the Google redirect must still be HTTPS.
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
+# Google (allauth.socialaccount). The first Google sign-in always shows the Corect signup step (age, Terms, Privacy);
+# an address Google has verified needs no second confirmation. Linking to an existing account: apps/accounts/adapters.py.
+SOCIALACCOUNT_AUTO_SIGNUP = False
+SOCIALACCOUNT_EMAIL_VERIFICATION = "mandatory"
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_LOGIN_ON_GET = False
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_LOGIN_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+SOCIALACCOUNT_PROVIDERS = {"google": {
+    "APPS": [{"client_id": GOOGLE_CLIENT_ID, "secret": GOOGLE_CLIENT_SECRET, "key": ""}] if GOOGLE_LOGIN_ENABLED else [],
+    "SCOPE": ["profile", "email"], "AUTH_PARAMS": {"access_type": "online"}, "OAUTH_PKCE_ENABLED": True}}
+# EMAIL: verification, password reset and account notices only (no marketing). Locally the messages are printed to the
+# console; in production set an SMTP provider (system check core.E005).
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "").strip() or (
+    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "").strip()
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "").strip() or "Corect.uk <no-reply@localhost>"
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+# BILLING: Pro is a monthly Stripe subscription (apps/billing). Stripe's webhooks decide who is Pro; nothing is sold
+# unless all three are set. STRIPE_PRO_PRICE_ID must be the monthly price of the Pro product actually on sale.
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "").strip()
+BILLING_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET and STRIPE_PRO_PRICE_ID)
+STRIPE_TIMEOUT = int(os.getenv("STRIPE_TIMEOUT", "20"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "")
 OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "60"))
@@ -165,15 +226,6 @@ LEARNING_AI_RATE_LIMIT_MINUTE = _int_setting("LEARNING_AI_RATE_LIMIT_MINUTE", 6,
 LEARNING_AI_DAY_LIMITS = signed_in_limits("LEARNING_AI_DAY_LIMITS", (40, 200))
 LEARNING_AI_GLOBAL_DAY_CALLS = _int_setting("LEARNING_AI_GLOBAL_DAY_CALLS", 2000, 1, 10_000_000)
 LEARNING_AI_GLOBAL_DAY_COST_USD = decimal_setting("LEARNING_AI_GLOBAL_DAY_COST_USD", "10")
-# TEMPORARY: a Free account gets exactly what Pro gets — the same daily quota, the same voice guardrails and every Pro
-# feature (apps/core/entitlements.py). Anonymous visitors are unchanged. Set FREE_HAS_PRO_FEATURES=false to end it; the
-# quota, the entitlements and the plan cards all read this one flag, so nothing else has to be undone.
-FREE_HAS_PRO_FEATURES = os.getenv("FREE_HAS_PRO_FEATURES", "true").lower() == "true"
-if FREE_HAS_PRO_FEATURES:
-    NATURALIZE_DAILY_LIMITS["free"] = NATURALIZE_DAILY_LIMITS["pro"]
-    for _guardrail in VOICE_DAILY_GUARDRAILS.values():
-        _guardrail["free"] = _guardrail["pro"]
-    LEARNING_AI_DAY_LIMITS["free"] = LEARNING_AI_DAY_LIMITS["pro"]
 # Abuse guardrails. Text sent to "Vreau să sune natural!" is checked with OpenAI's free moderation endpoint, in parallel
 # with the model call so it adds no waiting time; flagged text is refused, and the check fails closed when it cannot run.
 CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").lower() == "true"
@@ -182,15 +234,11 @@ CONTENT_MODERATION_ENABLED = os.getenv("CONTENT_MODERATION_ENABLED", "true").low
 OPENAI_LEARNING_MODEL = os.getenv("OPENAI_LEARNING_MODEL", "").strip() or OPENAI_MODEL
 LEARNING_REUSE_THRESHOLD = int(os.getenv("LEARNING_REUSE_THRESHOLD", "7"))  # Unused stored exercises that avoid AI.
 LEARNING_BATCH_SIZE = int(os.getenv("LEARNING_BATCH_SIZE", "8"))  # Exercises per generation call.
-# Pro features stay open to every signed-in user until billing exists (apps/core/entitlements.py). While
-# FREE_HAS_PRO_FEATURES is on they stay open whatever this is set to, so the two flags cannot contradict each other.
-PRO_ENTITLEMENTS_ENFORCED = (os.getenv("PRO_ENTITLEMENTS_ENFORCED", "false").lower() == "true"
-                             and not FREE_HAS_PRO_FEATURES)
 OPENAI_MODERATION_MODEL = os.getenv("OPENAI_MODERATION_MODEL", "omni-moderation-latest")
 # Public contact address; the Contact page and footer link appear only when it is set.
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
-# Pro prices shown on the homepage plans. Display only: payments are not implemented yet (NATURALIZE_DAILY_LIMITS is enforced).
-# With the promotion on, the normal price is shown struck through beside the promotional monthly price.
+# Pro prices shown on the plan cards, read from settings so no page calls Stripe. They must match the price
+# STRIPE_PRO_PRICE_ID charges. With the promotion on, the normal price is shown struck through beside the promotional one.
 PRO_DISPLAY_PRICE = os.getenv("PRO_DISPLAY_PRICE", "£9.99").strip()
 PRO_PROMO_ENABLED = os.getenv("PRO_PROMO_ENABLED", "true").lower() == "true"
 PRO_PROMO_PRICE = os.getenv("PRO_PROMO_PRICE", "£4.99").strip()
@@ -208,8 +256,8 @@ VAT_NUMBER = os.getenv("VAT_NUMBER", "").strip()
 LEGAL_HOSTING_PROVIDER = os.getenv("LEGAL_HOSTING_PROVIDER", "").strip()
 # Versions of the Terms and the Privacy notice. Change them with any material change to templates/core/terms.html or
 # privacy.html: everyone (including signed-in users) is then asked to accept the new version.
-TERMS_VERSION = "2026-09-17"  # Pro: unlimited requests under Fair Use, with a stated technical ceiling (200 a day).
-PRIVACY_VERSION = "2026-09-17"  # Mod Politicos in usage statistics. (Google Fonts since removed: see the checklist.)
+TERMS_VERSION = "2026-09-18"  # Pro sold by monthly Stripe subscription (§12); Free keeps 30 days of history (§11).
+PRIVACY_VERSION = "2026-09-18"  # Email confirmation, Google sign-in, Stripe; Google Fonts removed.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 65536
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

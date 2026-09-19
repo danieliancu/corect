@@ -15,7 +15,11 @@
 
   <h2 id="data">3. Ce date prelucrăm</h2>
   <h3>Contul</h3>
-  <p>Numele de utilizator, adresa de email (obligatorie pentru conturile noi, unică și neverificată; o folosim pentru autentificare și pentru mesaje despre cont), parola (păstrată doar sub formă criptată, ca hash), data creării contului și data ultimei autentificări. Păstrăm și confirmarea Termenilor și a Politicii de confidențialitate: versiunile și data.</p>
+  <p>Numele pe care ni-l dai ca să ți ne adresăm (îl alegi tu, nu trebuie să fie unic; la înregistrarea cu Google pornim de la numele din contul Google și îl poți schimba), adresa de email (obligatorie și unică; o confirmi o singură dată, printr-un link, iar o adresă nouă înlocuiește adresa veche doar după ce o confirmi; conturile create înainte de confirmarea prin email au fost considerate confirmate), parola (păstrată doar sub formă criptată, ca hash), data creării contului și data ultimei autentificări. Păstrăm și confirmarea Termenilor și a Politicii de confidențialitate: versiunile și data. Adresa o folosim pentru autentificare și pentru mesaje despre cont: linkul de confirmare, resetarea parolei și anunțuri despre schimbări de parolă sau de adresă. Nu trimitem mesaje de marketing.</p>
+  <h3>Autentificarea cu Google</h3>
+  <p>Dacă alegi „Continuă cu Google”, Google ne transmite numele, adresa de email (și faptul că Google a verificat-o) și identificatorul contului tău Google. Nu primim parola Google și nu păstrăm tokenurile de acces. Dacă adresa verificată de Google aparține deja unui cont Corect.uk confirmat, contul Google este conectat la el.</p>
+  <h3>Abonamentul Pro</h3>
+  <p>Dacă treci la Pro, plata se face pe pagina Stripe. Datele cardului le primește și le prelucrează Stripe; ele nu ajung la Corect.uk. Noi păstrăm identificatorii Stripe ai clientului și ai abonamentului, prețul ales, starea abonamentului (de exemplu activ, anulat, plată eșuată), data de sfârșit a perioadei plătite și dacă abonamentul este anulat la sfârșitul perioadei, precum și identificatorii evenimentelor trimise de Stripe pe care le-am procesat.</p>
   <h3>Texte, rezultate, greșeli și progres</h3>
   <p>Dacă ai cont, pentru fiecare cerere reușită păstrăm textul trimis, limba în care l-ai scris, rezultatul în engleză britanică (inclusiv explicațiile și varianta naturală) și, pentru textele scrise în engleză, greșelile găsite, cu categoria lor. Dacă o cerere eșuează, păstrăm doar tipul cererii, limba (dacă era deja cunoscută), un cod de eroare și data, fără text. Fără cont, textul și rezultatele nu sunt salvate.</p>
   <h3>Profilul tău de învățare</h3>
@@ -42,6 +46,8 @@
     <thead><tr><th scope="col">Scop</th><th scope="col">Bază legală</th></tr></thead>
     <tbody>
       <tr><td>Contul, engleza britanică naturală (greșelile reparate și varianta naturală), istoricul, vocea, pronunția și funcțiile de învățare (profilul de greșeli, exercițiile personalizate, recapitulările și progresul)</td><td>Executarea contractului cu tine (Termenii) sau pașii pe care ni-i ceri</td></tr>
+      <tr><td>Confirmarea adresei de email, autentificarea cu Google și emailurile despre cont</td><td>Executarea contractului cu tine și interes legitim: să știm că adresa îți aparține și să îți protejăm contul</td></tr>
+      <tr><td>Abonamentul Pro: plata, reînnoirea, anularea și rambursările</td><td>Executarea contractului cu tine; păstrarea evidențelor de plată: obligație legală</td></tr>
       <tr><td>Securitate, prevenirea abuzului, limite de utilizare, protecția împotriva cererilor duplicate, jurnale necesare</td><td>Interes legitim: să protejăm serviciul și utilizatorii</td></tr>
       <tr><td>Statistici de utilizare fără text (evidența costurilor și a funcționării)</td><td>Interes legitim: să înțelegem costurile și să menținem serviciul</td></tr>
       <tr><td>Identificatorul anonim de analytics</td><td>Interes legitim: să înțelegem cum este folosit site-ul. Te poți opune oricând, oprindu-l din Setări cookie-uri</td></tr>
@@ -79,19 +85,24 @@
   <h2 id="recipients">7. Cine mai primește datele</h2>
   <ul>
     <li>OpenAI, pentru funcțiile AI descrise mai sus.</li>
+    <li>Stripe, care procesează plățile abonamentului Pro și păstrează facturile și plățile potrivit propriilor obligații legale.</li>
+    <li>Google, doar dacă alegi „Continuă cu Google”, pentru autentificare.</li>
+    <li>Furnizorul nostru de email, care trimite emailurile despre cont (confirmarea adresei, resetarea parolei, anunțuri de securitate).</li>
     <li>{% if legal.hosting_provider %}{{ legal.hosting_provider }}{% else %}Furnizorul de găzduire și bază de date{% endif %}, care păstrează aplicația și datele în numele nostru.</li>
     <li>Autorități publice, doar când legea ne obligă.</li>
   </ul>
   <p>Nu vindem datele tale și nu le folosim pentru publicitate.</p>
 
   <h2 id="transfers">8. Transferuri în afara Regatului Unit</h2>
-  <p>OpenAI poate prelucra datele în Statele Unite ale Americii și în alte țări din afara Regatului Unit. Aceste transferuri se bazează pe garanțiile prevăzute în termenii de prelucrare a datelor ai furnizorului.</p>
+  <p>OpenAI, Stripe și Google pot prelucra datele în Statele Unite ale Americii și în alte țări din afara Regatului Unit. Aceste transferuri se bazează pe garanțiile prevăzute în termenii de prelucrare a datelor ai fiecărui furnizor.</p>
 
   <h2 id="retention">9. Cât timp păstrăm datele</h2>
   <div class="legal-table-wrap"><table>
     <thead><tr><th scope="col">Date</th><th scope="col">Cât timp</th></tr></thead>
     <tbody>
       <tr><td>Contul și confirmările Termenilor</td><td>Până ștergi contul</td></tr>
+      <tr><td>Starea abonamentului Pro (identificatori Stripe, stare, date)</td><td>Până ștergi contul; facturile și plățile sunt păstrate de Stripe conform obligațiilor legale</td></tr>
+      <tr><td>Identificatorii evenimentelor Stripe procesate (fără date despre tine)</td><td>Sunt păstrați ca să nu procesăm de două ori același eveniment</td></tr>
       <tr><td>Istoricul textelor și greșelile găsite</td><td>Până ștergi contul</td></tr>
       <tr><td>Profilul de învățare: tipologii de greșeli, exerciții, sesiuni, răspunsuri</td><td>Până ștergi contul (exercițiile generate nefolosite sunt retrase după 90 de zile)</td></tr>
       <tr><td>Sesiunea de autentificare</td><td>{{ retention.login_session_days }} zile de la autentificare; sesiunile expirate sunt șterse la curățarea zilnică</td></tr>
@@ -108,7 +119,7 @@
   </table></div>
 
   <h2 id="deletion">10. Ștergerea datelor</h2>
-  <p>Poți șterge contul oricând din pagina Profil. Ștergem atunci contul, istoricul, greșelile găsite, confirmările Termenilor și identificatorii de analytics legați de cont sau de browserul tău. Statisticile de utilizare rămân fără legătură cu tine (fără cont, identificator, text, sunet sau IP).{% if legal.contact_email %} Ne poți cere și prin email ștergerea altor date.{% endif %}</p>
+  <p>Poți șterge contul oricând din pagina Profil. Ștergem atunci contul, istoricul, greșelile găsite, confirmările Termenilor, legătura cu Google, starea abonamentului și identificatorii de analytics legați de cont sau de browserul tău; un abonament Pro activ este anulat în Stripe înainte de ștergere. Statisticile de utilizare rămân fără legătură cu tine (fără cont, identificator, text, sunet sau IP).{% if legal.contact_email %} Ne poți cere și prin email ștergerea altor date.{% endif %}</p>
 
   <h2 id="security">11. Securitatea datelor</h2>
   <p>Folosim măsuri tehnice și organizatorice potrivite: parolele sunt păstrate doar criptat, conexiunea este criptată (HTTPS) în producție, cookie-urile de autentificare sunt protejate, cheile de acces la furnizori rămân pe server, accesul la administrare este restricționat, iar jurnalele aplicației nu conțin conținutul tău. Nicio metodă nu este complet sigură, dar lucrăm ca riscurile să fie cât mai mici.</p>
@@ -120,7 +131,7 @@
   <p>În condițiile prevăzute de lege, ai dreptul:</p>
   <ul>
     <li>să afli ce date avem despre tine și să primești o copie (dreptul de acces);</li>
-    <li>să ceri corectarea datelor greșite (numele de utilizator și emailul le poți schimba și singur, din Profil);</li>
+    <li>să ceri corectarea datelor greșite (numele și emailul le poți schimba și singur, din Profil);</li>
     <li>să ceri ștergerea datelor;</li>
     <li>să ceri restricționarea prelucrării;</li>
     <li>să te opui prelucrării bazate pe interesul nostru legitim, inclusiv folosirii identificatorului de analytics, pe care îl poți opri direct din Setări cookie-uri;</li>
