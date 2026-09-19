@@ -1,9 +1,9 @@
 Django==5.2.17
 openai==2.48.0
-pydantic==2.13.4
+pydantic==2.13.5
 sentry-sdk==2.69.2
-psycopg[binary]==3.3.3
-python-dotenv==1.2.2
+psycopg[binary]==3.3.5
+python-dotenv==1.2.3
 whitenoise==6.12.0
 waitress==3.0.2
 django-allauth[socialaccount]==65.19.4
