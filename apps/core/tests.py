@@ -21,8 +21,8 @@ from config.env_settings import naturalize_limits, tier_limits
 FEATURES = {
     "Engleză corectă": "Repară greșelile reale fără să schimbe inutil felul în care te exprimi.",
     "Sună natural": "Vezi cum ar spune același lucru, natural, un vorbitor din UK.",
-    "Scrii și în română": "Primești direct engleza britanică naturală, fără să alegi nimic.",
-    "Scrii sau dictezi": "Vorbești în română sau engleză, iar textul apare pe loc în casetă.",
+    "Scrii și în română": "Primești direct engleza britanică naturală, în timp real.",
+    "Scrii sau dictezi": "Vorbești în română sau engleză, iar textul apare în timp real.",
     "Pronunție britanică": "Ascultă rezultatul cu pronunție britanică.",
     "Istoric": "Revii oricând la textele tale.",
     "Categorii de greșeli": "Vezi unde greșești cel mai des.",
