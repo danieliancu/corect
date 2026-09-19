@@ -8,6 +8,7 @@ from smtplib import SMTPException
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from anymail.exceptions import AnymailError
 from django.contrib import messages
 
 from apps.analytics.services.visitors import link_visitor
@@ -68,10 +69,11 @@ class AccountAdapter(DefaultAccountAdapter):
     def send_mail(self, template_prefix, email, context):
         try:
             super().send_mail(template_prefix, email, context)
-        except (SMTPException, OSError) as exc:
+        except (SMTPException, OSError, AnymailError) as exc:
             # No address in the log: the template name and the error class are enough to diagnose the provider.
-            logger.warning("email_send_failed template=%s error=%s", template_prefix.rsplit("/", 1)[-1],
-                           type(exc).__name__)
+            # An email API's HTTP status (Resend: 403 for a sender domain not verified yet) says which setting is wrong.
+            logger.warning("email_send_failed template=%s error=%s status=%s", template_prefix.rsplit("/", 1)[-1],
+                           type(exc).__name__, getattr(exc, "status_code", None) or "-")
             if self.request is not None:
                 messages.error(self.request, EMAIL_NOT_SENT)
 

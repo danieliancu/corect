@@ -419,5 +419,12 @@ class ConfigurationCheckTests(TestCase):
         with override_settings(DEBUG=False, EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
                                EMAIL_HOST="smtp.example.com", DEFAULT_FROM_EMAIL="Corect.uk <no-reply@corect.uk>"):
             self.assertEqual(email_delivery_configured(None), [])
+        resend = "anymail.backends.resend.EmailBackend"
+        with override_settings(DEBUG=False, EMAIL_BACKEND=resend, ANYMAIL={"RESEND_API_KEY": ""},
+                               DEFAULT_FROM_EMAIL="Corect.uk <no-reply@corect.uk>"):
+            self.assertEqual(self.ids(email_delivery_configured(None)), ["core.E005"])
+        with override_settings(DEBUG=False, EMAIL_BACKEND=resend, ANYMAIL={"RESEND_API_KEY": "re_x"}, EMAIL_HOST="",
+                               DEFAULT_FROM_EMAIL="Corect.uk <no-reply@corect.uk>"):
+            self.assertEqual(email_delivery_configured(None), [])  # no SMTP host needed
         with override_settings(GOOGLE_CLIENT_ID="id", GOOGLE_CLIENT_SECRET=""):
             self.assertEqual(self.ids(google_login_configured(None)), ["core.E007"])

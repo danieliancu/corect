@@ -66,10 +66,12 @@ def email_delivery_configured(app_configs, **kwargs):
         problems.append(f"EMAIL_BACKEND {settings.EMAIL_BACKEND} does not deliver mail.")
     if backend == "smtp" and not settings.EMAIL_HOST:
         problems.append("EMAIL_HOST is empty.")
+    if backend == "resend" and not settings.ANYMAIL.get("RESEND_API_KEY"):
+        problems.append("RESEND_API_KEY is empty.")
     if settings.DEFAULT_FROM_EMAIL.rstrip(">").endswith("@localhost"):
         problems.append("DEFAULT_FROM_EMAIL is not set.")
-    return [Error(problem, id="core.E005", hint="Configure SMTP in the environment (README, Email); accounts cannot be "
-                  "confirmed without it.") for problem in problems]
+    return [Error(problem, id="core.E005", hint="Set RESEND_API_KEY, or SMTP, in the environment (README, Email delivery); "
+                  "accounts cannot be confirmed without it.") for problem in problems]
 
 
 @register()

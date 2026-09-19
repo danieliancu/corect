@@ -102,9 +102,12 @@ SOCIALACCOUNT_PROVIDERS = {"google": {
     "APPS": [{"client_id": GOOGLE_CLIENT_ID, "secret": GOOGLE_CLIENT_SECRET, "key": ""}] if GOOGLE_LOGIN_ENABLED else [],
     "SCOPE": ["profile", "email"], "AUTH_PARAMS": {"access_type": "online"}, "OAUTH_PKCE_ENABLED": True}}
 # EMAIL: verification, password reset and account notices only (no marketing). Locally the messages are printed to the
-# console; in production set an SMTP provider (system check core.E005).
+# console. In production: RESEND_API_KEY sends through Resend's HTTPS API (django-anymail), which works where outgoing
+# SMTP is blocked (Railway below the Pro plan); otherwise SMTP from EMAIL_HOST. System check core.E005.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "").strip() or (
-    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend")
+    "anymail.backends.resend.EmailBackend" if RESEND_API_KEY
+    else "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "").strip()
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
@@ -114,6 +117,7 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "").strip() or "Corect.uk <no-reply@localhost>"
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+ANYMAIL = {"RESEND_API_KEY": RESEND_API_KEY, "REQUESTS_TIMEOUT": EMAIL_TIMEOUT}
 # BILLING: Pro is a monthly Stripe subscription (apps/billing). Stripe's webhooks decide who is Pro; nothing is sold
 # unless all three are set. STRIPE_PRO_PRICE_ID must be the monthly price of the Pro product actually on sale.
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
