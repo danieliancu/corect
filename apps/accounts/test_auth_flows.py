@@ -46,7 +46,7 @@ class EmailVerificationTests(FreshRateLimits, TestCase):
     def test_an_unverified_account_cannot_sign_in_or_use_the_product(self):
         self.sign_up()
         mail.outbox.clear()
-        response = self.client.post("/accounts/login/", {"login": "new-learner", "password": PASSWORD})
+        response = self.client.post("/accounts/login/", {"login": "learner@example.com", "password": PASSWORD})
         self.assertRedirects(response, VERIFICATION_SENT)
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertEqual(len(mail.outbox), 0)  # the first link is still valid; no new mail inside the cooldown
@@ -117,7 +117,7 @@ class ExistingAccountsMigrationTests(FreshRateLimits, TestCase):
         self.assertEqual(EmailAddress.objects.filter(user=modern).count(), 1)
         self.assertEqual(GrandfatheredEmail.objects.count(), 1)
         # The existing account signs in exactly as before, with no verification step.
-        response = self.client.post("/accounts/login/", {"login": "old", "password": PASSWORD})
+        response = self.client.post("/accounts/login/", {"login": "Old@Example.com", "password": PASSWORD})
         self.assertRedirects(response, "/", fetch_redirect_response=False)
         self.assertEqual(len(mail.outbox), 0)
         migration.undo(registry, None)
@@ -127,7 +127,7 @@ class ExistingAccountsMigrationTests(FreshRateLimits, TestCase):
 class GoogleSignInTests(FreshRateLimits, TestCase):
     """A verified Google identity arriving at allauth's completion step (the OAuth exchange itself is allauth's)."""
 
-    def google(self, email, verified=True, uid="google-1"):
+    def google(self, email, verified=True, uid="google-1", name="Maria"):
         request = RequestFactory().get("/accounts/google/login/callback/")
         request.user = AnonymousUser()
         SessionMiddleware(lambda r: None).process_request(request)
@@ -135,7 +135,7 @@ class GoogleSignInTests(FreshRateLimits, TestCase):
         request.session.save()
         with context.request_context(request):
             provider = get_social_adapter().get_provider(request, "google")
-            login = SocialLogin(user=User(email=email), provider=provider,
+            login = SocialLogin(user=User(email=email, first_name=name), provider=provider,
                                 account=SocialAccount(provider="google", uid=uid, extra_data={"email": email}),
                                 email_addresses=[EmailAddress(email=email, verified=verified, primary=True)])
             response = complete_social_login(request, login)
@@ -149,18 +149,20 @@ class GoogleSignInTests(FreshRateLimits, TestCase):
         self.assertFalse(User.objects.exists())
         page = self.client.get("/accounts/3rdparty/signup/")
         self.assertContains(page, "Confirm că am cel puțin 16 ani")
-        refused = self.client.post("/accounts/3rdparty/signup/", {"username": "newperson",
+        self.assertContains(page, 'name="first_name" value="Maria"')  # Google's name, editable; no username asked
+        self.assertNotContains(page, 'name="username"')
+        refused = self.client.post("/accounts/3rdparty/signup/", {"first_name": "Maria",
                                                                   "email": "new.person@gmail.com"})
         self.assertContains(refused, "Ca să creezi contul, confirmă că ai cel puțin 16 ani")
         self.assertFalse(User.objects.exists())
-        done = self.client.post("/accounts/3rdparty/signup/", {"username": "newperson", "email": "new.person@gmail.com",
+        done = self.client.post("/accounts/3rdparty/signup/", {"first_name": "Maria P", "email": "new.person@gmail.com",
                                                                "accept_legal": "on"})
         self.assertRedirects(done, "/", fetch_redirect_response=False)
         home = self.client.get("/")  # Google proved the address, so the account opens now: welcome, no banner
         self.assertContains(home, '<dialog class="wait-screen event-screen is-welcome" open', count=1)
-        self.assertContains(home, "Bun venit, newperson!")
+        self.assertContains(home, "Bun venit, Maria P!")
         self.assertNotContains(home, 'class="messages"')
-        user = User.objects.get(username="newperson")
+        user = User.objects.get(email="new.person@gmail.com")
         self.assertEqual(LegalAcceptance.objects.get(user=user).source, "signup")
         self.assertTrue(EmailAddress.objects.get(user=user).verified)  # Google verified it: no Corect email
         self.assertEqual(len(mail.outbox), 0)
@@ -194,7 +196,7 @@ class GoogleSignInTests(FreshRateLimits, TestCase):
         self.assertEqual(response.url, "/accounts/3rdparty/signup/")
         # No second account either: the address's owner gets the "account already exists" mail with a password reset,
         # which proves the address; they can then sign in and connect Google from their account page.
-        refused = self.client.post("/accounts/3rdparty/signup/", {"username": "other", "email": "victim@gmail.com",
+        refused = self.client.post("/accounts/3rdparty/signup/", {"first_name": "Other", "email": "victim@gmail.com",
                                                                   "accept_legal": "on"})
         self.assertRedirects(refused, VERIFICATION_SENT, fetch_redirect_response=False)
         self.assertEqual(User.objects.count(), 1)
@@ -204,9 +206,9 @@ class GoogleSignInTests(FreshRateLimits, TestCase):
 
     def test_an_unverified_google_address_gets_a_verification_email(self):
         response, _ = self.google("unproven@example.com", verified=False)
-        self.client.post("/accounts/3rdparty/signup/", {"username": "unproven", "email": "unproven@example.com",
+        self.client.post("/accounts/3rdparty/signup/", {"first_name": "Un", "email": "unproven@example.com",
                                                         "accept_legal": "on"})
-        user = User.objects.get(username="unproven")
+        user = User.objects.get(email="unproven@example.com")
         self.assertFalse(EmailAddress.objects.get(user=user).verified)
         self.assertEqual([message.to for message in mail.outbox], [["unproven@example.com"]])
         self.assertRedirects(self.client.get("/history/"), "/accounts/login/?next=/history/")
@@ -234,9 +236,10 @@ class AuthPagesTests(FreshRateLimits, TestCase):
         with self.settings(GOOGLE_LOGIN_ENABLED=False):
             self.assertNotContains(self.client.get("/accounts/login/"), "Continuă cu Google")
 
-    def test_login_page_keeps_username_or_email_and_offers_password_reset(self):
+    def test_login_page_asks_for_the_email_and_offers_password_reset(self):
         page = self.client.get("/accounts/login/")
-        self.assertContains(page, "Nume de utilizator sau email")
-        self.assertContains(page, 'href="/accounts/password/reset/"')
+        self.assertContains(page, '<label for="id_login">Email:</label>')
+        self.assertContains(page, 'type="email" name="login"')
+        self.assertContains(page, 'href="/accounts/password/reset/"', count=1)  # one "Ai uitat parola?", not two
         reset = self.client.post("/accounts/password/reset/", {"email": "nobody@example.com"})
         self.assertEqual(reset.status_code, 302)

@@ -23,8 +23,7 @@ WELCOME_TEXT = "Contul tău e gata. Scrie sau spune ceva în română sau englez
 EVENT_MESSAGES = {"email_confirmed.txt": "Adresa ta de email a fost confirmată.",
                   "primary_email_set.txt": "Adresa ta principală de email a fost schimbată.",
                   "password_changed.txt": "Parola ta a fost salvată.", "password_set.txt": "Parola ta a fost salvată."}
-LOGIN_MISMATCH = ("Introdu un nume de utilizator sau email și o parolă corecte. Ambele câmpuri pot ține cont de "
-                  "literele mari.")
+LOGIN_MISMATCH = "Adresa de email sau parola nu este corectă. Parola ține cont de literele mari."
 
 
 def after_signup(request, user):
@@ -65,10 +64,6 @@ class AccountAdapter(DefaultAccountAdapter):
             announce(request, UPDATED, EVENT_MESSAGES[name])
         elif not (name == "logged_in.txt" and getattr(request, "corect_event", None)):  # the event screen says it
             super().add_message(request, level, message_template, message_context, extra_tags, message)
-
-    def get_login_stages(self):
-        return ["apps.accounts.stages.EmailVerificationStage" if stage.endswith(".EmailVerificationStage") else stage
-                for stage in super().get_login_stages()]
 
     def send_mail(self, template_prefix, email, context):
         try:

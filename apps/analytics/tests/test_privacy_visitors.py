@@ -87,9 +87,9 @@ class VisitorPrivacyTests(TestCase):
         self.post()
         self.post()
         visitor = AnonymousVisitor.objects.get()
-        self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
+        self.client.post("/accounts/signup/", {"first_name": "Ana", "email": "learner@example.com",
                                                 "password1": PASSWORD, "password2": PASSWORD, "accept_legal": "on"})
-        user = User.objects.get(username="new-learner")
+        user = User.objects.get(email="learner@example.com")
         self.client.post(confirmation_path(mail.outbox[-1]))  # confirming the address signs the account in
         visitor.refresh_from_db()
         self.assertEqual((visitor.converted_user, visitor.converted_via), (user, "signup"))
@@ -102,7 +102,7 @@ class VisitorPrivacyTests(TestCase):
         self.assertEqual((latest.audience, latest.user, latest.visitor_id), ("registered", user, visitor.pk))
         self.assertEqual(AnonymousVisitor.objects.count(), 1)
         self.client.post("/accounts/logout/")
-        self.client.post("/accounts/login/", {"login": "new-learner", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "learner@example.com", "password": PASSWORD})
         visitor.refresh_from_db()
         self.assertEqual((visitor.converted_via, AnonymousVisitor.objects.count()), ("signup", 1))
 
@@ -110,9 +110,9 @@ class VisitorPrivacyTests(TestCase):
         first = verified_user("existing", "existing@example.com", PASSWORD)
         verified_user("second", "second@example.com", PASSWORD)
         self.post()
-        self.client.post("/accounts/login/", {"login": "existing", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "existing@example.com", "password": PASSWORD})
         self.client.post("/accounts/logout/")
-        self.client.post("/accounts/login/", {"login": "second", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "second@example.com", "password": PASSWORD})
         visitor = AnonymousVisitor.objects.get()
         self.assertEqual((visitor.converted_user, visitor.converted_via), (first, "login"))
         self.assertEqual(UsageEvent.objects.count(), 1)
@@ -121,7 +121,7 @@ class VisitorPrivacyTests(TestCase):
         verified_user("existing", "existing@example.com", PASSWORD)
         self.post()
         self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(False)
-        self.client.post("/accounts/login/", {"login": "existing", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "existing@example.com", "password": PASSWORD})
         self.assertIsNone(AnonymousVisitor.objects.get().converted_user)
 
     @override_settings(ANALYTICS_VISITOR_COOKIE=False)

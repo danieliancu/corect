@@ -71,8 +71,10 @@ ACCOUNT_ADAPTER = "apps.accounts.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.SocialAccountAdapter"
 ACCOUNT_FORMS = {"signup": "apps.accounts.forms.SignupForm", "login": "apps.accounts.forms.LoginForm"}
 SOCIALACCOUNT_FORMS = {"signup": "apps.accounts.forms.SocialSignupForm"}
-ACCOUNT_LOGIN_METHODS = {"username", "email"}
-ACCOUNT_SIGNUP_FIELDS = ["username*", "email*", "password1*", "password2*"]
+# Sign-in is by email (or Google). The name shown in the site is User.first_name and need not be unique; the username is
+# an internal identifier allauth generates, never asked for or shown.
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 # Every address is verified once, by a link; nothing is asked again at later sign-ins. A new address replaces the old
 # one only after its own link is opened (ACCOUNT_CHANGE_EMAIL).
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"

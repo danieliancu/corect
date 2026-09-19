@@ -59,7 +59,7 @@ def profile(request):
     # Independent forms share the page; the submit button's form says which one was sent.
     action = request.POST.get("action") if request.method == "POST" else None
     user = request.user
-    username = user.username  # captured before an invalid form can change the instance in memory
+    name = user.first_name or user.get_username()  # captured before an invalid form can change the instance
     profile_form = ProfileForm(request.POST if action == "profile" else None, instance=user)
     password_form = password_form_for(user, request.POST if action == "password" else None)
     delete_form = DeleteAccountForm(user, request.POST if action == "delete" else None, prefix="delete")
@@ -93,7 +93,7 @@ def profile(request):
     subscription = subscription_for(user)
     return render(request, "accounts/profile.html", {
         "profile_form": profile_form, "password_form": password_form, "delete_form": delete_form,
-        "username": username, "email_required": not (primary and primary.verified),
+        "name": name, "email_required": not (primary and primary.verified),
         "primary_email": primary, "pending_email": pending,
         "quota": quota.status(actor_key(request), tier_for(user)),
         "pro_source": pro_source(user), "paid": pro_source(user) == PAID, "subscription": subscription,

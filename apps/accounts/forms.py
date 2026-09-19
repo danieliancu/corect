@@ -11,7 +11,20 @@ from .emails import is_email_conflict
 
 LEGAL_REQUIRED = ("Ca să creezi contul, confirmă că ai cel puțin 16 ani și că accepți Termenii și Politica de "
                   "confidențialitate.")
-LABELS = {"username": "Nume de utilizator", "email": "Email", "password1": "Parolă", "password2": "Confirmă parola"}
+LABELS = {"email": "Email", "password1": "Parolă", "password2": "Confirmă parola"}
+NAME_HELP = "Așa îți spunem în Corect.uk. Nu trebuie să fie unic."
+
+
+def name_field():
+    """The name shown in the site (User.first_name). Sign-in is by email, so it need not be unique; the username is an
+    internal identifier allauth generates."""
+    return forms.CharField(label="Numele tău", max_length=150, help_text=NAME_HELP,
+                           error_messages={"required": "Scrie un nume."},
+                           widget=forms.TextInput(attrs={"autocomplete": "given-name"}))
+
+
+def clean_name(value):
+    return " ".join(value.split())  # "  Ana   Maria " is shown as "Ana Maria"
 
 
 class LegalAcceptanceMixin(forms.Form):
@@ -32,11 +45,15 @@ class LegalAcceptanceMixin(forms.Form):
 
 
 class SignupForm(LegalAcceptanceMixin, AllauthSignupForm):
+    first_name = name_field()
     # Honeypot, positioned off screen by CSS: automated signups tend to fill every field.
     leave_empty = forms.CharField(required=False, label="Lasă acest câmp gol", widget=forms.TextInput(
         attrs={"class": "form-trap-input", "tabindex": "-1", "autocomplete": "off"}))
 
-    field_order = ("username", "email", "password1", "password2", "accept_legal", "leave_empty")
+    field_order = ("first_name", "email", "password1", "password2", "accept_legal", "leave_empty")
+
+    def clean_first_name(self):
+        return clean_name(self.cleaned_data["first_name"])
 
     def clean_leave_empty(self):
         if self.cleaned_data["leave_empty"]:
@@ -57,26 +74,38 @@ class SignupForm(LegalAcceptanceMixin, AllauthSignupForm):
 
 
 class SocialSignupForm(LegalAcceptanceMixin, AllauthSocialSignupForm):
-    """The one step of a first Google sign-in: a username and the same confirmation as a normal signup."""
+    """The one step of a first Google sign-in: the name (Google's, editable) and the same confirmation as a normal
+    signup."""
 
-    field_order = ("username", "email", "accept_legal")
+    first_name = name_field()
+    field_order = ("first_name", "email", "accept_legal")
+
+    def clean_first_name(self):
+        return clean_name(self.cleaned_data["first_name"])
 
 
 class LoginForm(AllauthLoginForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["login"].label = "Nume de utilizator sau email"
+        self.fields["login"].label = "Email"
         self.fields["password"].label = "Parolă"
+        self.fields["password"].help_text = ""  # "Ai uitat parola?" is already under the form (account/login.html)
         for field in self.fields.values():
             field.widget.attrs.pop("placeholder", None)
 
 
 class ProfileForm(forms.ModelForm):
-    """The username. The address changes on its own page, where the new one is confirmed before it replaces the old."""
+    """The name shown in the site. The address changes on its own page, where the new one is confirmed before it
+    replaces the old."""
+
+    first_name = name_field()
 
     class Meta:
         model = User
-        fields = ("username",)
+        fields = ("first_name",)
+
+    def clean_first_name(self):
+        return clean_name(self.cleaned_data["first_name"])
 
 
 class ResendVerificationForm(forms.Form):
@@ -92,14 +121,14 @@ class DeleteAccountForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.user = user
         if not user.has_usable_password():
-            # Accounts created with Google have no password: they confirm by typing their username instead.
-            self.fields["password"] = forms.CharField(label="Scrie numele tău de utilizator, pentru confirmare")
+            # Accounts created with Google have no password: they confirm by typing their email address instead.
+            self.fields["password"] = forms.CharField(label="Scrie adresa ta de email, pentru confirmare")
 
     def clean_password(self):
         value = self.cleaned_data["password"]
         confirmed = (self.user.check_password(value) if self.user.has_usable_password()
-                     else value.strip() == self.user.get_username())
+                     else bool(self.user.email) and value.strip().lower() == self.user.email.lower())
         if not confirmed:
             raise forms.ValidationError("Parola nu este corectă." if self.user.has_usable_password()
-                                        else "Numele de utilizator nu se potrivește.")
+                                        else "Adresa de email nu se potrivește.")
         return value

@@ -201,7 +201,7 @@ class HomepageChecks(BrowserTestCase):
         self.in_database_thread(lambda: LegalAcceptance.objects.create(
             user=user, terms_version=settings.TERMS_VERSION, privacy_version=settings.PRIVACY_VERSION, source="visit"))
         self.page.goto(self.live_server_url + "/accounts/login/")
-        self.page.locator("#id_login").fill("pro-learner")
+        self.page.locator("#id_login").fill("pro-learner@example.com")
         self.page.locator("#id_password").fill("Browser-test-password-815")
         self.page.locator("#id_password").press("Enter")
         expect(self.page.locator("#text")).to_be_visible()

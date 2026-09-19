@@ -23,7 +23,7 @@ from .testing import confirmation_path
 from .models import LegalAcceptance
 
 PASSWORD = "A-unique-pass-9431"
-SIGNUP = {"username": "new-learner", "email": "learner@example.com", "password1": PASSWORD, "password2": PASSWORD}
+SIGNUP = {"first_name": "Ana Learner", "email": "learner@example.com", "password1": PASSWORD, "password2": PASSWORD}
 VERIFICATION_SENT = "/accounts/confirm-email/"
 
 
@@ -51,8 +51,9 @@ class SignupAcceptanceTests(TestCase):
         response = self.client.post("/accounts/signup/", {**SIGNUP, "accept_legal": "on"})
         self.assertRedirects(response, VERIFICATION_SENT)
         acceptance = LegalAcceptance.objects.get()
-        self.assertEqual((acceptance.user.username, acceptance.terms_version, acceptance.privacy_version, acceptance.source),
-                         ("new-learner", settings.TERMS_VERSION, settings.PRIVACY_VERSION, "signup"))
+        self.assertEqual((acceptance.user.email, acceptance.user.first_name, acceptance.terms_version,
+                          acceptance.privacy_version, acceptance.source),
+                         ("learner@example.com", "Ana Learner", settings.TERMS_VERSION, settings.PRIVACY_VERSION, "signup"))
         self.assertLessEqual(acceptance.accepted_at, timezone.now())
         self.assertEqual(response.cookies[CONSENT_COOKIE].value, consent_cookie_value(True))  # Analytics on by default.
         self.assertNotContains(self.client.get("/"), 'class="consent-bar"')
@@ -163,15 +164,18 @@ class AccountEmailTests(TestCase):
                 self.assertRaises(IntegrityError):
             self.signup()
 
-    def test_login_with_email_ignores_case_and_username_still_works(self):
+    def test_login_is_by_email_ignoring_case_never_by_username(self):
         verified_user("ana", "ana@example.com")
-        for identifier in ("ana", "ana@example.com", "  ANA@Example.com "):
+        refused = self.client.post("/accounts/login/", {"login": "ana", "password": PASSWORD})
+        self.assertEqual(refused.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+        for identifier in ("ana@example.com", "  ANA@Example.com "):
             with self.subTest(identifier=identifier):
                 response = self.client.post("/accounts/login/", {"login": identifier, "password": PASSWORD})
                 self.assertRedirects(response, "/", fetch_redirect_response=False)
                 self.client.post("/accounts/logout/")
         response = self.client.post("/accounts/login/", {"login": "ana@example.com", "password": "wrong"})
-        self.assertContains(response, "nume de utilizator sau email")
+        self.assertContains(response, "Adresa de email sau parola nu este corectă.")
 
 
     def test_admin_add_form_requires_a_unique_address(self):
@@ -208,11 +212,11 @@ class LegacyAccountWithoutEmailTests(TestCase):
         self.assertEqual(self.client.get("/history/").status_code, 200)
         self.assertNotContains(self.client.get("/accounts/profile/"), "nu are încă o adresă de email")
 
-    def test_a_legacy_account_without_an_address_can_still_sign_in_to_add_one(self):
+    def test_a_legacy_account_without_an_address_cannot_sign_in_until_staff_add_one(self):
+        # Sign-in is by email only: staff add the address in the admin, then the owner resets the password by email.
         self.client.logout()
-        response = self.client.post("/accounts/login/", {"login": "legacy", "password": PASSWORD})
-        self.assertRedirects(response, "/", fetch_redirect_response=False)
-        self.assertRedirects(self.client.get("/"), "/accounts/profile/?email_required=1", fetch_redirect_response=False)
+        self.client.post("/accounts/login/", {"login": "legacy", "password": PASSWORD})
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_legal_pages_logout_and_health_stay_open(self):
         for path in ("/confidentialitate/", "/termeni/", "/cookie-uri/", "/healthz", "/readyz"):

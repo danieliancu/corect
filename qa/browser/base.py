@@ -138,7 +138,7 @@ class BrowserTestCase(StaticLiveServerTestCase):
             make_exercise(user, count=exercises)
         self.in_database_thread(seed)
         self.page.goto(self.live_server_url + "/accounts/login/")
-        self.page.locator("#id_login").fill(username)
+        self.page.locator("#id_login").fill(f"{username}@example.com")
         self.page.locator("#id_password").fill("Browser-test-password-815")
         self.page.locator("#id_password").press("Enter")
         expect(self.page.locator("#text")).to_be_visible()

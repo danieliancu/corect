@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}Profilul tău — Corect.uk{% endblock %}{% block content %}
 <section class="auth-container profile-page">
-  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ username }}</p>{% if quota %}<p class="plan-status"><strong>Plan {% if quota.tier == 'pro' %}Pro{% else %}Free{% endif %}</strong> · {% if quota.tier == 'pro' %}Cereri nelimitate (Fair Use){% else %}{{ quota.note }}{% endif %}</p>{% endif %}</div>
+  <div class="page-heading"><h1>Profilul tău</h1><p>Autentificat ca {{ name }}</p>{% if quota %}<p class="plan-status"><strong>Plan {% if quota.tier == 'pro' %}Pro{% else %}Free{% endif %}</strong> · {% if quota.tier == 'pro' %}Cereri nelimitate (Fair Use){% else %}{{ quota.note }}{% endif %}</p>{% endif %}</div>
   <section class="card account-form profile-plan" aria-labelledby="plan-title">
     <h2 id="plan-title">Planul tău: {% if pro_source %}Pro{% else %}Free{% endif %}</h2>
     {% if pro_source == 'paid' %}
@@ -34,7 +34,7 @@
   <form method="post" class="card account-form profile-password">{% csrf_token %}
     <input type="hidden" name="action" value="password">
     <h2>{% if user.has_usable_password %}Schimbă parola{% else %}Setează o parolă{% endif %}</h2>
-    {% if not user.has_usable_password %}<p class="muted">Te autentifici cu Google. Cu o parolă te poți autentifica și cu numele de utilizator sau adresa de email.</p>{% endif %}
+    {% if not user.has_usable_password %}<p class="muted">Te autentifici cu Google. Cu o parolă te poți autentifica și cu adresa de email.</p>{% endif %}
     {{ password_form.as_p }}
     <button class="button" type="submit">{% if user.has_usable_password %}Schimbă parola{% else %}Setează parola{% endif %}</button>
   </form>

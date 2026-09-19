@@ -13,7 +13,7 @@ class AccountChecks(BrowserTestCase):
     def test_authentication_history_practice_and_no_javascript(self):
         self.page.goto(self.live_server_url + "/accounts/signup/")
         expect(self.page.get_by_role("button", name="Continuă cu Google")).to_be_visible()
-        self.page.get_by_label("Nume de utilizator").fill("browser-learner")
+        self.page.get_by_label("Numele tău").fill("Ana Browser")
         self.page.get_by_label("Email").fill("browser@example.com")
         self.page.locator("#id_password1").fill("Browser-test-password-815")
         self.page.locator("#id_password2").fill("Browser-test-password-815")
@@ -26,7 +26,7 @@ class AccountChecks(BrowserTestCase):
         self.page.goto(self.live_server_url + confirmation_path(mail.outbox[-1]))
         self.page.get_by_role("button", name="Confirmă").click()
         # The account is open: a welcome over the home page, modal (focus on its button), then the page as usual.
-        welcome = self.page.get_by_role("dialog", name="Bun venit, browser-learner!")
+        welcome = self.page.get_by_role("dialog", name="Bun venit, Ana Browser!")
         expect(welcome).to_be_visible()
         expect(welcome.get_by_role("button", name="Începe")).to_be_focused()
         expect(self.page.locator(".messages")).to_have_count(0)
@@ -38,7 +38,7 @@ class AccountChecks(BrowserTestCase):
         welcome.get_by_role("button", name="Începe").click()
         expect(welcome).to_be_hidden()
         expect(self.page.locator("#text")).to_be_visible()
-        self.in_database_thread(lambda: make_pro(User.objects.get(username="browser-learner")))  # the Pro pages below
+        self.in_database_thread(lambda: make_pro(User.objects.get(email="browser@example.com")))  # the Pro pages below
         self.page.locator("#text").fill(correction_result().original_text)
         self.submit()
         expect(self.page.locator(".result-text")).to_be_visible()
@@ -131,7 +131,7 @@ class AccountChecks(BrowserTestCase):
             expect(page.locator(".result-text")).to_have_text(BRITISH)
             # An event screen closes with its button without JavaScript too (<form method="dialog">).
             page.goto(self.live_server_url + "/accounts/login/")
-            page.locator("#id_login").fill("browser-learner")
+            page.locator("#id_login").fill("browser@example.com")
             page.locator("#id_password").fill("Browser-test-password-815")
             page.locator("#id_password").press("Enter")
             page.goto(self.live_server_url + "/accounts/profile/")

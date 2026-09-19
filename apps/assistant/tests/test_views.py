@@ -158,7 +158,7 @@ class EndpointTests(TestCase):
     def test_anonymous_visitors_get_five_a_day_then_an_invitation_to_create_a_free_account(self):
         for number in range(1, 6):
             response = self.post(HTTP_HX_REQUEST="true")
-            self.assertContains(response, f"{5 - number} din 5 utilizări rămase astăzi")
+            self.assertNotContains(response, "utilizări rămase")  # the count is shown only on the profile
         response = self.post(HTTP_HX_REQUEST="true")
         self.assertContains(response, "Ai folosit cele 5 utilizări gratuite de azi. Creează un cont gratuit și primești 20 "
                                       "pe zi.", status_code=429)
@@ -285,7 +285,8 @@ class EndpointTests(TestCase):
             self.assertEqual(self.post().status_code, 503)  # No usable result could be produced.
         usage = NaturalizeUsage.objects.get()
         self.assertEqual((usage.used, usage.reserved), (0, 0))
-        self.assertContains(self.post(HTTP_HX_REQUEST="true"), "4 din 5 utilizări rămase astăzi")
+        self.assertEqual(self.post(HTTP_HX_REQUEST="true").status_code, 200)
+        self.assertEqual(NaturalizeUsage.objects.get().used, 1)
         self.assertEqual(set(UsageEvent.objects.exclude(status="success").values_list("error_code", flat=True)) &
                          {"quota_exhausted"}, set())
 
@@ -404,50 +405,52 @@ class EndpointTests(TestCase):
         self.assertNotContains(response, "Întrebare rapidă")
 
     def test_account_signup_login_profile_logout(self):
-        response = self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
+        response = self.client.post("/accounts/signup/", {"first_name": "Ana", "email": "learner@example.com",
             "password1": "A-unique-pass-9431", "password2": "A-unique-pass-9431", "accept_legal": "on"})
         self.assertRedirects(response, "/accounts/confirm-email/")
         self.client.post(confirmation_path(mail.outbox[-1]))  # confirming signs the new account in
         self.assertEqual(self.client.get("/accounts/profile/").status_code, 200)
-        self.client.post("/accounts/profile/", {"action": "profile", "username": "renamed-learner"})
-        self.assertTrue(User.objects.filter(username="renamed-learner").exists())
+        self.client.post("/accounts/profile/", {"action": "profile", "first_name": "Ana Maria"})
+        self.assertEqual(User.objects.get(email="learner@example.com").first_name, "Ana Maria")
         self.assertRedirects(self.client.post("/accounts/logout/"), "/")
-        self.assertRedirects(self.client.post("/accounts/login/", {"login": "renamed-learner",
+        self.assertRedirects(self.client.post("/accounts/login/", {"login": "learner@example.com",
                                                                    "password": "A-unique-pass-9431"}),
                              "/", fetch_redirect_response=False)
 
-    def test_profile_changes_username_and_password(self):
-        self.client.force_login(self.user)
-        profile = lambda **data: self.client.post("/accounts/profile/", {"action": "profile",
-                                                                          "email": "ana@example.com", **data})
+    def test_profile_changes_the_name_and_password(self):
+        self.client.force_login(verify(self.user))
+        self.other.first_name = "Ana"
+        self.other.save()
+        profile = lambda **data: self.client.post("/accounts/profile/", {"action": "profile", **data})
         password = lambda old: self.client.post("/accounts/profile/", {"action": "password", "old_password": old,
             "new_password1": "A-new-pass-5823", "new_password2": "A-new-pass-5823"})
-        self.assertContains(profile(username="other"), "există deja")
-        self.assertRedirects(profile(username="ana-maria"), "/accounts/profile/")
-        self.assertEqual(User.objects.get(pk=self.user.pk).username, "ana-maria")
+        self.assertContains(profile(first_name="   "), "Scrie un nume.")
+        self.assertRedirects(profile(first_name="  Ana  "), "/accounts/profile/")  # the name need not be unique
+        self.assertEqual(User.objects.get(pk=self.user.pk).first_name, "Ana")
+        self.assertEqual(User.objects.get(pk=self.user.pk).username, "ana")  # internal, never changed by the profile
         self.assertEqual(password("wrong-password").status_code, 200)
         self.assertRedirects(password("test-password"), "/accounts/profile/")
-        self.assertContains(self.client.get("/accounts/profile/"), "Autentificat ca ana-maria")
+        self.assertContains(self.client.get("/accounts/profile/"), "Autentificat ca Ana")
         self.client.logout()
-        self.assertTrue(self.client.login(username="ana-maria", password="A-new-pass-5823"))
+        self.assertRedirects(self.client.post("/accounts/login/", {"login": "ana@example.com",
+                                                                   "password": "A-new-pass-5823"}),
+                             "/", fetch_redirect_response=False)
 
-    def test_login_with_username_or_email(self):
-        self.user.email = "ana@example.com"
-        self.user.save()
+    def test_login_with_email_only(self):
         verify(self.user)
-        for identifier in ("ana", "ANA@example.com"):
-            with self.subTest(identifier=identifier):
-                self.assertRedirects(self.client.post("/accounts/login/", {"login": identifier,
-                                                                           "password": "test-password"}),
-                                     "/", fetch_redirect_response=False)
-                self.client.logout()
+        self.assertRedirects(self.client.post("/accounts/login/", {"login": "ANA@example.com",
+                                                                   "password": "test-password"}),
+                             "/", fetch_redirect_response=False)
+        self.client.logout()
+        self.client.post("/accounts/login/", {"login": "ana", "password": "test-password"})
+        self.assertNotIn("_auth_user_id", self.client.session)  # a username is not an email: no sign-in
         self.assertContains(self.client.post("/accounts/login/", {"login": "ana@example.com", "password": "wrong"}),
-                            "nume de utilizator sau email")
+                            "Adresa de email sau parola nu este corectă.")
         # Emails are unique ignoring case (apps/accounts/emails.py), so an email identifies at most one account.
         self.other.email = "Ana@Example.com"
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.other.save()
-        self.assertContains(self.client.get("/accounts/login/"), "Nume de utilizator sau email")
+        self.assertNotContains(self.client.get("/accounts/login/"), "Nume de utilizator")
 
     def test_mistake_category_page_lists_only_own_mistakes(self):
         self.assertEqual(self.client.get("/mistakes/verb_form/").status_code, 302)

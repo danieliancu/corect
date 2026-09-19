@@ -25,7 +25,7 @@ class EventScreenTests(FreshRateLimits, TestCase):
         self.client.post("/accounts/signup/", {**SIGNUP, "accept_legal": "on"})
         self.assertNoScreen(self.client.get("/accounts/confirm-email/"))  # not yet: the account is not open
         home = self.client.post(confirmation_path(mail.outbox[-1]), follow=True)
-        self.assertScreen(home, "welcome", "Bun venit, new-learner!", "Contul tău e gata.", ">Începe</button>")
+        self.assertScreen(home, "welcome", "Bun venit, Ana Learner!", "Contul tău e gata.", ">Începe</button>")
         self.assertNotContains(home, 'class="messages"')  # allauth's "confirmed" and "signed in" banners say the same
         self.assertNoScreen(self.client.get("/"))
 
@@ -38,7 +38,7 @@ class EventScreenTests(FreshRateLimits, TestCase):
 
     def test_saving_the_profile_or_the_password_is_done(self):
         self.client.force_login(verified_user("ana", "ana@example.com", PASSWORD))
-        page = self.client.post("/accounts/profile/", {"action": "profile", "username": "ana-maria"}, follow=True)
+        page = self.client.post("/accounts/profile/", {"action": "profile", "first_name": "Ana Maria"}, follow=True)
         self.assertScreen(page, "updated", "Gata!", "Profilul tău a fost actualizat.")
         new = "Another-unique-pass-2718"
         page = self.client.post("/accounts/profile/", {"action": "password", "old_password": PASSWORD,

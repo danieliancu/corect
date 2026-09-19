@@ -98,7 +98,6 @@ def naturalize(request):
                                  # The ledger row for the earlier submission already owns that request (one to one).
                                  assistant_request=None if stored is not None else entry)
                     context.update(kind=kind, result=result_data)
-                    context["quota"] = quota_status(actor, tier)
                     if kind == CORRECTION and entry is not None:
                         try:
                             with timed("db"):
@@ -144,12 +143,3 @@ def naturalize(request):
     if anonymous:
         attach_visitor_cookie(request, response, visitor)
     return response
-
-
-def quota_status(actor, tier):
-    """Today's allowance after a result, for the small „3 din 5 utilizări rămase astăzi” note; None if unavailable."""
-    try:
-        return quota.status(actor, tier)
-    except DatabaseError:
-        log_event(logger, logging.ERROR, "naturalize_quota_status_unavailable", DATABASE)
-        return None
