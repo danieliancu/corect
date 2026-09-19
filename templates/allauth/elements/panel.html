@@ -1,0 +1,1 @@
+{% load allauth %}<section class="card account-form"><h2>{% slot title %}{% endslot %}</h2>{% slot body %}{% endslot %}{% if slots.actions %}<div class="allauth-actions">{% for action in slots.actions %}{{ action }}{% endfor %}</div>{% endif %}</section>

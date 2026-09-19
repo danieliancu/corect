@@ -2,9 +2,12 @@ from importlib import import_module
 from io import StringIO
 from unittest.mock import patch
 
+from allauth.account.models import EmailAddress
 from django.apps import apps as registry
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core import mail
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
@@ -14,11 +17,18 @@ from apps.analytics.models import AnonymousVisitor
 from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.assistant.models import AssistantRequest
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
+from . import testing
 from .emails import EMAIL_INDEX, duplicate_email_groups
+from .testing import confirmation_path
 from .models import LegalAcceptance
 
 PASSWORD = "A-unique-pass-9431"
 SIGNUP = {"username": "new-learner", "email": "learner@example.com", "password1": PASSWORD, "password2": PASSWORD}
+VERIFICATION_SENT = "/accounts/confirm-email/"
+
+
+def verified_user(username, email, password=PASSWORD):
+    return testing.verified_user(username, email, password)
 
 
 class SignupAcceptanceTests(TestCase):
@@ -39,7 +49,7 @@ class SignupAcceptanceTests(TestCase):
 
     def test_signup_records_the_accepted_versions(self):
         response = self.client.post("/accounts/signup/", {**SIGNUP, "accept_legal": "on"})
-        self.assertRedirects(response, "/")
+        self.assertRedirects(response, VERIFICATION_SENT)
         acceptance = LegalAcceptance.objects.get()
         self.assertEqual((acceptance.user.username, acceptance.terms_version, acceptance.privacy_version, acceptance.source),
                          ("new-learner", settings.TERMS_VERSION, settings.PRIVACY_VERSION, "signup"))
@@ -100,6 +110,9 @@ def drop_email_index():
 class AccountEmailTests(TestCase):
     """Every account has one valid email address, stored lower-case and unique ignoring case."""
 
+    def setUp(self):
+        cache.clear()  # allauth's per-address mail limits live in the cache; each test starts clean
+
     def signup(self, **data):
         return self.client.post("/accounts/signup/", {**SIGNUP, "accept_legal": "on", **data})
 
@@ -108,20 +121,25 @@ class AccountEmailTests(TestCase):
             with self.subTest(email=email):
                 response = self.signup(email=email)
                 self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "Introdu adresa ta de email")
+                self.assertTrue(response.context["form"].errors["email"])
         self.assertEqual(self.signup(email="not-an-email").status_code, 200)
         self.assertFalse(User.objects.exists())
         self.assertContains(self.client.get("/accounts/signup/"), 'type="email" name="email"')
 
     def test_signup_stores_the_address_trimmed_and_lower_case(self):
-        self.assertRedirects(self.signup(email="  Daniel@Example.COM "), "/")
+        self.assertRedirects(self.signup(email="  Daniel@Example.COM "), VERIFICATION_SENT)
         self.assertEqual(User.objects.get().email, "daniel@example.com")
+        self.assertEqual(EmailAddress.objects.get().email, "daniel@example.com")
 
     def test_duplicate_addresses_are_refused_whatever_their_case(self):
-        User.objects.create_user("daniel", "daniel@example.com", PASSWORD)
-        for email in ("daniel@example.com", "Daniel@Example.com", " DANIEL@EXAMPLE.COM"):
+        # No second account, and the page reveals nothing: the address's owner is told by email instead, once (the
+        # rate limit keeps repeated attempts from flooding the inbox).
+        verified_user("daniel", "daniel@example.com")
+        for number, email in enumerate(("daniel@example.com", "Daniel@Example.com", " DANIEL@EXAMPLE.COM")):
             with self.subTest(email=email):
-                self.assertContains(self.signup(email=email), "Există deja un cont cu această adresă de email.")
+                self.assertRedirects(self.signup(email=email, username=f"other{number}"), VERIFICATION_SENT)
+        self.assertEqual([(message.subject, message.to) for message in mail.outbox],
+                         [("Corect.uk – Ai deja un cont Corect.uk", ["daniel@example.com"])])
         self.assertEqual(User.objects.count(), 1)
 
     def test_the_database_refuses_duplicates_even_without_the_form(self):
@@ -132,42 +150,29 @@ class AccountEmailTests(TestCase):
         User.objects.create_user("legacy-one", "", PASSWORD)
         User.objects.create_user("legacy-two", "", PASSWORD)
 
-    def test_a_concurrent_signup_with_the_same_address_gets_the_form_error(self):
-        # The form check passed for both requests; the database index refuses the second row.
+    def test_a_concurrent_signup_with_the_same_address_is_treated_as_an_existing_one(self):
+        # The form check passed for both requests; the database index refuses the second row, and the second signup
+        # ends like any signup with a used address: no account, no acceptance, the neutral page.
         conflict = IntegrityError(f'duplicate key value violates unique constraint "{EMAIL_INDEX}"')
-        with patch("apps.accounts.forms.SignupForm.save", side_effect=conflict):
+        with patch("allauth.account.forms.BaseSignupForm.save", side_effect=conflict):
             response = self.signup()
-        self.assertContains(response, "Există deja un cont cu această adresă de email.")
+        self.assertRedirects(response, VERIFICATION_SENT)
+        self.assertFalse(User.objects.exists())
         self.assertFalse(LegalAcceptance.objects.exists())
-        with patch("apps.accounts.forms.SignupForm.save", side_effect=IntegrityError("other")), \
+        with patch("allauth.account.forms.BaseSignupForm.save", side_effect=IntegrityError("other")), \
                 self.assertRaises(IntegrityError):
             self.signup()
 
     def test_login_with_email_ignores_case_and_username_still_works(self):
-        User.objects.create_user("ana", "ana@example.com", PASSWORD)
+        verified_user("ana", "ana@example.com")
         for identifier in ("ana", "ana@example.com", "  ANA@Example.com "):
             with self.subTest(identifier=identifier):
-                response = self.client.post("/accounts/login/", {"username": identifier, "password": PASSWORD})
-                self.assertRedirects(response, "/")
+                response = self.client.post("/accounts/login/", {"login": identifier, "password": PASSWORD})
+                self.assertRedirects(response, "/", fetch_redirect_response=False)
                 self.client.post("/accounts/logout/")
-        response = self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "wrong"})
+        response = self.client.post("/accounts/login/", {"login": "ana@example.com", "password": "wrong"})
         self.assertContains(response, "nume de utilizator sau email")
 
-    def test_profile_email_follows_the_same_rules(self):
-        user = User.objects.create_user("ana", "ana@example.com", PASSWORD)
-        User.objects.create_user("bob", "bob@example.com", PASSWORD)
-        self.client.force_login(user)
-
-        def update(email):
-            return self.client.post("/accounts/profile/", {"action": "profile", "username": "ana", "email": email})
-
-        self.assertContains(update(""), "Introdu adresa ta de email")
-        self.assertEqual(update("nope").status_code, 200)
-        self.assertContains(update("BOB@example.com"), "Există deja un cont cu această adresă de email.")
-        self.assertEqual(User.objects.get(pk=user.pk).email, "ana@example.com")
-        self.assertRedirects(update("ana@example.com"), "/accounts/profile/")  # Keeping one's own address is fine.
-        self.assertRedirects(update(" Ana.New@Example.com"), "/accounts/profile/")
-        self.assertEqual(User.objects.get(pk=user.pk).email, "ana.new@example.com")
 
     def test_admin_add_form_requires_a_unique_address(self):
         User.objects.create_user("taken", "taken@example.com", PASSWORD)
@@ -186,17 +191,28 @@ class LegacyAccountWithoutEmailTests(TestCase):
         self.user = User.objects.create_user("legacy", "", PASSWORD)
         self.client.force_login(self.user)
 
-    def test_pages_lead_to_the_profile_until_an_address_is_added(self):
+    def test_pages_lead_to_the_profile_until_an_address_is_added_and_confirmed(self):
         for path in ("/", "/history/", "/learn/", "/about/"):
             with self.subTest(path=path):
                 self.assertRedirects(self.client.get(path), "/accounts/profile/?email_required=1",
                                      fetch_redirect_response=False)
         self.assertContains(self.client.get("/accounts/profile/?email_required=1"),
                             "Contul tău nu are încă o adresă de email.")
-        self.client.post("/accounts/profile/", {"action": "profile", "username": "legacy",
-                                                "email": "legacy@example.com"})
+        # Adding the address sends its link; until it is opened the account stays on the account pages.
+        self.client.post("/accounts/email/", {"email": "legacy@example.com", "action_add": ""})
+        self.assertEqual(mail.outbox[-1].to, ["legacy@example.com"])
+        self.assertRedirects(self.client.get("/history/"), "/accounts/profile/?email_required=1",
+                             fetch_redirect_response=False)
+        self.assertContains(self.client.get("/accounts/profile/"), "Confirmă adresa de email ca să poți continua")
+        self.client.post(confirmation_path(mail.outbox[-1]))
         self.assertEqual(self.client.get("/history/").status_code, 200)
         self.assertNotContains(self.client.get("/accounts/profile/"), "nu are încă o adresă de email")
+
+    def test_a_legacy_account_without_an_address_can_still_sign_in_to_add_one(self):
+        self.client.logout()
+        response = self.client.post("/accounts/login/", {"login": "legacy", "password": PASSWORD})
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
+        self.assertRedirects(self.client.get("/"), "/accounts/profile/?email_required=1", fetch_redirect_response=False)
 
     def test_legal_pages_logout_and_health_stay_open(self):
         for path in ("/confidentialitate/", "/termeni/", "/cookie-uri/", "/healthz", "/readyz"):
@@ -216,7 +232,7 @@ class LegacyAccountWithoutEmailTests(TestCase):
     def test_anonymous_visitors_and_accounts_with_an_address_are_unaffected(self):
         self.client.logout()
         self.assertEqual(self.client.get("/").status_code, 200)
-        self.client.force_login(User.objects.create_user("modern", "modern@example.com", PASSWORD))
+        self.client.force_login(verified_user("modern", "modern@example.com"))
         self.assertEqual(self.client.get("/history/").status_code, 200)
 
 

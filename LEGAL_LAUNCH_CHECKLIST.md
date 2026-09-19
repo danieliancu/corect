@@ -77,7 +77,8 @@ professional actions that code cannot complete. None is done just because a conf
 - [ ] Review a sample of live `pattern` keys from prompt `2026-09-v8-naturalize` with a native speaker and tune the taxonomy.
 - [ ] Confirm the Privacy notice section "Profilul tău de învățare" (profile kept until account deletion, minimal
       context sent to OpenAI) with the legal review below.
-- [ ] Before selling Pro, decide which learning features are Pro-only and set `PRO_ENTITLEMENTS_ENFORCED=true`.
+- [x] Pro-only learning features decided and enforced: dashboard, progress, mistakes by category, personalised
+      practice and history older than 30 days (`apps/core/entitlements.py`); the Free card states the same.
 
 ## Professional review
 
@@ -87,9 +88,16 @@ professional actions that code cannot complete. None is done just because a conf
 
 ## Before selling Pro
 
-- [ ] Choose a payment provider and add its disclosures to the Privacy notice (recipient, data shared, transfers).
-- [ ] Publish pricing, billing, renewal, cancellation and refund terms, including the UK 14-day cancellation right for
-      digital services and how it is waived or applied.
+- [x] Payment provider: Stripe (Checkout, Billing Portal). The Privacy notice names Stripe, Google (sign-in) and the
+      email provider as recipients, with the data shared and the transfers (`PRIVACY_VERSION` 2026-09-18).
+- [ ] **Legal review of the drafted payment terms** (Terms §12, `TERMS_VERSION` 2026-09-18): monthly auto-renewal,
+      cancellation at the period end from the Customer Portal, the 14-day withdrawal right with a proportionate charge
+      when the service starts at the consumer's request (Consumer Contracts Regulations 2013), refunds by contact,
+      failed payments, 30 days' notice of price changes, cancellation on account deletion. Confirm the wording, whether
+      the express request/acknowledgement must also be captured at checkout, VAT presentation, and the refund process.
+- [ ] Name the email (SMTP) provider in the Privacy notice once chosen, like `LEGAL_HOSTING_PROVIDER`.
+- [ ] Configure Stripe live mode (product, monthly price = `PRO_DISPLAY_PRICE`/`PRO_PROMO_PRICE`, Customer Portal,
+      webhook) and Google OAuth (consent screen with the privacy and terms URLs) before announcing Pro.
 - [ ] Review the daily plan limits with the legal review: 5 naturalisations a day without an account, 20 with a free
       account and, for Pro, "Cereri nelimitate (Fair Use)" with a technical ceiling of 200 a day stated in the Terms
       (section 13), reset at midnight UK time and not charged for failed requests. Check the "nelimitate" wording against

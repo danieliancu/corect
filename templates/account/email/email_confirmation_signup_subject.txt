@@ -1,0 +1,1 @@
+{% autoescape off %}Confirmă adresa de email pentru contul tău{% endautoescape %}

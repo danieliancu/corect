@@ -135,12 +135,20 @@ class LandingPageTests(TestCase):
                       plans)
         self.assertEqual(plans.count(FAIR_USE), 1)  # Under the Pro features only.
         self.assertLess(plans.index("Statistici de evoluție</li>", plans.index("plan-pro")), plans.index(FAIR_USE))
-        for absent in ("Launch", "OFF", "%"):
+        for absent in ("Launch", "OFF"):
             self.assertNotIn(absent, plans)
-        self.assertIn('<button type="button" class="button plan-button" disabled aria-describedby="pro-coming-soon">'
-                      "Alege Pro</button>", plans)
+        self.assertNotRegex(plans, r"\d\s?%")  # no percentage discounts (a URL-encoded "#" in a link is fine)
+        # Anonymous visitors create an account first; checkout only exists for signed-in accounts.
+        self.assertIn('<a class="button plan-button" href="/accounts/signup/?next=/%23plans" '
+                      'data-funnel-cta="pricing_section" aria-describedby="pro-account-first">Alege Pro</a>', plans)
         self.assertIn('<a class="button secondary plan-button" href="/accounts/signup/">Începe gratis</a>', plans)
-        self.assertNotIn("checkout", plans.lower())
+        self.assertNotIn("/billing/checkout/", plans)
+        self.assertNotIn("în curând", plans)
+        with override_settings(BILLING_ENABLED=False):
+            plans = section(self.client.get("/").content.decode(), 'class="landing-section landing-plans"')
+        self.assertIn('<button type="button" class="button plan-button" disabled aria-describedby="pro-unavailable">'
+                      "Alege Pro</button>", plans)
+        self.assertIn("Abonamentele Pro nu pot fi cumpărate momentan.", plans)
         with override_settings(PRO_PROMO_ENABLED=False):
             plans = section(self.client.get("/").content.decode(), 'class="landing-section landing-plans"')
         self.assertIn('<strong>£9.99</strong><span class="plan-period">/ lună</span>', plans)
@@ -179,7 +187,8 @@ class LandingPageTests(TestCase):
         user.groups.add(Group.objects.get(name=PRO_GROUP))
         self.client.force_login(user)
         plans = section(self.client.get("/").content.decode(), 'class="landing-section landing-plans')
-        self.assertIn('<h2 id="plans-title">Ești în planul potrivit.</h2>', plans)
+        self.assertIn('<h2 id="plans-title">Planul tău: Pro</h2>', plans)
+        self.assertIn("Accesul Pro ți-a fost acordat de echipa Corect.uk.", plans)  # the manual override, not paid
         for hidden in ("Alege planul potrivit", 'class="plan-card', "<button", "Engleză naturală limitată", "£"):
             self.assertNotIn(hidden, plans)
         pro_features = [label for label, included in display_plans()[1]["features"] if included]
@@ -425,7 +434,8 @@ class PlanTierAndLimitSettingsTests(TestCase):
     @override_settings(NATURALIZE_DAILY_LIMITS={"anonymous": 5, "free": 20, "pro": 200})
     def test_plan_copy_states_the_real_daily_limits_and_never_unlimited(self):
         free, pro = display_plans()
-        self.assertIn(("20 de naturalizări pe zi", True), free["features"])
+        self.assertIn(("20 de cereri pe zi", True), free["features"])
+        self.assertEqual(free["daily"], "20 de cereri pe zi")
         self.assertIn(("Cereri nelimitate (Fair Use)", True), pro["features"])
         self.assertEqual(pro["daily"], "Cereri nelimitate (Fair Use)")
         home = self.client.get("/").content.decode()

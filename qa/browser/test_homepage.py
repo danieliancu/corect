@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, User
 from playwright.sync_api import expect
 
 from apps.accounts.models import LegalAcceptance
+from apps.accounts.testing import verified_user
 from apps.assistant.tests.examples import correction_result
 from .base import BrowserTestCase
 from .mocks import ACTION
@@ -126,7 +127,8 @@ class HomepageChecks(BrowserTestCase):
                 expect(self.page.locator(".step-card")).to_have_count(4)
                 expect(self.page.get_by_role("heading", name="Free", exact=True)).to_be_visible()
                 expect(self.page.get_by_role("heading", name="Pro", exact=True)).to_be_visible()
-                expect(self.page.get_by_role("button", name="Alege Pro")).to_be_disabled()
+                # A visitor chooses Pro by creating an account first; checkout is for signed-in accounts.
+                expect(self.page.get_by_role("link", name="Alege Pro")).to_have_attribute("href", "/accounts/signup/?next=/%23plans")
                 expect(self.page.locator(".plan-strip")).to_be_visible()
                 cta = self.page.locator(".landing-cta")
                 expect(cta).to_be_visible()
@@ -193,13 +195,13 @@ class HomepageChecks(BrowserTestCase):
         self.assertEqual(self.errors, [])
 
     def test_editor_link_focuses_text_box_and_pro_members_see_their_benefits(self):
-        user = self.in_database_thread(lambda: User.objects.create_user(username="pro-learner", email="pro-learner@example.com",
-                                                                        password="Browser-test-password-815"))
+        user = self.in_database_thread(lambda: verified_user("pro-learner", "pro-learner@example.com",
+                                                             "Browser-test-password-815"))
         # An existing account that already accepted the current Terms, so no consent dialog covers the page.
         self.in_database_thread(lambda: LegalAcceptance.objects.create(
             user=user, terms_version=settings.TERMS_VERSION, privacy_version=settings.PRIVACY_VERSION, source="visit"))
         self.page.goto(self.live_server_url + "/accounts/login/")
-        self.page.locator("#id_username").fill("pro-learner")
+        self.page.locator("#id_login").fill("pro-learner")
         self.page.locator("#id_password").fill("Browser-test-password-815")
         self.page.locator("#id_password").press("Enter")
         expect(self.page.locator("#text")).to_be_visible()
@@ -212,7 +214,7 @@ class HomepageChecks(BrowserTestCase):
         # The group is created by a migration, but TransactionTestCase flushes it between tests.
         self.in_database_thread(lambda: user.groups.add(Group.objects.get_or_create(name="Pro")[0]))
         self.page.reload()
-        expect(self.page.get_by_role("heading", name="Ești în planul potrivit.")).to_be_visible()
+        expect(self.page.get_by_role("heading", name="Planul tău: Pro")).to_be_visible()
         expect(self.page.get_by_role("heading", name="Alege planul potrivit")).to_have_count(0)
         expect(self.page.locator(".plan-card")).to_have_count(0)
         expect(self.page.locator(".pro-benefits li")).to_have_count(9)

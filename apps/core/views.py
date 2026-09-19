@@ -13,7 +13,7 @@ from apps.analytics.services.visitors import delete_visitor_cookie
 from apps.assistant.services.voice import REALTIME_CALLS_URL
 from .consent import acceptance_required, analytics_chosen, record_acceptance, set_consent_cookie
 from .legal import retention_facts
-from .plans import display_plans
+from .plans import FREE_HISTORY_DAYS, display_plans, pro_prices
 from .seo import structured_data
 
 # The browser opens its connection to this origin only once the learner reaches for the microphone, never on page load.
@@ -49,7 +49,9 @@ def privacy_page(request):
 
 
 def terms_page(request):
-    return render(request, "core/terms.html")
+    pro_price, pro_original_price = pro_prices()
+    return render(request, "core/terms.html", {"pro_price": pro_price, "pro_original_price": pro_original_price,
+                                               "free_history_days": FREE_HISTORY_DAYS})
 
 
 def contact_page(request):

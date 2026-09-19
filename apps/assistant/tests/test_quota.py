@@ -27,12 +27,13 @@ class PlanQuotaTests(TestCase):
     def test_default_limits_are_five_twenty_and_two_hundred(self):
         self.assertEqual(naturalize_limits({}), {"anonymous": 5, "free": 20, "pro": 200})
 
-    def test_free_temporarily_gets_the_pro_limits(self):
-        """TEMPORARY: delete this test with settings.FREE_HAS_PRO_FEATURES. The configured 5/20/200 above is unchanged."""
-        self.assertTrue(settings.FREE_HAS_PRO_FEATURES)
-        self.assertEqual(settings.NATURALIZE_DAILY_LIMITS, {"anonymous": 5, "free": 200, "pro": 200})
-        self.assertEqual(settings.VOICE_DAILY_GUARDRAILS["transcription"], {"anonymous": 20, "free": 400, "pro": 400})
-        self.assertEqual(settings.VOICE_DAILY_GUARDRAILS["speech"], {"anonymous": 30, "free": 600, "pro": 600})
+    def test_free_and_pro_get_their_own_limits(self):
+        # The temporary "Free gets everything Pro gets" switch is gone: each plan has its own allowance.
+        self.assertEqual(settings.NATURALIZE_DAILY_LIMITS, {"anonymous": 5, "free": 20, "pro": 200})
+        self.assertEqual(settings.VOICE_DAILY_GUARDRAILS["transcription"], {"anonymous": 20, "free": 80, "pro": 400})
+        self.assertEqual(settings.VOICE_DAILY_GUARDRAILS["speech"], {"anonymous": 30, "free": 120, "pro": 600})
+        self.assertEqual(settings.LEARNING_AI_DAY_LIMITS["free"], 40)
+        self.assertFalse(hasattr(settings, "FREE_HAS_PRO_FEATURES"))
 
     def test_each_plan_gets_its_daily_limit_then_is_refused(self):
         for tier, limit in settings.NATURALIZE_DAILY_LIMITS.items():

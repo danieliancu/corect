@@ -1,0 +1,6 @@
+{% extends 'base.html' %}{% block title %}Creează-ți contul — Corect.uk{% endblock %}{% block content %}
+<section class="auth-container"><div class="page-heading"><p class="eyebrow">URMĂTORUL TĂU PAS</p><h1>Creează-ți contul</h1><p>Păstrează-ți istoricul. Învață din greșeli. Vezi cât de departe ajungi.</p></div>
+<div class="card account-form">{% include 'account/partials/google_button.html' with next=redirect_field_value divider=True %}
+<form method="post" action="{% url 'signup' %}" data-funnel-signup>{% csrf_token %}{{ form.as_p }}{{ redirect_field }}<p class="muted form-hint">Îți trimitem un link ca să confirmi adresa de email; o confirmi o singură dată.</p><button class="button" type="submit">Creează cont</button></form>
+<p class="form-footer">Ai deja un cont? <a href="{{ login_url }}">Autentifică-te</a></p></div></section>
+{% endblock %}

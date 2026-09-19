@@ -4,10 +4,13 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth.models import Group, User
+from django.core import mail
+from django.core.cache import cache
 from django.db import DatabaseError, IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.utils import formats, timezone
 
+from apps.accounts.testing import confirmation_path, make_pro, verify
 from apps.analytics.models import UsageEvent
 from apps.assistant.languages import unsupported_message
 from apps.assistant.models import AssistantRequest, GrammarCorrection, NaturalizeUsage, RateBucket, SubmissionClaim
@@ -24,6 +27,7 @@ SERVER_TIMING = re.compile(r"^[a-z_]+;dur=\d+(, [a-z_]+;dur=\d+)*$")
 
 class EndpointTests(TestCase):
     def setUp(self):
+        cache.clear()  # allauth's per-address mail limits live in the cache; each test starts clean
         self.user = User.objects.create_user(username="ana", email="ana@example.com", password="test-password")
         self.other = User.objects.create_user(username="other", email="other@example.com", password="test-password")
         self.naturalize = patch("apps.assistant.views.NaturalizeService.naturalize",
@@ -377,6 +381,7 @@ class EndpointTests(TestCase):
         self.assertContains(response, "&lt;script&gt;")
 
     def test_learning_pages_and_preferences_excluded(self):
+        make_pro(self.user)  # progress, mistakes and practice are Pro pages
         self.client.force_login(self.user)
         self.post("First English text.")
         self.post("Second English text.")
@@ -401,13 +406,15 @@ class EndpointTests(TestCase):
     def test_account_signup_login_profile_logout(self):
         response = self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
             "password1": "A-unique-pass-9431", "password2": "A-unique-pass-9431", "accept_legal": "on"})
-        self.assertRedirects(response, "/")
+        self.assertRedirects(response, "/accounts/confirm-email/")
+        self.client.post(confirmation_path(mail.outbox[-1]))  # confirming signs the new account in
         self.assertEqual(self.client.get("/accounts/profile/").status_code, 200)
-        self.client.post("/accounts/profile/", {"action": "profile", "username": "new-learner", "email": "updated@example.com"})
-        self.assertEqual(User.objects.get(username="new-learner").email, "updated@example.com")
-        self.assertEqual(self.client.get("/accounts/logout/").status_code, 405)
+        self.client.post("/accounts/profile/", {"action": "profile", "username": "renamed-learner"})
+        self.assertTrue(User.objects.filter(username="renamed-learner").exists())
         self.assertRedirects(self.client.post("/accounts/logout/"), "/")
-        self.assertRedirects(self.client.post("/accounts/login/", {"username": "new-learner", "password": "A-unique-pass-9431"}), "/")
+        self.assertRedirects(self.client.post("/accounts/login/", {"login": "renamed-learner",
+                                                                   "password": "A-unique-pass-9431"}),
+                             "/", fetch_redirect_response=False)
 
     def test_profile_changes_username_and_password(self):
         self.client.force_login(self.user)
@@ -427,11 +434,15 @@ class EndpointTests(TestCase):
     def test_login_with_username_or_email(self):
         self.user.email = "ana@example.com"
         self.user.save()
+        verify(self.user)
         for identifier in ("ana", "ANA@example.com"):
             with self.subTest(identifier=identifier):
-                self.assertRedirects(self.client.post("/accounts/login/", {"username": identifier, "password": "test-password"}), "/")
+                self.assertRedirects(self.client.post("/accounts/login/", {"login": identifier,
+                                                                           "password": "test-password"}),
+                                     "/", fetch_redirect_response=False)
                 self.client.logout()
-        self.assertContains(self.client.post("/accounts/login/", {"username": "ana@example.com", "password": "wrong"}), "nume de utilizator sau email")
+        self.assertContains(self.client.post("/accounts/login/", {"login": "ana@example.com", "password": "wrong"}),
+                            "nume de utilizator sau email")
         # Emails are unique ignoring case (apps/accounts/emails.py), so an email identifies at most one account.
         self.other.email = "Ana@Example.com"
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -440,6 +451,7 @@ class EndpointTests(TestCase):
 
     def test_mistake_category_page_lists_only_own_mistakes(self):
         self.assertEqual(self.client.get("/mistakes/verb_form/").status_code, 302)
+        make_pro(self.user)
         self.client.force_login(self.user)
         self.post()
         entry = AssistantRequest.objects.get()
@@ -461,6 +473,7 @@ class EndpointTests(TestCase):
         self.assertNotContains(self.client.get("/mistakes/verb_form/"), "didn&#x27;t go")
 
     def test_repeated_mistakes_open_their_examples_and_pages_use_short_titles(self):
+        make_pro(self.user)
         self.client.force_login(self.user)
         response = self.post()
         self.assertContains(response, "Engleza ta, corectată")

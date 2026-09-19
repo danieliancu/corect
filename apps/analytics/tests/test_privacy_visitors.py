@@ -3,7 +3,8 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth.models import User
-from django.core import serializers
+from django.core import mail, serializers
+from django.core.cache import cache
 from django.db import models
 from django.test import TestCase, override_settings
 
@@ -12,6 +13,7 @@ from apps.analytics.services.visitors import VISITOR_COOKIE
 from apps.assistant.models import AssistantRequest, GrammarCorrection, RateBucket, SubmissionClaim
 from apps.assistant.services.naturalize import Naturalized
 from apps.assistant.tests.examples import correction_result
+from apps.accounts.testing import confirmation_path, verified_user
 from apps.core.consent import CONSENT_COOKIE, consent_cookie_value
 from .test_recording import provider_usage, replying
 
@@ -23,6 +25,7 @@ PASSWORD = "A-unique-pass-9431"
 
 class VisitorPrivacyTests(TestCase):
     def setUp(self):
+        cache.clear()  # allauth's per-address mail limits live in the cache; each test starts clean
         result = correction_result()
         result.original_text = SUBMITTED_TEXT
         result.corrected_text = RESPONSE_TEXT
@@ -87,6 +90,7 @@ class VisitorPrivacyTests(TestCase):
         self.client.post("/accounts/signup/", {"username": "new-learner", "email": "learner@example.com",
                                                 "password1": PASSWORD, "password2": PASSWORD, "accept_legal": "on"})
         user = User.objects.get(username="new-learner")
+        self.client.post(confirmation_path(mail.outbox[-1]))  # confirming the address signs the account in
         visitor.refresh_from_db()
         self.assertEqual((visitor.converted_user, visitor.converted_via), (user, "signup"))
         self.assertIsNotNone(visitor.converted_at)
@@ -98,26 +102,26 @@ class VisitorPrivacyTests(TestCase):
         self.assertEqual((latest.audience, latest.user, latest.visitor_id), ("registered", user, visitor.pk))
         self.assertEqual(AnonymousVisitor.objects.count(), 1)
         self.client.post("/accounts/logout/")
-        self.client.post("/accounts/login/", {"username": "new-learner", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "new-learner", "password": PASSWORD})
         visitor.refresh_from_db()
         self.assertEqual((visitor.converted_via, AnonymousVisitor.objects.count()), ("signup", 1))
 
     def test_login_converts_the_visitor_and_the_first_conversion_wins(self):
-        first = User.objects.create_user("existing", "existing@example.com", password=PASSWORD)
-        User.objects.create_user("second", "second@example.com", password=PASSWORD)
+        first = verified_user("existing", "existing@example.com", PASSWORD)
+        verified_user("second", "second@example.com", PASSWORD)
         self.post()
-        self.client.post("/accounts/login/", {"username": "existing", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "existing", "password": PASSWORD})
         self.client.post("/accounts/logout/")
-        self.client.post("/accounts/login/", {"username": "second", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "second", "password": PASSWORD})
         visitor = AnonymousVisitor.objects.get()
         self.assertEqual((visitor.converted_user, visitor.converted_via), (first, "login"))
         self.assertEqual(UsageEvent.objects.count(), 1)
 
     def test_withdrawn_analytics_stops_conversion(self):
-        User.objects.create_user("existing", "existing@example.com", password=PASSWORD)
+        verified_user("existing", "existing@example.com", PASSWORD)
         self.post()
         self.client.cookies[CONSENT_COOKIE] = consent_cookie_value(False)
-        self.client.post("/accounts/login/", {"username": "existing", "password": PASSWORD})
+        self.client.post("/accounts/login/", {"login": "existing", "password": PASSWORD})
         self.assertIsNone(AnonymousVisitor.objects.get().converted_user)
 
     @override_settings(ANALYTICS_VISITOR_COOKIE=False)

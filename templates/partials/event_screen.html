@@ -1,0 +1,8 @@
+{# One event screen (apps/core/events.py): the waiting screen's frosted look with an icon, a title, one line and a button. #}
+{# Open on arrival; the button closes it even without JavaScript (method="dialog"); static/js/event-screen.js makes it modal. #}
+<dialog class="wait-screen event-screen is-{{ kind }}" open aria-labelledby="event-title-{{ forloop.counter }}" data-event="{{ kind }}">
+  <span class="event-screen-icon" aria-hidden="true">{% if kind == 'welcome' %}{% include 'icons/user-plus.html' %}{% elif kind == 'pro' %}{% include 'icons/crown.html' %}{% elif kind == 'goodbye' %}{% include 'icons/heart.html' %}{% else %}{% include 'icons/check.html' %}{% endif %}</span>
+  <h2 id="event-title-{{ forloop.counter }}">{% if kind == 'welcome' %}Bun venit{% if user.is_authenticated %}, {{ user.username }}{% endif %}!{% elif kind == 'pro' %}Felicitări, acum ești Pro!{% elif kind == 'goodbye' %}Rămas bun!{% else %}Gata!{% endif %}</h2>
+  {% if message %}<p>{{ message }}</p>{% endif %}
+  <form method="dialog"><button class="button" type="submit" autofocus>{% if kind == 'welcome' %}Începe{% else %}Continuă{% endif %}</button></form>
+</dialog>

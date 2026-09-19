@@ -21,7 +21,9 @@ from apps.assistant.languages import CORRECTION, TRANSLATION, translation_codes
 from apps.assistant.models import AssistantRequest, GrammarCorrection
 from apps.assistant.presentation import history_group
 from apps.assistant.schemas import Category
-from apps.core.entitlements import has_feature
+from apps.core.entitlements import (FULL_HISTORY, LEARNING_DASHBOARD, MISTAKE_CATEGORIES, PERSONALISED_PRACTICE,
+                                    PROGRESS_INSIGHTS, has_feature, pro_feature, upgrade_response)
+from apps.core.plans import FREE_HISTORY_DAYS
 from .models import Exercise, PracticeSession
 from .services.daily import complete_session, start_session, today_plan
 from .services.exercises import CHOICE_TYPES, claim_answer, grade, record_attempt, release_answer
@@ -66,6 +68,7 @@ def open_session(user, now):
 
 @login_required
 @never_cache
+@pro_feature(LEARNING_DASHBOARD, "dashboard")
 def dashboard(request):
     """"Pentru tine azi" and the learner's profile. Every figure comes from the database; nothing here calls AI."""
     user, now = request.user, timezone.now()
@@ -80,14 +83,12 @@ def dashboard(request):
 
 @login_required
 @require_POST
+@pro_feature(PERSONALISED_PRACTICE, "practice")
 def practice_start(request):
     kind = request.POST.get("kind", "")
     pattern_key = request.POST.get("pattern", "") if kind == Kind.PATTERN else ""
     if kind not in Kind.values or (kind == Kind.PATTERN and pattern_key not in PATTERNS):
         raise Http404
-    if not has_feature(request.user, "personalised_practice"):
-        messages.info(request, "Exercițiile personalizate fac parte din planul Pro.")
-        return redirect("learn_dashboard")
     session, error = start_session(request.user, kind, pattern_key)
     if session is None:
         messages.error(request, SUSPENDED_MESSAGE if error == "account_suspended" else
@@ -106,6 +107,7 @@ def session_title(session):
 
 @login_required
 @never_cache
+@pro_feature(PERSONALISED_PRACTICE, "practice")
 def practice_session(request, pk):
     session = get_object_or_404(PracticeSession, pk=pk, user=request.user)
     total = len(session.exercise_ids)
@@ -165,10 +167,23 @@ def practice_session(request, pk):
     return render(request, "learning/session.html", context)
 
 
+def history_cutoff(user):
+    """None with the full history (Pro); for Free, the start of the first local day it shows. Older entries are kept."""
+    if has_feature(user, FULL_HISTORY):
+        return None
+    first_day = timezone.localdate() - timedelta(days=FREE_HISTORY_DAYS - 1)
+    return timezone.make_aware(datetime.combine(first_day, datetime.min.time()))
+
+
 @login_required
 @never_cache
 def history(request):
     entries = AssistantRequest.objects.filter(user=request.user, status="success")
+    cutoff = history_cutoff(request.user)
+    older_hidden = False
+    if cutoff is not None:
+        older_hidden = entries.filter(created_at__lt=cutoff).exists()
+        entries = entries.filter(created_at__gte=cutoff)
     # Grouped by local day, newest first. Pages hold whole days, so a day is never split across two pages.
     page_obj = Paginator(entries.datetimes("created_at", "day", order="DESC"), HISTORY_DAYS_PER_PAGE).get_page(
         request.GET.get("page"))
@@ -182,19 +197,25 @@ def history(request):
             grouped[timezone.localdate(entry.created_at)].append(entry)
         days = [{"date": day, "entries": items, "groups": Counter(history_group(entry) for entry in items)}
                 for day, items in grouped.items()]
-    return render(request, "learning/history.html", {"learning_section": "history", "page_obj": page_obj, "days": days})
+    return render(request, "learning/history.html", {"learning_section": "history", "page_obj": page_obj, "days": days,
+                                                     "free_history_days": FREE_HISTORY_DAYS if cutoff else None,
+                                                     "older_hidden": older_hidden})
 
 
 @login_required
 @never_cache
 def history_detail(request, pk):
     entry = get_object_or_404(AssistantRequest, pk=pk, user=request.user, status="success")
+    cutoff = history_cutoff(request.user)
+    if cutoff is not None and entry.created_at < cutoff:
+        return upgrade_response(request, FULL_HISTORY, "history")
     return render(request, "learning/detail.html", {"learning_section": "history", "entry": entry,
                                                     "result": entry.result_data, "kind": entry.request_type})
 
 
 @login_required
 @never_cache
+@pro_feature(MISTAKE_CATEGORIES, "mistakes")
 def mistakes(request):
     counts, where = Counter(), defaultdict(Counter)
     for correction in genuine_mistakes(request.user).iterator():
@@ -213,6 +234,7 @@ def mistakes(request):
 
 @login_required
 @never_cache
+@pro_feature(MISTAKE_CATEGORIES, "mistakes")
 def mistake_category(request, category):
     if category not in get_args(Category) or category == "british_english":
         raise Http404
@@ -229,6 +251,7 @@ def mistake_category(request, category):
 
 @login_required
 @never_cache
+@pro_feature(PROGRESS_INSIGHTS, "progress")
 def progress(request):
     """Insights first ("what is getting better, what still needs work"), then the chart. Facts are calculated, not AI."""
     user = request.user
@@ -259,6 +282,7 @@ def what_changed(user, patterns):
 
 @login_required
 @never_cache
+@pro_feature(PERSONALISED_PRACTICE, "practice")
 def practice(request):
     """The practice hub: today's personalised plan and the patterns to practise."""
     return render(request, "learning/practice.html", {

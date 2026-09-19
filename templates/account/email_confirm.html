@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% block title %}Confirmă adresa de email — Corect.uk{% endblock %}{% block content %}
+<section class="auth-container"><div class="page-heading"><h1>Confirmă adresa de email</h1></div>
+<div class="card account-form">{% if confirmation %}{% if can_confirm %}
+<p>Confirmi că <strong>{{ confirmation.email_address.email }}</strong> este adresa ta pentru contul Corect.uk?</p>
+<form method="post" action="{% url 'account_confirm_email' confirmation.key %}">{% csrf_token %}{{ redirect_field }}<button class="button" type="submit">Confirmă</button></form>
+{% else %}<p>Adresa aceasta este deja confirmată pentru alt cont.</p>{% endif %}
+{% else %}<p class="quota-box" role="alert">Linkul a expirat sau nu mai este valabil.</p>{% include 'account/partials/resend_form.html' %}{% endif %}</div></section>
+{% endblock %}

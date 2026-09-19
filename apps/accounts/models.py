@@ -23,3 +23,15 @@ class LegalAcceptance(models.Model):
 
     def __str__(self):
         return f"{self.user} accepted Terms {self.terms_version} / Privacy {self.privacy_version}"
+
+
+class GrandfatheredEmail(models.Model):
+    """An address that existed before email verification and was marked verified so its account kept working, without
+    ever being proven. Google never signs in through it (apps/accounts/adapters.py); the row goes as soon as the address
+    is confirmed by a link or by Google (apps/accounts/signals.py)."""
+
+    email_address = models.OneToOneField("account.EmailAddress", related_name="grandfathered", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"grandfathered address {self.email_address_id}"

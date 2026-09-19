@@ -1,6 +1,9 @@
 """Signup, sign-in, history, profile and pages without JavaScript."""
+from django.contrib.auth.models import User
+from django.core import mail
 from playwright.sync_api import expect
 
+from apps.accounts.testing import confirmation_path, make_pro
 from apps.assistant.tests.examples import correction_result
 from .base import BrowserTestCase
 from .mocks import BRITISH, ROMANIAN
@@ -9,13 +12,33 @@ from .mocks import BRITISH, ROMANIAN
 class AccountChecks(BrowserTestCase):
     def test_authentication_history_practice_and_no_javascript(self):
         self.page.goto(self.live_server_url + "/accounts/signup/")
-        self.page.get_by_label("Nume utilizator").fill("browser-learner")
+        expect(self.page.get_by_role("button", name="Continuă cu Google")).to_be_visible()
+        self.page.get_by_label("Nume de utilizator").fill("browser-learner")
         self.page.get_by_label("Email").fill("browser@example.com")
         self.page.locator("#id_password1").fill("Browser-test-password-815")
         self.page.locator("#id_password2").fill("Browser-test-password-815")
         self.page.locator("#id_accept_legal").check()
         self.page.get_by_role("button", name="Creează cont", exact=True).click()
+        # One confirmation, by the emailed link, then the account is in.
+        expect(self.page.get_by_role("heading", level=1)).to_have_text("Verifică-ți emailul")
+        expect(self.page.get_by_role("button", name="Trimite din nou linkul")).to_be_visible()
+        self.page.screenshot(path=str(self.artifacts / "verification-sent-1440.png"), full_page=True)
+        self.page.goto(self.live_server_url + confirmation_path(mail.outbox[-1]))
+        self.page.get_by_role("button", name="Confirmă").click()
+        # The account is open: a welcome over the home page, modal (focus on its button), then the page as usual.
+        welcome = self.page.get_by_role("dialog", name="Bun venit, browser-learner!")
+        expect(welcome).to_be_visible()
+        expect(welcome.get_by_role("button", name="Începe")).to_be_focused()
+        expect(self.page.locator(".messages")).to_have_count(0)
+        self.page.screenshot(path=str(self.artifacts / "event-welcome-1440.png"))
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 390)
+        self.page.screenshot(path=str(self.artifacts / "event-welcome-390.png"))
+        self.page.set_viewport_size({"width": 1440, "height": 1000})
+        welcome.get_by_role("button", name="Începe").click()
+        expect(welcome).to_be_hidden()
         expect(self.page.locator("#text")).to_be_visible()
+        self.in_database_thread(lambda: make_pro(User.objects.get(username="browser-learner")))  # the Pro pages below
         self.page.locator("#text").fill(correction_result().original_text)
         self.submit()
         expect(self.page.locator(".result-text")).to_be_visible()
@@ -86,6 +109,13 @@ class AccountChecks(BrowserTestCase):
         self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 390)
         self.page.screenshot(path=str(self.artifacts / "accounts-profile-390.png"), full_page=True)
         self.page.set_viewport_size({"width": 1440, "height": 1000})
+        # Saving the profile: "Gata!" over the page; Escape closes it.
+        self.page.get_by_role("button", name="Salvează modificările").click()
+        done = self.page.get_by_role("dialog", name="Gata!")
+        expect(done).to_contain_text("Profilul tău a fost actualizat.")
+        self.page.screenshot(path=str(self.artifacts / "event-updated-1440.png"))
+        self.page.keyboard.press("Escape")
+        expect(done).to_be_hidden()
         self.page.goto(self.live_server_url + "/practice/")
         expect(self.page.get_by_text("Întrebare rapidă")).to_have_count(0)
         self.assertEqual(self.errors, [])
@@ -99,5 +129,16 @@ class AccountChecks(BrowserTestCase):
             page.locator("#text").fill(ROMANIAN)
             self.submit(page)
             expect(page.locator(".result-text")).to_have_text(BRITISH)
+            # An event screen closes with its button without JavaScript too (<form method="dialog">).
+            page.goto(self.live_server_url + "/accounts/login/")
+            page.locator("#id_login").fill("browser-learner")
+            page.locator("#id_password").fill("Browser-test-password-815")
+            page.locator("#id_password").press("Enter")
+            page.goto(self.live_server_url + "/accounts/profile/")
+            page.get_by_role("button", name="Salvează modificările").click()
+            done = page.get_by_role("dialog", name="Gata!")
+            expect(done).to_be_visible()
+            done.get_by_role("button", name="Continuă").click()
+            expect(done).to_be_hidden()
         finally:
             no_js.close()

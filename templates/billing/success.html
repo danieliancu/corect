@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% block title %}Abonamentul Pro — Corect.uk{% endblock %}
+{% block scripts %}{% if not active %}<meta http-equiv="refresh" content="4">{% endif %}{% endblock %}
+{% block content %}
+<section class="auth-container billing-result" aria-live="polite">
+  <div class="page-heading">{% if active %}<p class="eyebrow">MULȚUMIM</p><h1>Bine ai venit în Pro!</h1><p>Abonamentul tău este activ. Ai acum cereri nelimitate (Fair Use), progresul, greșelile pe categorii, exercițiile și tot istoricul.</p>
+  {% else %}<p class="eyebrow">PLATA SE CONFIRMĂ</p><h1>Aproape gata…</h1><p>Așteptăm confirmarea plății de la Stripe; de obicei durează câteva secunde, iar pagina se actualizează singură. Planul Pro se activează doar după confirmare.</p>{% endif %}</div>
+  <div class="card account-form">{% if active %}<a class="button" href="{% url 'learn_dashboard' %}">Mergi la panou</a>{% else %}<a class="button secondary" href="{% url 'profile' %}">Vezi contul tău</a>{% endif %}</div>
+</section>
+{% endblock %}

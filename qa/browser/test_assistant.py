@@ -36,6 +36,24 @@ class AssistantChecks(BrowserTestCase):
         self.assertEqual([call.args[0] for call in self.naturalize.call_args_list], [case[0] for case in cases])
         self.assertEqual(self.errors, [])
 
+    def test_desktop_result_card_is_as_tall_as_the_editor_unless_longer(self):
+        self.page.set_viewport_size({"width": 1440, "height": 900})
+        self.page.goto(self.live_server_url)
+        self.page.locator("#text").fill(ROMANIAN)
+        self.submit()
+        expect(self.page.locator("#result").get_by_role("heading", level=2).first).to_have_text("În engleză britanică")
+        editor = self.page.locator(".editor-panel").bounding_box()
+        result = self.page.locator("#result").bounding_box()
+        self.assertAlmostEqual(result["y"], editor["y"], delta=1)
+        self.assertAlmostEqual(result["height"], editor["height"], delta=2)  # a short result: the same height
+        self.page.screenshot(path=str(self.artifacts / "result-same-height-1440.png"))
+        # A long result makes the card taller; the editor keeps its own height.
+        self.page.evaluate("document.querySelector('#result .result-text').textContent = 'Long line. '.repeat(400)")
+        editor = self.page.locator(".editor-panel").bounding_box()
+        result = self.page.locator("#result").bounding_box()
+        self.assertGreater(result["height"], editor["height"] + 100)
+        self.assertEqual(self.errors, [])
+
     def test_submitting_scrolls_to_loading_and_keeps_result_in_view(self):
         self.page.emulate_media(reduced_motion="reduce")
         self.page.set_viewport_size({"width": 390, "height": 844})

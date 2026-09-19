@@ -16,7 +16,7 @@ class LearningChecks(BrowserTestCase):
         ai = ExitStack()
         self.addCleanup(ai.close)
         model = ai.enter_context(patch_ai(batch()))
-        self.sign_in_learner("dashboard-learner", mistakes=3, exercises=5)
+        self.sign_in_learner("dashboard-learner", mistakes=3, exercises=5, pro=True)
         for width in (1440, 1280, 1024):
             with self.subTest(width=width):
                 self.page.set_viewport_size({"width": width, "height": 900})
@@ -30,7 +30,7 @@ class LearningChecks(BrowserTestCase):
                 expect(self.page.get_by_role("link", name="Vezi toate tipologiile de exersat")).to_have_attribute("href", "/mistakes/")
                 expect(self.page.get_by_role("link", name="Exersează")).to_have_count(0)
                 expect(self.page.locator(".learn-hero").get_by_role("button", name="Începe cele 5 exerciții")).to_be_visible()
-                expect(self.page.locator(".learn-welcome .learn-plan-pill")).to_have_text("Free")
+                expect(self.page.locator(".learn-welcome .learn-plan-pill")).to_have_text("Pro")
                 expect(self.page.locator(".learn-welcome")).to_contain_text("1 tipologie urmărită")
                 expect(self.page.locator(".learn-sidebar-editor")).to_contain_text("Adaugă un text nou")
                 expect(self.page.locator(".learn-rail")).to_have_count(0)
@@ -130,7 +130,7 @@ class LearningChecks(BrowserTestCase):
         ai = ExitStack()
         self.addCleanup(ai.close)
         model = ai.enter_context(patch_ai(batch("base_form_after_did")))
-        self.sign_in_learner("loop-learner")
+        self.sign_in_learner("loop-learner", pro=True)
         self.page.set_viewport_size({"width": 390, "height": 844})
         # The same mistake in two different texts: sending one text again would be answered from the learner's own
         # saved result, which is deliberately not counted as making the mistake a second time.
@@ -150,7 +150,7 @@ class LearningChecks(BrowserTestCase):
         self.assertEqual(self.errors, [])
 
     def test_what_changed_cards_on_progress(self):
-        self.sign_in_learner("changes-learner", mistakes=3)
+        self.sign_in_learner("changes-learner", mistakes=3, pro=True)
 
         def seed():
             user = User.objects.get(username="changes-learner")

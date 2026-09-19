@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static events %}<!doctype html>
 <html lang="ro">
 <head>
   <meta charset="utf-8">
@@ -33,6 +33,7 @@
   <script src="{% static 'js/consent.js' %}{{ asset_query }}" defer></script>
   <script src="{% static 'js/copy.js' %}{{ asset_query }}" defer></script>
   <script src="{% static 'js/wait-screen.js' %}{{ asset_query }}" defer></script>
+  <script src="{% static 'js/event-screen.js' %}{{ asset_query }}" defer></script>
   {% if consent.analytics_available and consent.analytics %}<script src="{% static 'js/funnel.js' %}{{ asset_query }}" data-funnel-url="{% url 'funnel_event' %}" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </head>
@@ -69,7 +70,7 @@
       </nav>
     </details>
   </header>
-  <main id="main">{% if messages %}<div class="messages">{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>
+  <main id="main">{% if messages %}{% with shown=messages|banners %}{% if shown %}<div class="messages">{% for message in shown %}<p role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% endwith %}{% for kind, message in messages|event_screens %}{% include 'partials/event_screen.html' %}{% endfor %}{% endif %}{% block content %}{% endblock %}</main>
   {% include 'partials/site_footer.html' %}
 </div>
 {% if consent.required %}{% include 'partials/consent_bar.html' %}{% endif %}

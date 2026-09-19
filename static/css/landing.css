@@ -295,18 +295,11 @@
   color: var(--muted);
   font-size: 18px;
 }
-/* The daily allowance: beside Free's price, on its own line under Pro's. */
+/* The daily allowance, on its own line under the price, the same on both cards. */
 .plan-price {
   flex-wrap: wrap;
 }
 .plan-price .plan-daily {
-  align-self: center;
-  margin-left: 8px;
-  color: var(--navy);
-  font-size: 15px;
-  font-weight: 650;
-}
-.plan-pro .plan-price .plan-daily {
   flex-basis: 100%;
   margin: 8px 0 0;
   color: var(--muted);
@@ -380,16 +373,15 @@
   cursor: not-allowed;
   opacity: 0.8;
 }
-/* While Free temporarily gets everything Pro gets (settings.FREE_HAS_PRO_FEATURES): in the flow, under the list. */
-.plan-temporary-note {
-  margin: 14px 0 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--pale);
-  color: var(--blue-dark);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
+.plan-actions form {
+  margin: 0;
+}
+.plan-note a {
+  text-decoration: underline;
+}
+/* A paying member's way to Stripe's billing page, under their benefits. */
+.plan-manage {
+  margin: 22px 0 0;
   text-align: center;
 }
 /* Below the Pro button without making the cards unequal. */
