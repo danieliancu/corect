@@ -1,11 +1,51 @@
+1. Browser tests
+2. Production config
+3. Email/Google/Stripe E2E
+4. Voice real devices
+5. Monitoring + backup
+6. Legal
+7. Beta.
 
-emailul este obligatoriu și unic ✅
-emailul se confirmă o singură dată, prin link ✅ (conturile existente: „grandfathered”)
-„Continuă cu Google” ✅ (cu pasul de acceptare a Termenilor la primul cont)
-Free/Pro aplicate: limite 5 / 20 / 200 și funcțiile Pro ✅
-Pro = abonament Stripe activ (webhook) sau grupul manual „Pro” ✅
-de făcut în producție: variabilele Railway (email SMTP, Google, Stripe), clientul OAuth Google, produsul/prețul și webhook-ul
-Stripe, Customer Portal activat; revizuirea juridică a Termenilor §12 și a Politicii (vezi LEGAL_LAUNCH_CHECKLIST.md)
+
+| Prioritate    | Ce mai e de făcut                          |      Status acum | Ce înseamnă concret                                                                                          |
+| ------------- | ------------------------------------------ | ---------------: | ------------------------------------------------------------------------------------------------------------ |
+| 🔴 P0         | **Rulează browser tests**                  |                ⏳ | Cele **32 Playwright tests** există, dar ultimul CI le-a dat `skipped`. Rulează-le pe `main` actual.         |
+| 🔴 P0         | **Finalizează configurarea production**    |               🟡 | Railway: `DJANGO_DEBUG=false`, domain/hosts, PostgreSQL, OpenAI, legal vars, email, Google, Stripe etc.      |
+| 🔴 P0         | **Email production**                       |               🟡 | Resend/SMTP real + `DEFAULT_FROM_EMAIL`, apoi test signup → email → confirmare și password reset.            |
+| 🔴 P0         | **Google Login production**                |               🟡 | OAuth client real, redirect `corect.uk/accounts/google/login/callback/`, consent screen + Terms/Privacy.     |
+| 🔴 P0         | **Stripe Live**                            |               🟡 | Live key, live `price_id`, webhook live, Customer Portal, prețurile din site identice cu Stripe.             |
+| 🔴 P0         | **Test Stripe end-to-end**                 |                ⏳ | Free → Checkout → plată → webhook → Pro → Portal → cancel → downgrade.                                       |
+| 🔴 P0         | **`check --deploy` în production config**  |                ⏳ | `python manage.py check --deploy` cu variabilele reale.                                                      |
+| 🔴 P0         | **Migrarea DB production**                 |                ⏳ | `report_email_integrity` → `migrate` → verificare date.                                                      |
+| 🔴 P0         | **Learning profile rebuild**               |                ⏳ | Rulează o dată `python manage.py rebuild_learning_profiles`.                                                 |
+| 🔴 P0         | **Job zilnic cleanup**                     |                ❌ | Programează `python manage.py cleanup_assistant` zilnic.                                                     |
+| 🔴 P0         | **Production health monitoring**           |               🟡 | Programează `check_production_health`, ideal la ~15 minute.                                                  |
+| 🔴 P0         | **Uptime monitoring**                      |                ❌ | Monitor extern pentru `/healthz` și `/readyz`.                                                               |
+| 🔴 P0         | **Sentry**                                 |               🟡 | Codul există; trebuie DSN/config production și testarea unei erori controlate.                               |
+| 🔴 P0         | **PostgreSQL backup**                      |                ❌ | Backup automat + retention.                                                                                  |
+| 🔴 P0         | **Test restore DB**                        |                ❌ | Demonstrează că backup-ul chiar poate fi restaurat.                                                          |
+| 🔴 P0         | **Voice pe dispozitive reale**             |                ⏳ | Desktop Chrome/Edge + iPhone Safari + Android Chrome.                                                        |
+| 🔴 P0         | **Verificare accent British TTS**          |                ⏳ | Ascultat manual; `cedar` trebuie să sune suficient de British.                                               |
+| 🟠 P1         | **Operator juridic**                       |                ❌ | Nume legal/operator, adresă de corespondență și contact public.                                              |
+| 🟠 P1         | **ICO / data protection**                  |                ⏳ | Verifică dacă trebuie ICO fee/registration.                                                                  |
+| 🟠 P1         | **Terms & Privacy review**                 |                ⏳ | Review profesionist UK înainte de commercial launch.                                                         |
+| 🟠 P1         | **Payment Terms review**                   |                ⏳ | Subscription, cancellation, refund, 14-day withdrawal, VAT etc.                                              |
+| 🟠 P1         | **Analytics/cookies review**               |                ⏳ | Confirmă dacă modelul actual default-on + opt-out este potrivit legal.                                       |
+| 🟠 P1         | **Definește retention periods**            |                ❌ | Usage events, audio analytics, anonymous visitors, logs.                                                     |
+| 🟠 P1         | **Automatic retention cleanup**            |                ❌ | Nu doar Privacy Policy; ștergere automată efectivă după perioadele stabilite.                                |
+| 🟠 P1         | **OpenAI data retention review**           |                ⏳ | Confirmă condițiile reale ale contului/API și wording-ul Privacy.                                            |
+| 🟠 P1         | **Review „Unlimited / Fair Use”**          |               ⚠️ | Pro spune „nelimitat”, dar există plafon tehnic de **200/zi**. Aș clarifica wording-ul înainte de marketing. |
+| 🟠 P1         | **Review promo £9.99 → £4.99**             |                ⏳ | Prețul tăiat trebuie să fie justificabil ca preț real.                                                       |
+| 🟠 P1         | **Închide PR-ul Cloudflare**               |               ⚠️ | Dacă rămâi pe Railway, PR-ul Cloudflare este vechi și divergent; nu mai merită menținut.                     |
+| 🟠 P1         | **Actualizează `todo.txt`**                |               ⚠️ | Are date vechi: 278 tests etc.; acum sunt **493 backend tests**.                                             |
+| 🟠 P1         | **Curăță `LEGAL_LAUNCH_CHECKLIST.md`**     |               ⚠️ | Unele puncte spun încă că emailul nu este verificat/trimit emailuri, ceea ce nu mai reflectă codul actual.   |
+| 🟠 P1         | **Live AI smoke tests**                    |                ⏳ | EN, RO→EN, polite, `must_not_invent`, moderation, injection.                                                 |
+| 🟡 P2         | **Beta privată**                           |                ❌ | 10–30 utilizatori reali înainte de advertising serios.                                                       |
+| 🟡 P2         | **Monitorizează funnel**                   | ✅ infrastructură | Visit → signup → usage → quota → Pro CTA → Checkout → subscription.                                          |
+| 🟡 P2         | **Monitorizează cost/user**                | ✅ infrastructură | Text AI + STT + realtime + TTS + learning AI.                                                                |
+| 🟡 P2         | **Analizează moderation false positives**  |                ⏳ | Din comportamentul utilizatorilor reali.                                                                     |
+| 🟡 P2         | **Analizează calitatea learning/practice** |                ⏳ | Dacă oamenii chiar folosesc practice, progress și mistakes.                                                  |
+| 🟢 Mai târziu | Funcții noi                                |       ⛔ momentan | Nu aș mai adăuga feature-uri mari până nu avem feedback din beta.                                            |
 
 
 
