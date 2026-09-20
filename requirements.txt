@@ -1,5 +1,5 @@
 Django==5.2.17
-openai==2.48.0
+openai==3.14.1
 pydantic==2.13.4
 sentry-sdk==2.69.2
 psycopg[binary]==3.3.3
